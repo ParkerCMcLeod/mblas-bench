@@ -7,15 +7,15 @@
 
 #include <iostream>
 
-#include "cublasGemm.h"
+#include "cublas/cublasGemm.h"
 #include "genericGemm.h"
 
 // #include "fp16_conversion.h"
 #include "third_party/cxxopts.hpp"
 
 //#include "error_handling.h"
-#include "create-allocate.h"
-#include "cudaError.h"
+//#include "create-allocate.h"
+#include "cublas/cudaError.h"
 using std::cout;
 using std::endl;
 

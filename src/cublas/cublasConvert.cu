@@ -3,7 +3,7 @@
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
-#include "create-allocate.h"
+#include "cublasCreateAllocate.h"
 #include "cudaError.h"
 
 __global__ void floatToBfloat16(float *input, size_t num_elements,

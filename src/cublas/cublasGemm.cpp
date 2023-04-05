@@ -6,8 +6,8 @@
 #include <regex>
 #include <string>
 
-#include "create-allocate.h"
 #include "cublasConvert.h"
+#include "cublasCreateAllocate.h"
 #include "cudaError.h"
 #include "third_party/cxxopts.hpp"
 
