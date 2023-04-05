@@ -145,6 +145,23 @@ void cublasGemm::selectScalar(std::string scalarstr) {
   scalar = precisionStringToDType(scalarstr);
 }
 
+void cublasGemm::parseDevIters(std::string deviceStr, std::string instanceStr) {
+  // Parse iters
+  int iters = stoi(instanceStr);
+  // Parse device
+  std::stringstream ss(deviceStr);
+  while (ss.good()) {
+    string deviceSStr;
+    getline(ss, deviceSStr, ',');
+    std::cout << deviceSStr << std::endl;
+    for (int i = 0; i < iters; i++) {
+      gemmInst val = gemmInst(stoi(deviceSStr), i);
+      matPtrs.push_back(val);
+    }
+  }
+  std::cout << matPtrs.size() << std::endl;
+}
+
 void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
                             string bStr, string cStr) {
   selectCompute(computeTStr);
@@ -166,8 +183,8 @@ void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
 
   // Validate against supported precision table (fun)
   if (a_type != b_type) {
-    cerr << "A Type must the same as B Type" << endl;
-    exit(1);
+    string errorString = "A Type must the same as B Type";
+    throw std::invalid_argument(errorString);
   }
   if (function.find("GemmEx")) {
     /*
@@ -206,6 +223,8 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   string cT = result["c_type"].as<string>();
   parseMType(computeT, scalarT, aT, bT, cT);
 
+  parseDevIters(result["device"].as<string>(),
+                result["instances"].as<string>());
   std::string tA = result["transposeA"].as<std::string>();
   std::string tB = result["transposeB"].as<std::string>();
   transA = setOp(result["transposeA"].as<std::string>());
@@ -389,11 +408,11 @@ double cublasGemm::test() {
     return testTGemmStridedBatched<cuComplex>(cgemm_var);
   }
 
-  if (strided) {
+  if (strided && function == "cublasGemmExStridedBatched") {
     // Call the Gemm strided batched deployment script
-  } else if (batched) {
+  } else if (batched && function == "cublasGemmExBatched") {
     // Call the Gemm batched code
-  } else {
+  } else if (batched && function == "cublasGemmEx") {
     return testGemmEx();
   }
   std::cerr << "Invalid implementation & precision combination" << std::endl;

@@ -19,6 +19,15 @@ struct gemmPrecType {
   }
 };
 
+struct gemmInst {
+  int devIDX;
+  int subIDX;
+  gemmInst(int devID, int subID) {
+    devIDX = devID;
+    subIDX = subID;
+  }
+};
+
 class cublasGemm : public genericGemm {
  private:
   void *hostA;
@@ -62,6 +71,7 @@ class cublasGemm : public genericGemm {
   // static gemmPrecType gemmExSupported[];
 
   static std::vector<gemmPrecType> gemmExSupported;
+  std::vector<gemmInst> matPtrs;
 
  public:
   cublasGemm(cxxopts::ParseResult result);
@@ -72,6 +82,7 @@ class cublasGemm : public genericGemm {
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
+  void parseDevIters(std::string, std::string);
   cublasOperation_t setOp(std::string);
   void prepareArray();
   void allocHost();

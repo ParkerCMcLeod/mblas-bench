@@ -1,7 +1,7 @@
 TARGET_EXEC ?= mblas-bench
 
 BUILD_DIR ?= ./build
-SRC_DIRS ?= ./
+SRC_DIRS ?= src
 
 #CUDA_ARCH_FLAGS ?= -arch=compute_70
 #CC_FLAGS += -lcublas

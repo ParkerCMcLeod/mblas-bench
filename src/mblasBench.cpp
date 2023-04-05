@@ -174,6 +174,10 @@ int main(int argc, char **argv) {
             "Number of matrices. Only applicable to batched and "
             "strided_batched routines  (Default value is: 1)",
             cxxopts::value<int>()->default_value("1"));
+  opp_adder("device", "GPU device(s) to run on",
+            cxxopts::value<int>()->default_value("0"));
+  opp_adder("instances", "Number of instances to run on each GPU",
+            cxxopts::value<int>()->default_value("1"));
   opp_adder("i,iters",
             "Iterations to run inside timing loop  (Default value is: 10)",
             cxxopts::value<int>()->default_value("10"));
