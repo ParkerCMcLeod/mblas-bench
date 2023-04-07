@@ -33,6 +33,7 @@ class genericGemm {
 
   // virtual void setSize();
   // virtual void setTypes();
+  int setLd(std::string ld, std::string OP, int x, int y);
 
   virtual void prepareArray() {}
   virtual void allocHost() {}
