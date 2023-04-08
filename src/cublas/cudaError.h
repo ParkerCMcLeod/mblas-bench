@@ -19,7 +19,9 @@ const char *cublasGetErrorString(cublasStatus_t status);
 // can be wrapped around any runtime API call. No-op in release builds.
 static inline cudaError_t checkCuda(cudaError_t result) {
   if (result != cudaSuccess) {
-    fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(result));
+    std::cerr << "CUDA Runtime Error: " << cudaGetErrorString(result)
+              << std::endl;
+    // fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(result));
     assert(result == cudaSuccess);
   }
   return result;
@@ -27,7 +29,10 @@ static inline cudaError_t checkCuda(cudaError_t result) {
 
 static inline cublasStatus_t checkCublas(cublasStatus_t result) {
   if (result != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "CUDA Runtime Error: %s\n", cublasGetErrorString(result));
+    std::cerr << "cuBLAS Runtime Error: " << cublasGetErrorString(result)
+              << std::endl;
+    // fprintf(stderr, "CUDA Runtime Error: %s\n",
+    // cublasGetErrorString(result));
     assert(result == CUBLAS_STATUS_SUCCESS);
   }
   return result;

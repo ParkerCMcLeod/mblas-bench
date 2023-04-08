@@ -32,7 +32,8 @@ std::vector<gemmPrecType> cublasGemm::gemmExSupported = {
     {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
     {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
     {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  }, {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  }, 
+    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
     {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
     {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
     {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
@@ -338,7 +339,7 @@ void cublasGemm::allocDev(gemmInst *mat) {
   mat->devA = allocateDevArr(a_type, m, k, batchct);
   mat->devB = allocateDevArr(b_type, k, n, batchct);
   mat->devC = allocateDevArr(c_type, n, m, batchct);
-  mat->wSZ = 4 * 1024 * 1024;
+  mat->wSZ = 24 * 1024 * 1024;
   cudaMalloc(&mat->devWork, mat->wSZ);
 }
 
@@ -402,103 +403,118 @@ double cublasGemm::test() {
   vector<thread> threads;
   double gflops = 0.0;
   for (auto &mat : matPtrs) {
+    // TgemmBatched
     if (function == "cublasDgemm" && precision == CUDA_R_64F) {
       std::function<decltype(cublasDgemm)> dgemm_var = cublasDgemm;
       threads.push_back(
-          thread(&cublasGemm::testTGemm<double>, this, dgemm_var, &mat));
+          thread(&cublasGemm::testTgemm<double>, this, dgemm_var, &mat));
     } else if (function == "cublasSgemm" && precision == CUDA_R_32F) {
       std::function<decltype(cublasSgemm)> sgemm_var = cublasSgemm;
       threads.push_back(
-          thread(&cublasGemm::testTGemm<float>, this, sgemm_var, &mat));
+          thread(&cublasGemm::testTgemm<float>, this, sgemm_var, &mat));
     } else if (function == "cublasHgemm" && precision == CUDA_R_16F) {
       std::function<decltype(cublasHgemm)> hgemm_var = cublasHgemm;
       threads.push_back(
-          thread(&cublasGemm::testTGemm<__half>, this, hgemm_var, &mat));
+          thread(&cublasGemm::testTgemm<__half>, this, hgemm_var, &mat));
     } else if (function == "cublasZgemm" && precision == CUDA_C_64F) {
       std::function<decltype(cublasZgemm)> zgemm_var = cublasZgemm;
-      threads.push_back(thread(&cublasGemm::testTGemm<cuDoubleComplex>, this,
+      threads.push_back(thread(&cublasGemm::testTgemm<cuDoubleComplex>, this,
                                zgemm_var, &mat));
     } else if (function == "cublasCgemm" && precision == CUDA_C_32F) {
       std::function<decltype(cublasCgemm)> cgemm_var = cublasCgemm;
       threads.push_back(
-          thread(&cublasGemm::testTGemm<cuComplex>, this, cgemm_var, &mat));
+          thread(&cublasGemm::testTgemm<cuComplex>, this, cgemm_var, &mat));
     } else if (function == "cublasZgemm3m" && precision == CUDA_C_64F) {
       std::function<decltype(cublasZgemm3m)> zgemm3m_var = cublasZgemm3m;
-      threads.push_back(thread(&cublasGemm::testTGemm<cuDoubleComplex>, this,
+      threads.push_back(thread(&cublasGemm::testTgemm<cuDoubleComplex>, this,
                                zgemm3m_var, &mat));
     } else if (function == "cublasCgemm3m" && precision == CUDA_C_32F) {
       std::function<decltype(cublasCgemm3m)> cgemm3m_var = cublasCgemm3m;
       threads.push_back(
-          thread(&cublasGemm::testTGemm<cuComplex>, this, cgemm3m_var, &mat));
-    } else if (function == "cublasDgemmBatched" && precision == CUDA_R_64F) {
+          thread(&cublasGemm::testTgemm<cuComplex>, this, cgemm3m_var, &mat));
+    }
+    // TgemmBatched
+    else if (function == "cublasDgemmBatched" && precision == CUDA_R_64F) {
       std::function<decltype(cublasDgemmBatched)> dgemm_var =
           cublasDgemmBatched;
       threads.push_back(
-          thread(&cublasGemm::testTGemmBatched<double>, this, dgemm_var, &mat));
+          thread(&cublasGemm::testTgemmBatched<double>, this, dgemm_var, &mat));
     } else if (function == "cublasSgemmBatched" && precision == CUDA_R_32F) {
       std::function<decltype(cublasSgemmBatched)> sgemm_var =
           cublasSgemmBatched;
       threads.push_back(
-          thread(&cublasGemm::testTGemmBatched<float>, this, sgemm_var, &mat));
+          thread(&cublasGemm::testTgemmBatched<float>, this, sgemm_var, &mat));
     } else if (function == "cublasHgemmBatched" && precision == CUDA_R_16F) {
       std::function<decltype(cublasHgemmBatched)> hgemm_var =
           cublasHgemmBatched;
       threads.push_back(
-          thread(&cublasGemm::testTGemmBatched<__half>, this, hgemm_var, &mat));
+          thread(&cublasGemm::testTgemmBatched<__half>, this, hgemm_var, &mat));
     } else if (function == "cublasZgemmBatched" && precision == CUDA_C_64F) {
       std::function<decltype(cublasZgemmBatched)> zgemm_var =
           cublasZgemmBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmBatched<cuDoubleComplex>,
+      threads.push_back(thread(&cublasGemm::testTgemmBatched<cuDoubleComplex>,
                                this, zgemm_var, &mat));
     } else if (function == "cublasCgemmBatched" && precision == CUDA_C_32F) {
       std::function<decltype(cublasCgemmBatched)> cgemm_var =
           cublasCgemmBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmBatched<cuComplex>, this,
+      threads.push_back(thread(&cublasGemm::testTgemmBatched<cuComplex>, this,
                                cgemm_var, &mat));
     }
-    if (function == "cublasDgemmStridedBatched" && precision == CUDA_R_64F) {
+    // TgemmStridedBatched
+    else if (function == "cublasDgemmStridedBatched" &&
+             precision == CUDA_R_64F) {
       std::function<decltype(cublasDgemmStridedBatched)> dgemm_var =
           cublasDgemmStridedBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmStridedBatched<double>,
+      threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<double>,
                                this, dgemm_var, &mat));
     } else if (function == "cublasSgemmStridedBatched" &&
                precision == CUDA_R_32F) {
       std::function<decltype(cublasSgemmStridedBatched)> sgemm_var =
           cublasSgemmStridedBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmStridedBatched<float>,
+      threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<float>,
                                this, sgemm_var, &mat));
     } else if (function == "cublasHgemmStridedBatched" &&
                precision == CUDA_R_16F) {
       std::function<decltype(cublasHgemmStridedBatched)> hgemm_var =
           cublasHgemmStridedBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmStridedBatched<__half>,
+      threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<__half>,
                                this, hgemm_var, &mat));
     } else if (function == "cublasZgemmStridedBatched" &&
                precision == CUDA_C_64F) {
       std::function<decltype(cublasZgemmStridedBatched)> zgemm_var =
           cublasZgemmStridedBatched;
       threads.push_back(
-          thread(&cublasGemm::testTGemmStridedBatched<cuDoubleComplex>, this,
+          thread(&cublasGemm::testTgemmStridedBatched<cuDoubleComplex>, this,
                  zgemm_var, &mat));
     } else if (function == "cublasCgemmStridedBatched" &&
                precision == CUDA_C_32F) {
       std::function<decltype(cublasCgemmStridedBatched)> cgemm_var =
           cublasCgemmStridedBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmStridedBatched<cuComplex>,
+      threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<cuComplex>,
                                this, cgemm_var, &mat));
     } else if (function == "cublasCgemm3mStridedBatched" &&
                precision == CUDA_C_32F) {
       std::function<decltype(cublasCgemm3mStridedBatched)> cgemm_var =
           cublasCgemm3mStridedBatched;
-      threads.push_back(thread(&cublasGemm::testTGemmStridedBatched<cuComplex>,
+      threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<cuComplex>,
                                this, cgemm_var, &mat));
+    }
+    // TgemmEx
+    else if (function == "cublasSgemmEx") {
+      std::function<decltype(cublasSgemmEx)> sgemm_var = cublasSgemmEx;
+      threads.push_back(
+          thread(&cublasGemm::testTGemmEx<float>, this, sgemm_var, &mat));
+    } else if (function == "cublasCgemmEx") {
+      std::function<decltype(cublasCgemmEx)> cgemm_var = cublasCgemmEx;
+      threads.push_back(
+          thread(&cublasGemm::testTGemmEx<cuComplex>, this, cgemm_var, &mat));
     }
 
     if (strided && function == "cublasGemmExStridedBatched") {
       // Call the Gemm strided batched deployment script
     } else if (batched && function == "cublasGemmExBatched") {
       // Call the Gemm batched code
-    } else if (batched && function == "cublasGemmEx") {
+    } else if (function == "cublasGemmEx") {
       threads.push_back(thread(&cublasGemm::testGemmEx, this, &mat));
     }
   }
@@ -518,21 +534,22 @@ double cublasGemm::test() {
   // std::endl; exit(1);
 }
 
-// template <typename T, typename F>
+double cublasGemm::calculateGflops(double totalTime_ms) {
+  double avgTime_ms = totalTime_ms / iters;
+  double avgTime_s = avgTime_ms / 1000.0f;
+  double avgTime_us = avgTime_ms * 1000.0f;
+  double totalSize;
 
-// template <typename T, template <typename> typename tFunc>
-// double cublasGemm::testTGemm() {
-// template <typename T>
-// double testTGemm(
-//    function<cublasStatus_t(
-//        cublasHandle_t, cublasOperation_t, cublasOperation_t, int, int, int,
-//        const T *, const T *, int, const T *, int, const T *, T *, int)>
-//        func) {
-//  std::cout << "test" << std::endl;
-//}
+  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
+              static_cast<double>(k);
+
+  double gflop = totalSize * 2.0f / 1e9;
+  double gflopPerSec = gflop / avgTime_s;
+  return gflopPerSec;
+}
 
 template <typename T>
-double cublasGemm::testTGemm(
+void cublasGemm::testTgemm(
     std::function<cublasStatus_t(
         cublasHandle_t, cublasOperation_t, cublasOperation_t, int, int, int,
         const T *, const T *, int, const T *, int, const T *, T *, int)>
@@ -545,11 +562,8 @@ double cublasGemm::testTGemm(
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  cublasSetWorkspace(handle, mat->devWork, mat->wSZ);
-  // std::cout << "Alpha: " << *((T *)alpha) << std::endl;
-  // std::cout << "Beta: " << *((T *)beta) << std::endl;
-  // double alphaaa = 1;
-  // double betaaa = 0;
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
   T *devAP = static_cast<T *>(mat->devA);
@@ -561,19 +575,28 @@ double cublasGemm::testTGemm(
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc);
 
-    cudaDeviceSynchronize();
+    // Check for errors during the gemm run
     checkCublas(stat);
+    checkCuda(cudaGetLastError());
 
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
 
+  /*
+    Run and time the performance test
+
+    Barriers are in place to ensure when multiple instances are run, each
+    instance takes the same amount of time. In the rare case that the runs are
+    fully exclusive, the faster run is forced to wait until the slower run is
+    done.  Since they started at the same time, we can safely assume the
+    reported number of Flops is correct
+  */
   mat->devSync->Sync();
   cudaEventRecord(start, stream);
   mat->devSync->Sync();
@@ -588,54 +611,20 @@ double cublasGemm::testTGemm(
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
+  // Check for errors during the performance test
   checkCublas(stat);
-  cudaError_t lastError = cudaGetLastError();
-  if (lastError != cudaSuccess) {
-    std::cerr << cudaGetErrorString(lastError) << std::endl;
-  }
+  checkCuda(cudaGetLastError());
 
+  // Calculate and report GFlops
   float elapsedTime_ms;
   double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
   totalTime_ms = static_cast<double>(elapsedTime_ms);
-  // double totalTime_ms = 0.0;
-  // for (int rep = 0; rep < iters; rep++) {
-  //  cudaEventRecord(start, 0);
-  //  stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP,
-  //  ldb,
-  //              betaP, devCP, ldc);
-
-  //  cudaEventRecord(stop, 0);
-  //  cudaEventSynchronize(stop);
-
-  //  checkCublas(stat);
-  //  cudaError_t lastError = cudaGetLastError();
-  //  if (lastError != cudaSuccess) {
-  //    std::cerr << cudaGetErrorString(lastError) << std::endl;
-  //  }
-
-  //  float elapsedTime_ms;
-
-  //  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  //  totalTime_ms += static_cast<double>(elapsedTime_ms);
-  //}
-  std::cout << totalTime_ms << std::endl;
-  double avgTime_ms = totalTime_ms / iters;
-  double avgTime_s = avgTime_ms / 1000.0f;
-  double avgTime_us = avgTime_ms * 1000.0f;
-  double totalSize;
-
-  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
-              static_cast<double>(k);
-
-  double gflop = totalSize * 2.0f / 1e9;
-  double gflopPerSec = gflop / avgTime_s;
-  mat->gflops = gflopPerSec;
-  return gflopPerSec;
+  mat->gflops = calculateGflops(totalTime_ms);
 }
 
 template <typename T>
-double cublasGemm::testTGemmBatched(
+void cublasGemm::testTgemmBatched(
     std::function<cublasStatus_t(cublasContext *, cublasOperation_t,
                                  cublasOperation_t, int, int, int, T const *,
                                  T const *const *, int, T const *const *, int,
@@ -645,9 +634,12 @@ double cublasGemm::testTGemmBatched(
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
+  checkCuda(cudaSetDevice(mat->devIDX));
+  checkCublas(cublasCreate(&handle));
+  checkCuda(cudaStreamCreate(&stream));
+  checkCublas(cublasSetStream(handle, stream));
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
-  cudaSetDevice(mat->devIDX);
-  cudaStreamCreate(&stream);
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
   T **devAP = reinterpret_cast<T **>(mat->ptrDevA);
@@ -659,57 +651,56 @@ double cublasGemm::testTGemmBatched(
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc, batchct);
 
+    // Check for errors during the gemm run
     checkCublas(stat);
+    checkCuda(cudaGetLastError());
 
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  double totalTime_ms = 0.0;
+
+  /*
+    Run and time the performance test
+
+    Barriers are in place to ensure when multiple instances are run, each
+    instance takes the same amount of time. In the rare case that the runs are
+    fully exclusive, the faster run is forced to wait until the slower run is
+    done.  Since they started at the same time, we can safely assume the
+    reported number of Flops is correct
+  */
+  mat->devSync->Sync();
+  cudaEventRecord(start, stream);
+  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
-    cudaEventRecord(start, 0);
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc, batchct);
-
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-
-    checkCublas(stat);
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
-
-    float elapsedTime_ms;
-
-    cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-    totalTime_ms += static_cast<double>(elapsedTime_ms);
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
-  // for (int i = 0; i < 10; i++) {
-  //  std::cout << devCP
-  //}
-  std::cout << totalTime_ms << std::endl;
-  double avgTime_ms = totalTime_ms / iters;
-  double avgTime_s = avgTime_ms / 1000.0f;
-  double avgTime_us = avgTime_ms * 1000.0f;
-  double totalSize;
+  mat->devSync->Sync();
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
 
-  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
-              static_cast<double>(k);
+  // Check for errors during the performance test
+  checkCublas(stat);
+  checkCuda(cudaGetLastError());
 
-  double gflop = totalSize * 2.0f / 1e9;
-  double gflopPerSec = gflop / avgTime_s;
-
-  return gflopPerSec;
+  // Calculate and report GFlops
+  float elapsedTime_ms;
+  double totalTime_ms;
+  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  totalTime_ms = static_cast<double>(elapsedTime_ms);
+  mat->gflops = calculateGflops(totalTime_ms);
 }
 
 template <typename T>
-double cublasGemm::testTGemmStridedBatched(
+void cublasGemm::testTgemmStridedBatched(
     std::function<cublasStatus_t(
         cublasContext *, cublasOperation_t, cublasOperation_t, int, int, int,
         T const *, T const *, int, long long, T const *, int, long long,
@@ -719,8 +710,12 @@ double cublasGemm::testTGemmStridedBatched(
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
-  cudaSetDevice(mat->devIDX);
-  cudaStreamCreate(&stream);
+  checkCuda(cudaSetDevice(mat->devIDX));
+  checkCublas(cublasCreate(&handle));
+  checkCuda(cudaStreamCreate(&stream));
+  checkCublas(cublasSetStream(handle, stream));
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
   T *devAP = static_cast<T *>(mat->devA);
@@ -732,121 +727,191 @@ double cublasGemm::testTGemmStridedBatched(
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, stride_a,
                 devBP, ldb, stride_b, betaP, devCP, ldc, stride_c, batchct);
 
+    // Check for errors during the gemm run
     checkCublas(stat);
+    checkCuda(cudaGetLastError());
 
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  double totalTime_ms = 0.0;
+
+  /*
+    Run and time the performance test
+
+    Barriers are in place to ensure when multiple instances are run, each
+    instance takes the same amount of time. In the rare case that the runs are
+    fully exclusive, the faster run is forced to wait until the slower run is
+    done.  Since they started at the same time, we can safely assume the
+    reported number of Flops is correct
+  */
+  mat->devSync->Sync();
+  cudaEventRecord(start, stream);
+  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
-    cudaEventRecord(start, 0);
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, stride_a,
                 devBP, ldb, stride_b, betaP, devCP, ldc, stride_c, batchct);
-
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-
-    checkCublas(stat);
-
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
-
-    float elapsedTime_ms;
-
-    cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-    totalTime_ms += static_cast<double>(elapsedTime_ms);
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
-  // for (int i = 0; i < 10; i++) {
-  //  std::cout << devCP
-  //}
-  std::cout << totalTime_ms << std::endl;
-  double avgTime_ms = totalTime_ms / iters;
-  double avgTime_s = avgTime_ms / 1000.0f;
-  double avgTime_us = avgTime_ms * 1000.0f;
-  double totalSize;
+  mat->devSync->Sync();
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
 
-  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
-              static_cast<double>(k);
+  // Check for errors during the performance test
+  checkCublas(stat);
+  checkCuda(cudaGetLastError());
 
-  double gflop = totalSize * 2.0f / 1e9;
-  double gflopPerSec = gflop / avgTime_s;
-
-  return gflopPerSec;
+  // Calculate and report GFlops
+  float elapsedTime_ms;
+  double totalTime_ms;
+  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  totalTime_ms = static_cast<double>(elapsedTime_ms);
+  mat->gflops = calculateGflops(totalTime_ms);
 }
 
 template <typename T>
-double cublasGemm::testTGemmEx(
+void cublasGemm::testTGemmEx(
     std::function<cublasStatus_t(
         cublasContext *, cublasOperation_t, cublasOperation_t, int, int, int,
         T const *, void const *, cudaDataType_t, int, void const *,
         cudaDataType_t, int, T const *, void *, cudaDataType_t, int)>
         func,
     gemmInst *mat) {
-  return 0.0;
-}
-
-double cublasGemm::testGemmEx(gemmInst *mat) {
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
-  cudaSetDevice(mat->devIDX);
-  cudaStreamCreate(&stream);
+  checkCuda(cudaSetDevice(mat->devIDX));
+  checkCublas(cublasCreate(&handle));
+  checkCuda(cudaStreamCreate(&stream));
+  checkCublas(cublasSetStream(handle, stream));
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
-  // float *alphaP = static_cast<float *>(alpha);
-  // float *betaP = static_cast<float *>(beta);
-  //  float alphaP = __half2float(*((__half *)alpha));
-  //  float betaP = __half2float(*((__half *)beta));
-  // __half alphaP = __float2half(*((float *)alpha));
-  // __half betaP = __float2half(*((float *)beta));
-  // float betaP = static_cast<float *>(beta);
-  // std::cout << alphaP << " " << betaP << std::endl;
-  double totalTime_ms = 0.0;
+  T *alphaP = static_cast<T *>(alpha);
+  T *betaP = static_cast<T *>(beta);
+  // T *devAP = static_cast<T *>(mat->devA);
+  // T *devBP = static_cast<T *>(mat->devB);
+  // T *devCP = static_cast<T *>(mat->devC);
+
+  // Cold iters
+  for (int rep = 0; rep < cold_iters; rep++) {
+    stat = func(handle, transA, transB, m, n, k, alphaP, mat->devA, a_type, lda,
+                mat->devB, b_type, ldb, betaP, mat->devC, c_type, ldc);
+
+    // Check for errors during the gemm run
+    checkCublas(stat);
+    checkCuda(cudaGetLastError());
+
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
+  }
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  /*
+    Run and time the performance test
+
+    Barriers are in place to ensure when multiple instances are run, each
+    instance takes the same amount of time. In the rare case that the runs are
+    fully exclusive, the faster run is forced to wait until the slower run is
+    done.  Since they started at the same time, we can safely assume the
+    reported number of Flops is correct
+  */
+  mat->devSync->Sync();
+  cudaEventRecord(start, stream);
+  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
-    cudaEventRecord(start, 0);
+    stat = func(handle, transA, transB, m, n, k, alphaP, mat->devA, a_type, lda,
+                mat->devB, b_type, ldb, betaP, mat->devC, c_type, ldc);
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
+  }
+  mat->devSync->Sync();
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
+
+  // Check for errors during the performance test
+  checkCublas(stat);
+  checkCuda(cudaGetLastError());
+
+  // Calculate and report GFlops
+  float elapsedTime_ms;
+  double totalTime_ms;
+  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  totalTime_ms = static_cast<double>(elapsedTime_ms);
+  mat->gflops = calculateGflops(totalTime_ms);
+}
+
+void cublasGemm::testGemmEx(gemmInst *mat) {
+  cublasStatus_t stat;
+  cublasHandle_t handle;
+  cudaStream_t stream;
+  checkCuda(cudaSetDevice(mat->devIDX));
+  checkCublas(cublasCreate(&handle));
+  checkCuda(cudaStreamCreate(&stream));
+  checkCublas(cublasSetStream(handle, stream));
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+
+  // Cold iters
+  for (int rep = 0; rep < cold_iters; rep++) {
     stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
                         c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
 
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-
-    // std::cerr << cublasGetErrorString(stat) << std::endl;
+    // Check for errors during the gemm run
     checkCublas(stat);
-    cudaError_t lastError = cudaGetLastError();
-    if (lastError != cudaSuccess) {
-      std::cerr << cudaGetErrorString(lastError) << std::endl;
-    }
+    checkCuda(cudaGetLastError());
 
-    float elapsedTime_ms;
-
-    cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-    totalTime_ms += static_cast<double>(elapsedTime_ms);
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
   }
-  // for (int i = 0; i < 10; i++) {
-  //  std::cout << devCP
-  //}
-  std::cout << totalTime_ms << std::endl;
-  double avgTime_ms = totalTime_ms / iters;
-  double avgTime_s = avgTime_ms / 1000.0f;
-  double avgTime_us = avgTime_ms * 1000.0f;
-  double totalSize;
 
-  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
-              static_cast<double>(k);
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
 
-  double gflop = totalSize * 2.0f / 1e9;
-  double gflopPerSec = gflop / avgTime_s;
+  /*
+    Run and time the performance test
 
-  return gflopPerSec;
+    Barriers are in place to ensure when multiple instances are run, each
+    instance takes the same amount of time. In the rare case that the runs are
+    fully exclusive, the faster run is forced to wait until the slower run is
+    done.  Since they started at the same time, we can safely assume the
+    reported number of Flops is correct
+  */
+  mat->devSync->Sync();
+  cudaEventRecord(start, stream);
+  mat->devSync->Sync();
+  for (int rep = 0; rep < iters; rep++) {
+    stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
+                        a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
+                        c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
+    // cuBLAS calls are asynchronous, so we have to wait
+    // after each call to the BLAS function
+    cudaStreamSynchronize(stream);
+  }
+  mat->devSync->Sync();
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
+
+  // Check for errors during the performance test
+  checkCublas(stat);
+  checkCuda(cudaGetLastError());
+
+  // Calculate and report GFlops
+  float elapsedTime_ms;
+  double totalTime_ms;
+  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  totalTime_ms = static_cast<double>(elapsedTime_ms);
+  mat->gflops = calculateGflops(totalTime_ms);
 }

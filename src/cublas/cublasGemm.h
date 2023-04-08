@@ -117,6 +117,7 @@ class cublasGemm : public genericGemm {
   void allocDev(gemmInst *);
   void fillHost();
   void copyHostToDev(gemmInst *);
+  double calculateGflops(double totalTime_ms);
   virtual void freeMem();
 
   double test();
@@ -125,16 +126,16 @@ class cublasGemm : public genericGemm {
 
   // Parameter names are included in function definitions for refrence only
   template <typename T>
-  double testTGemm(std::function<cublasStatus_t(
-                       cublasHandle_t handle, cublasOperation_t transa,
-                       cublasOperation_t transb, int m, int n, int k,
-                       const T *alpha, const T *A, int lda, const T *B, int ldb,
-                       const T *beta, T *C, int ldc)>
-                       func,
-                   gemmInst *mat);
+  void testTgemm(std::function<cublasStatus_t(
+                     cublasHandle_t handle, cublasOperation_t transa,
+                     cublasOperation_t transb, int m, int n, int k,
+                     const T *alpha, const T *A, int lda, const T *B, int ldb,
+                     const T *beta, T *C, int ldc)>
+                     func,
+                 gemmInst *mat);
 
   template <typename T>
-  double testTGemmBatched(
+  void testTgemmBatched(
       std::function<cublasStatus_t(cublasContext *, cublasOperation_t,
                                    cublasOperation_t, int, int, int, T const *,
                                    T const *const *, int, T const *const *, int,
@@ -143,7 +144,7 @@ class cublasGemm : public genericGemm {
       gemmInst *mat);
 
   template <typename T>
-  double testTGemmStridedBatched(
+  void testTgemmStridedBatched(
       std::function<cublasStatus_t(
           cublasContext *, cublasOperation_t, cublasOperation_t, int, int, int,
           T const *, T const *, int, long long, T const *, int, long long,
@@ -152,7 +153,7 @@ class cublasGemm : public genericGemm {
       gemmInst *mat);
 
   template <typename T>
-  double testTGemmEx(
+  void testTGemmEx(
       std::function<cublasStatus_t(
           cublasContext *, cublasOperation_t, cublasOperation_t, int, int, int,
           T const *, void const *, cudaDataType_t, int, void const *,
@@ -160,5 +161,5 @@ class cublasGemm : public genericGemm {
           func,
       gemmInst *mat);
 
-  double testGemmEx(gemmInst *mat);
+  void testGemmEx(gemmInst *mat);
 };
