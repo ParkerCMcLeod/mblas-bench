@@ -26,6 +26,9 @@ class genericGemm {
   int iters;
   int cold_iters;
 
+  double gflop_per_second = 0;
+  double gbyte_per_second = 0;
+  double iter_time_us = 0;
   std::string function;
 
  public:
@@ -35,13 +38,10 @@ class genericGemm {
   // virtual void setTypes();
   int setLd(std::string ld, std::string OP, int x, int y);
 
-  virtual void prepareArray() {}
-  virtual void allocHost() {}
-  virtual void allocDev() {}
-  virtual void fillHost() {}
-  virtual void copyHostToDev() {}
+  virtual void prepareArray() = 0;
 
-  virtual double test() { return 0.0; }
+  virtual double test() = 0;
 
-  virtual void freeMem() {}
+  virtual std::string getResultString() = 0;
+  virtual void freeMem() = 0;
 };

@@ -31,6 +31,8 @@ struct gemmInst {
   int devIDX;
   int subIDX;
   double gflops = 0;
+  double gbytes = 0;
+  double time_us = 0;
   void *devA;
   void *devB;
   void *devC;
@@ -60,22 +62,22 @@ class cublasGemm : public genericGemm {
   void *hostB;
   void *hostC;
 
-  // Device array.  These are where the memory is stored on GPU
-  void *devA;
-  void *devB;
-  void *devC;
+  // // Device array.  These are where the memory is stored on GPU
+  // void *devA;
+  // void *devB;
+  // void *devC;
 
-  /*
-    Double pointers
-    Only used for Batched variant of gemms
-    Unused for others
-  */
-  void **ptrDevA;
-  void **ptrDevB;
-  void **ptrDevC;
-  void **ptrHostA;
-  void **ptrHostB;
-  void **ptrHostC;
+  // /*
+  //   Double pointers
+  //   Only used for Batched variant of gemms
+  //   Unused for others
+  // */
+  // void **ptrDevA;
+  // void **ptrDevB;
+  // void **ptrDevC;
+  // void **ptrHostA;
+  // void **ptrHostB;
+  // void **ptrHostC;
 
   void *alpha;
   void *beta;
@@ -92,8 +94,11 @@ class cublasGemm : public genericGemm {
   cudaDataType_t b_type;
   cudaDataType_t c_type;
 
-  std::map<std::string, cudaDataType_t> precDType;
-  std::map<std::string, cublasComputeType_t> computeDType;
+  std::string initialization;
+
+  // std::map<std::string, cudaDataType_t> precDType;
+  // std::map<std::string, cublasComputeType_t> computeDType;
+  // std::map<cudaDataType_t, cublasComputeType_t> precToCompute;
   // static gemmPrecType gemmExSupported[];
 
   static std::vector<gemmPrecType> gemmExSupported;
@@ -103,10 +108,8 @@ class cublasGemm : public genericGemm {
 
  public:
   cublasGemm(cxxopts::ParseResult result);
-  void selectCompute(std::string computestr);
-  void selectScalar(std::string scalarstr);
   void initPrecMap();
-  cudaDataType_t precisionStringToDType(std::string stringPrecision);
+  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
@@ -117,9 +120,11 @@ class cublasGemm : public genericGemm {
   void allocDev(gemmInst *);
   void fillHost();
   void copyHostToDev(gemmInst *);
-  double calculateGflops(double totalTime_ms);
+  std::tuple<double, double, double> calculateFOM(double totalTime_ms);
+
   virtual void freeMem();
 
+  std::string getResultString();
   double test();
   double testGemmExBatched();
   double testGemmExStridedBatched();

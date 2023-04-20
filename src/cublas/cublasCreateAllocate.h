@@ -41,8 +41,21 @@ template <typename T>
 void *allocSetScalarFunc(std::string, std::string, cuda::std::complex<T>);
 
 template <typename T>
-struct fillRandHost {
-  void operator()(void *ptr, int nr_rows_A, int nr_cols_A, int batch = 1);
+struct fillRandHostBlasgemm {
+  void operator()(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                  long long int stride);
+};
+
+template <typename T>
+struct fillRandHostRandInt {
+  void operator()(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                  long long int stride);
+};
+
+template <typename T>
+struct fillRandHostTrigFloat {
+  void operator()(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                  long long int stride);
 };
 
 template <template <typename> class tFunc, class... Args>
@@ -52,3 +65,6 @@ auto typeCallHost(cudaDataType_t type, Args... args) ->
 template <template <typename> class tFunc, class... Args>
 auto typeCallDev(cudaDataType_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
+
+void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
+              int rows_A, int cols_A, int ld, int batch, long long int stride);

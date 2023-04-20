@@ -3,6 +3,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#include <iomanip>
 #include <numeric>
 #include <regex>
 #include <string>
@@ -10,6 +11,7 @@
 
 #include "cublasConvert.h"
 #include "cublasCreateAllocate.h"
+#include "cublasDtypeUtils.h"
 #include "cudaError.h"
 #include "third_party/cxxopts.hpp"
 
@@ -69,94 +71,7 @@ std::vector<TgemmPrecType> cublasGemm::TgemmExSupported = {
 
 };
 
-void cublasGemm::initPrecMap() {
-  precDType = {
-      {"h", CUDA_R_16F},       {"s", CUDA_R_32F},     {"d", CUDA_R_64F},
-      {"c", CUDA_C_32F},       {"z", CUDA_C_64F},     {"f16_r", CUDA_R_16F},
-      {"f16_c", CUDA_C_16F},   {"f32_r", CUDA_R_32F}, {"f32_c", CUDA_C_32F},
-      {"f64_r", CUDA_R_64F},   {"f64_c", CUDA_C_64F}, {"bf16_r", CUDA_R_16BF},
-      {"bf16_c", CUDA_C_16BF}, {"i8_r", CUDA_R_8I},   {"i8_c", CUDA_C_8I},
-      {"i32_r", CUDA_R_32I},   {"i32_c", CUDA_C_32I},
-  };
-  computeDType = {
-      {"CUBLAS_COMPUTE_16F", CUBLAS_COMPUTE_16F},
-      {"CUBLAS_COMPUTE_16F_PEDANTIC", CUBLAS_COMPUTE_16F_PEDANTIC},
-      {"CUBLAS_COMPUTE_32F", CUBLAS_COMPUTE_32F},
-      {"CUBLAS_COMPUTE_32F_PEDANTIC", CUBLAS_COMPUTE_32F_PEDANTIC},
-      {"CUBLAS_COMPUTE_32F_FAST_16F", CUBLAS_COMPUTE_32F_FAST_16F},
-      {"CUBLAS_COMPUTE_32F_FAST_16BF", CUBLAS_COMPUTE_32F_FAST_16BF},
-      {"CUBLAS_COMPUTE_32F_FAST_TF32", CUBLAS_COMPUTE_32F_FAST_TF32},
-      {"CUBLAS_COMPUTE_64F", CUBLAS_COMPUTE_64F},
-      {"CUBLAS_COMPUTE_64F_PEDANTIC", CUBLAS_COMPUTE_64F_PEDANTIC},
-      {"CUBLAS_COMPUTE_32I", CUBLAS_COMPUTE_32I},
-      {"CUBLAS_COMPUTE_32I_PEDANTIC", CUBLAS_COMPUTE_32I_PEDANTIC},
-  };
-}
-
-cudaDataType_t cublasGemm::precisionStringToDType(std::string stringPrecision) {
-  try {
-    return precDType.at(stringPrecision);
-  } catch (std::out_of_range &e) {
-    std::cerr << "Failed to parse precision: " << stringPrecision << std::endl;
-    throw e;
-    return CUDA_R_32F;
-  }
-}
-
-void cublasGemm::selectCompute(std::string computestr) {
-  if (computestr == "" || computestr == "PEDANTIC") {
-    // If the user doesnt specify, just guess based on precision
-    switch (precision) {
-      case CUDA_R_64F:
-        compute = CUBLAS_COMPUTE_64F;
-        break;
-      case CUDA_C_64F:
-        compute = CUBLAS_COMPUTE_64F;
-        break;
-      case CUDA_R_32F:
-        compute = CUBLAS_COMPUTE_32F;
-        break;
-      case CUDA_C_32F:
-        compute = CUBLAS_COMPUTE_32F;
-        break;
-      case CUDA_R_32I:
-        compute = CUBLAS_COMPUTE_32I;
-        break;
-      case CUDA_R_16F:
-        compute = CUBLAS_COMPUTE_16F;
-        break;
-      case CUDA_C_16F:
-        compute = CUBLAS_COMPUTE_16F;
-        break;
-      default:
-        compute = CUBLAS_COMPUTE_32F;
-        break;
-    }
-    if (computestr == "PEDANTIC") {
-      // Borderline insane statement to enable the user to select pedantic
-      // version without specifying compute type directly
-      compute = static_cast<cublasComputeType_t>(static_cast<int>(compute) + 1);
-    }
-
-    return;
-  }
-  try {
-    compute = computeDType.at(computestr);
-  } catch (std::out_of_range &e) {
-    std::cerr << "Failed to parse precision: " << computestr << std::endl;
-    throw e;
-    compute = CUBLAS_COMPUTE_32F;
-  }
-}
-
-void cublasGemm::selectScalar(std::string scalarstr) {
-  if (scalarstr == "") {
-    // Scalar type not specified, setting to precision
-    scalar = precision;
-    return;
-  }
-  scalar = precisionStringToDType(scalarstr);
-}
+void cublasGemm::initPrecMap() {}
 
 void cublasGemm::parseDevIters(std::string deviceStr, int instance) {
   // Parse iters
@@ -179,8 +94,9 @@ void cublasGemm::parseDevIters(std::string deviceStr, int instance) {
 
 void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
                             string bStr, string cStr) {
-  selectCompute(computeTStr);
-  selectScalar(scalarTStr);
+  compute = selectCompute(computeTStr, precision);
+  scalar = selectScalar(scalarTStr, precision, compute);
+
   if (aStr == "" || bStr == "" || cStr == "") {
     // Precision not completely specified, default to precision
     // cerr << "Precision incorrectly specified, setting precision to "
@@ -254,8 +170,8 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   parseDevIters(result["device"].as<string>(), result["instances"].as<int>());
   std::string tA = result["transposeA"].as<std::string>();
   std::string tB = result["transposeB"].as<std::string>();
-  transA = setOp(result["transposeA"].as<std::string>());
-  transB = setOp(result["transposeB"].as<std::string>());
+  transA = opStringToOp(result["transposeA"].as<std::string>());
+  transB = opStringToOp(result["transposeB"].as<std::string>());
 
   // Pull in alpha and beta, alloc memory and save to pointers
   string salpha = result["alpha"].as<string>();
@@ -267,24 +183,7 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   beta = typeCallHost<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-}
-
-cublasOperation_t cublasGemm::setOp(std::string str) {
-  if (str.size() < 1) {
-    str = "N";
-  }
-  switch (str[0]) {
-    case 'N':
-      return CUBLAS_OP_N;
-      break;
-    case 'T':
-      return CUBLAS_OP_T;
-      break;
-    case 'C':
-      return CUBLAS_OP_C;
-      break;
-  }
-  return CUBLAS_OP_N;
+  initialization = result["initialization"].as<string>();
 }
 
 void cublasGemm::prepareArray() {
@@ -344,9 +243,11 @@ void cublasGemm::allocDev(gemmInst *mat) {
 }
 
 void cublasGemm::fillHost() {
-  typeCallHost<fillRandHost>(a_type, hostA, m, k, batchct);
-  typeCallHost<fillRandHost>(b_type, hostB, k, n, batchct);
-  typeCallHost<fillRandHost>(c_type, hostC, n, m, batchct);
+  // typedef decltype(fillRandHostRandInt<double>) randFunc;
+  // Some random functions treat the matrix as a vectors, some require a matrix
+  initHost(a_type, initialization, hostA, m, k, lda, batchct, stride_a);
+  initHost(b_type, initialization, hostB, k, n, ldb, batchct, stride_b);
+  initHost(c_type, initialization, hostC, m, n, ldc, batchct, stride_c);
 }
 
 void cublasGemm::copyHostToDev(gemmInst *mat) {
@@ -404,23 +305,28 @@ double cublasGemm::test() {
   double gflops = 0.0;
   for (auto &mat : matPtrs) {
     // TgemmBatched
-    if (function == "cublasDgemm" && precision == CUDA_R_64F) {
+    if ((function == "cublasDgemm" && precision == CUDA_R_64F) ||
+        (function == "gemm" && precision == CUDA_R_64F)) {
       std::function<decltype(cublasDgemm)> dgemm_var = cublasDgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<double>, this, dgemm_var, &mat));
-    } else if (function == "cublasSgemm" && precision == CUDA_R_32F) {
+    } else if ((function == "cublasSgemm" && precision == CUDA_R_32F) ||
+               (function == "gemm" && precision == CUDA_R_32F)) {
       std::function<decltype(cublasSgemm)> sgemm_var = cublasSgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<float>, this, sgemm_var, &mat));
-    } else if (function == "cublasHgemm" && precision == CUDA_R_16F) {
+    } else if ((function == "cublasHgemm" && precision == CUDA_R_16F) ||
+               (function == "gemm" && precision == CUDA_R_16F)) {
       std::function<decltype(cublasHgemm)> hgemm_var = cublasHgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<__half>, this, hgemm_var, &mat));
-    } else if (function == "cublasZgemm" && precision == CUDA_C_64F) {
+    } else if ((function == "cublasZgemm" && precision == CUDA_C_64F) ||
+               (function == "gemm" && precision == CUDA_C_64F)) {
       std::function<decltype(cublasZgemm)> zgemm_var = cublasZgemm;
       threads.push_back(thread(&cublasGemm::testTgemm<cuDoubleComplex>, this,
                                zgemm_var, &mat));
-    } else if (function == "cublasCgemm" && precision == CUDA_C_32F) {
+    } else if ((function == "cublasCgemm" && precision == CUDA_C_32F) ||
+               (function == "gemm" && precision == CUDA_C_32F)) {
       std::function<decltype(cublasCgemm)> cgemm_var = cublasCgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<cuComplex>, this, cgemm_var, &mat));
@@ -514,7 +420,8 @@ double cublasGemm::test() {
       // Call the Gemm strided batched deployment script
     } else if (batched && function == "cublasGemmExBatched") {
       // Call the Gemm batched code
-    } else if (function == "cublasGemmEx") {
+    } else if (function == "cublasGemmEx" || function == "gemm_ex" ||
+               function == "gemm") {
       threads.push_back(thread(&cublasGemm::testGemmEx, this, &mat));
     }
   }
@@ -524,28 +431,74 @@ double cublasGemm::test() {
   }
 
   // Sum all gflops
-  gflops =
-      std::accumulate(begin(matPtrs), end(matPtrs), 0,
-                      [](int i, const gemmInst &o) { return o.gflops + i; });
-  return gflops;
+  gflop_per_second =
+      std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
+                      [](double i, const gemmInst &o) { return o.gflops + i; });
 
-  // <t>gemm implementation
-  // std::cerr << "Invalid implementation & precision combination" <<
-  // std::endl; exit(1);
+  gbyte_per_second =
+      std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
+                      [](double i, const gemmInst &o) { return o.gbytes + i; });
+
+  iter_time_us = std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
+                                 [](double i, const gemmInst &o) {
+                                   return o.time_us + i;
+                                 }) /
+                 matPtrs.size();
+
+  return gflop_per_second;
 }
 
-double cublasGemm::calculateGflops(double totalTime_ms) {
+std::string cublasGemm::getResultString() {
+  std::ostringstream ossHeader;
+  std::ostringstream ossValues;
+  ossValues << std::setprecision(7);
+  ossHeader << "transA_option,transB_option,M,N,K,lda,ldb,ldc,";
+  ossValues << opToString(transA) << ',' << opToString(transB) << ',' << m
+            << ',' << n << ',' << k << ',' << lda << ',' << ldb << ',' << ldc
+            << ',';
+  if (batched) {
+    ossHeader << "batch_count,";
+    ossValues << batchct << ',';
+  }
+  ossHeader << "cuBLAS-Gflops,cuBLAS-GB/s,cuBLAS-us," << endl;
+  ossValues << gflop_per_second << ',';
+  ossValues << gbyte_per_second << ',';
+  ossValues << iter_time_us << ',';
+  ossValues << endl;
+  return ossHeader.str() + ossValues.str();
+}
+
+std::tuple<double, double, double> cublasGemm::calculateFOM(
+    double totalTime_ms) {
   double avgTime_ms = totalTime_ms / iters;
   double avgTime_s = avgTime_ms / 1000.0f;
   double avgTime_us = avgTime_ms * 1000.0f;
-  double totalSize;
 
-  totalSize = batchct * static_cast<double>(m) * static_cast<double>(n) *
-              static_cast<double>(k);
+  int a_sz = typeCallDev<sizeofCUDT>(a_type);
+  int b_sz = typeCallDev<sizeofCUDT>(b_type);
+  int c_sz = typeCallDev<sizeofCUDT>(c_type);
 
-  double gflop = totalSize * 2.0f / 1e9;
-  double gflopPerSec = gflop / avgTime_s;
-  return gflopPerSec;
+  int flopPerSize = 2;
+  if (!isReal(precision)) {
+    int flopPerSize = 8;
+  }
+  double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *
+                    static_cast<double>(k)) +
+                   (static_cast<double>(b_sz) * static_cast<double>(k) *
+                    static_cast<double>(n)) +
+                   (static_cast<double>(c_sz) * static_cast<double>(n) *
+                    static_cast<double>(m))) /
+                  1e9;
+  double gflops = static_cast<double>(flopPerSize) *
+                  (static_cast<double>(m) * static_cast<double>(n) *
+                   static_cast<double>(k)) /
+                  1e9;
+
+  double gflopPerSec = gflops * static_cast<double>(batchct) / avgTime_s;
+  double gbytePerSec = gbytes * batchct / avgTime_s;
+
+  return std::tuple<double, double, double>(gflopPerSec, gbytePerSec,
+                                            avgTime_us);
 }
 
 template <typename T>
@@ -617,10 +570,9 @@ void cublasGemm::testTgemm(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  totalTime_ms = static_cast<double>(elapsedTime_ms);
-  mat->gflops = calculateGflops(totalTime_ms);
+  std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+      calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
 template <typename T>
@@ -693,10 +645,9 @@ void cublasGemm::testTgemmBatched(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  totalTime_ms = static_cast<double>(elapsedTime_ms);
-  mat->gflops = calculateGflops(totalTime_ms);
+  std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+      calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
 template <typename T>
@@ -769,10 +720,9 @@ void cublasGemm::testTgemmStridedBatched(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  totalTime_ms = static_cast<double>(elapsedTime_ms);
-  mat->gflops = calculateGflops(totalTime_ms);
+  std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+      calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
 template <typename T>
@@ -845,10 +795,9 @@ void cublasGemm::testTGemmEx(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  totalTime_ms = static_cast<double>(elapsedTime_ms);
-  mat->gflops = calculateGflops(totalTime_ms);
+  std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+      calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
 void cublasGemm::testGemmEx(gemmInst *mat) {
@@ -910,8 +859,7 @@ void cublasGemm::testGemmEx(gemmInst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  double totalTime_ms;
   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-  totalTime_ms = static_cast<double>(elapsedTime_ms);
-  mat->gflops = calculateGflops(totalTime_ms);
+  std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+      calculateFOM(static_cast<double>(elapsedTime_ms));
 }

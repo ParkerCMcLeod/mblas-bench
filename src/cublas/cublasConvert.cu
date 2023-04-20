@@ -40,12 +40,18 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
     int block_size = 256;
     int num_blocks = (num_elements + block_size - 1) / block_size;
     floatToFp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
-    //__half *output_cpu = (__half *)malloc(num_elements * sizeof(__half));
-    // checkCuda(cudaMemcpy(output_cpu, devA, num_elements * sizeof(__half), cudaMemcpyDeviceToHost));
-    // for (int i = 0; i < 10; i++)
-    //{
-    //  printf("Input value: %f, Output value: %f\n", ((float *)hostA)[i], __half2float(output_cpu[i]));
-    //}
+    cudaFree(tmpA);
+  }
+  else if (precision == CUDA_C_16BF || precision == CUDA_R_16BF)
+  {
+    // Allocate memory in the device for host precision (float)
+    void *tmpA = allocateHDevArr(precision, x, y, batchsz);
+    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * devsz,
+                         cudaMemcpyHostToDevice));
+    int num_elements = batchsz * x * y;
+    int block_size = 256;
+    int num_blocks = (num_elements + block_size - 1) / block_size;
+    floatToBfloat16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA);
     cudaFree(tmpA);
   }
   else

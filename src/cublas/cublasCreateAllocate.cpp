@@ -254,25 +254,73 @@ void *allocateHDevArr(cudaDataType_t type, long x, long y, int batch,
 //}
 
 template <typename T>
-void fillRandHost<T>::operator()(void *ptr, int nr_rows_A, int nr_cols_A,
-                                 int batch) {
+void fillRandHostBlasgemm<T>::operator()(void *ptr, int rows_A, int cols_A,
+                                         int ld, int batch,
+                                         long long int stride) {
   int a = 1;
   T *A = (T *)ptr;
-  for (int i = 0; i < nr_rows_A * nr_cols_A * batch; i++) {
+  for (int i = 0; i < rows_A * cols_A * batch; i++) {
     A[i] = (T)rand() / (T)(RAND_MAX / a);
     // if(i < 10)
     //      std::cout << *((double *)ptr+i)  << std::endl;
   }
 }
 
+template <typename T>
+void fillRandHostRandInt<T>::operator()(void *ptr, int rows_A, int cols_A,
+                                        int ld, int batch,
+                                        long long int stride) {
+  T *A = (T *)ptr;
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        A[i + offset] = T(rand() % 10 + 1);
+      }
+    }
+  }
+}
+
+template <typename T>
+void fillRandHostTrigFloat<T>::operator()(void *ptr, int rows_A, int cols_A,
+                                          int ld, int batch,
+                                          long long int stride) {
+  T *A = (T *)ptr;
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        A[i + offset] = T(cos(i + offset));
+      }
+    }
+  }
+}
+
 void dummy() {
+  // This function forces the compiler to generate the needed templated variants
+  // of each function. It is never called
   void *h_A;
-  typeCallHost<fillRandHost>(CUDA_R_64F, h_A, 10, 10, 1);
+  typeCallHost<fillRandHostBlasgemm>(CUDA_R_64F, h_A, 10, 10, 10, 1, 0);
   typeCallHost<sizeofCUDTP>(CUDA_R_64F);
   typeCallHost<allocSetScalar>(CUDA_R_64F, "1", "0");
   typeCallDev<batchedPtrMagic>(CUDA_R_64F, (void **)NULL, (void **)NULL,
                                (void *)NULL, 10, 10, 10);
   // template void *allocSetScalar<double>::operator()(string);
+}
+
+void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
+              int rows_A, int cols_A, int ld, int batch, long long int stride) {
+  if (initialization == "rand_int") {
+    typeCallHost<fillRandHostRandInt>(precision, ptr, rows_A, cols_A, ld, batch,
+                                      stride);
+  } else if (initialization == "trig_float") {
+    typeCallHost<fillRandHostTrigFloat>(precision, ptr, rows_A, cols_A, ld,
+                                        batch, stride);
+  } else if (initialization == "hpl") {
+  } else if (initialization == "blasgemm") {
+    typeCallHost<fillRandHostBlasgemm>(precision, ptr, rows_A, cols_A, ld,
+                                       batch, stride);
+  }
 }
 
 // int sizeof_cudt_host(cudaDataType_t type) {

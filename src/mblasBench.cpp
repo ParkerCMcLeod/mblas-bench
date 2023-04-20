@@ -16,6 +16,7 @@
 //#include "error_handling.h"
 //#include "create-allocate.h"
 #include "cublas/cudaError.h"
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
@@ -128,12 +129,18 @@ int main(int argc, char **argv) {
             cxxopts::value<string>()->default_value("0"));
   opp_adder("instances", "Number of instances to run on each GPU",
             cxxopts::value<int>()->default_value("1"));
+  opp_adder("initialization",
+            "Intialize with random integers, trig functions sin and cos, or "
+            "hpl-like input. Options: rand_int, trig_float, hpl, blasgemm",
+            cxxopts::value<string>()->default_value("rand_int"));
   opp_adder("i,iters",
             "Iterations to run inside timing loop  (Default value is: 10)",
             cxxopts::value<int>()->default_value("10"));
   opp_adder("j,cold_iters",
             " Cold Iterations to run before entering the timing loop ",
             cxxopts::value<int>()->default_value("2"));
+  opp_adder("driver", "Backend to run the GEMM test with",
+            cxxopts::value<string>()->default_value("cublas-bench"));
   opp_adder("h,help", "Print Usage");
 
   // ParseResultE asdf;
@@ -144,18 +151,27 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  genericGemm *gemm = new cublasGemm(result);
-  gemm->prepareArray();
-  // gemm->allocHost();
-  // gemm->allocDev();
-  // gemm->fillHost();
-  // gemm->copyHostToDev();
+  genericGemm *gemm;
 
-  float gflops = gemm->test();
-  std::cout << std::fixed;
-  std::cout << "Gflops: " << gflops << std::endl;
+  // Select backend implementation
+  string driver = result["driver"].as<string>();
+  if (driver == "cublas-bench") {
+    gemm = new cublasGemm(result);
+  } else {
+    cerr << "Driver \"" << driver << "\" not supported" << endl;
+    return 1;
+  }
+
+  gemm->prepareArray();
+
+  gemm->test();
+  cout << std::fixed;
+
+  string results = gemm->getResultString();
+  cout << results;
 
   gemm->freeMem();
+  delete gemm;
 
   return 0;
 }
