@@ -415,13 +415,12 @@ double cublasGemm::test() {
       threads.push_back(
           thread(&cublasGemm::testTGemmEx<cuComplex>, this, cgemm_var, &mat));
     }
-
-    if (strided && function == "cublasGemmExStridedBatched") {
+    // gemmEx
+    else if (strided && function == "cublasGemmExStridedBatched") {
       // Call the Gemm strided batched deployment script
     } else if (batched && function == "cublasGemmExBatched") {
       // Call the Gemm batched code
-    } else if (function == "cublasGemmEx" || function == "gemm_ex" ||
-               function == "gemm") {
+    } else if (function == "cublasGemmEx" || function == "gemm_ex") {
       threads.push_back(thread(&cublasGemm::testGemmEx, this, &mat));
     }
   }
@@ -556,6 +555,9 @@ void cublasGemm::testTgemm(
   for (int rep = 0; rep < iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc);
+
+    checkCublas(stat);
+    checkCuda(cudaGetLastError());
     // cuBLAS calls are asynchronous, so we have to wait
     // after each call to the BLAS function
     cudaStreamSynchronize(stream);
