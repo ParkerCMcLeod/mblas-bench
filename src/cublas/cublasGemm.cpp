@@ -542,27 +542,12 @@ void cublasGemm::testTgemm(
 
   /*
     Run and time the performance test
-
-    Barriers are in place to ensure when multiple instances are run, each
-    instance takes the same amount of time. In the rare case that the runs are
-    fully exclusive, the faster run is forced to wait until the slower run is
-    done.  Since they started at the same time, we can safely assume the
-    reported number of Flops is correct
   */
-  mat->devSync->Sync();
   cudaEventRecord(start, stream);
-  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc);
-
-    checkCublas(stat);
-    checkCuda(cudaGetLastError());
-    // cuBLAS calls are asynchronous, so we have to wait
-    // after each call to the BLAS function
-    cudaStreamSynchronize(stream);
   }
-  mat->devSync->Sync();
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
@@ -620,24 +605,12 @@ void cublasGemm::testTgemmBatched(
 
   /*
     Run and time the performance test
-
-    Barriers are in place to ensure when multiple instances are run, each
-    instance takes the same amount of time. In the rare case that the runs are
-    fully exclusive, the faster run is forced to wait until the slower run is
-    done.  Since they started at the same time, we can safely assume the
-    reported number of Flops is correct
   */
-  mat->devSync->Sync();
   cudaEventRecord(start, stream);
-  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc, batchct);
-    // cuBLAS calls are asynchronous, so we have to wait
-    // after each call to the BLAS function
-    cudaStreamSynchronize(stream);
   }
-  mat->devSync->Sync();
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
@@ -695,24 +668,12 @@ void cublasGemm::testTgemmStridedBatched(
 
   /*
     Run and time the performance test
-
-    Barriers are in place to ensure when multiple instances are run, each
-    instance takes the same amount of time. In the rare case that the runs are
-    fully exclusive, the faster run is forced to wait until the slower run is
-    done.  Since they started at the same time, we can safely assume the
-    reported number of Flops is correct
   */
-  mat->devSync->Sync();
   cudaEventRecord(start, stream);
-  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, stride_a,
                 devBP, ldb, stride_b, betaP, devCP, ldc, stride_c, batchct);
-    // cuBLAS calls are asynchronous, so we have to wait
-    // after each call to the BLAS function
-    cudaStreamSynchronize(stream);
   }
-  mat->devSync->Sync();
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
@@ -770,24 +731,12 @@ void cublasGemm::testTGemmEx(
 
   /*
     Run and time the performance test
-
-    Barriers are in place to ensure when multiple instances are run, each
-    instance takes the same amount of time. In the rare case that the runs are
-    fully exclusive, the faster run is forced to wait until the slower run is
-    done.  Since they started at the same time, we can safely assume the
-    reported number of Flops is correct
   */
-  mat->devSync->Sync();
   cudaEventRecord(start, stream);
-  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, mat->devA, a_type, lda,
                 mat->devB, b_type, ldb, betaP, mat->devC, c_type, ldc);
-    // cuBLAS calls are asynchronous, so we have to wait
-    // after each call to the BLAS function
-    cudaStreamSynchronize(stream);
   }
-  mat->devSync->Sync();
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
@@ -833,25 +782,13 @@ void cublasGemm::testGemmEx(gemmInst *mat) {
 
   /*
     Run and time the performance test
-
-    Barriers are in place to ensure when multiple instances are run, each
-    instance takes the same amount of time. In the rare case that the runs are
-    fully exclusive, the faster run is forced to wait until the slower run is
-    done.  Since they started at the same time, we can safely assume the
-    reported number of Flops is correct
   */
-  mat->devSync->Sync();
   cudaEventRecord(start, stream);
-  mat->devSync->Sync();
   for (int rep = 0; rep < iters; rep++) {
     stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
                         c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
-    // cuBLAS calls are asynchronous, so we have to wait
-    // after each call to the BLAS function
-    cudaStreamSynchronize(stream);
   }
-  mat->devSync->Sync();
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
