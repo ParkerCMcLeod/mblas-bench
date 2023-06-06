@@ -1,5 +1,6 @@
 #include "cublasConvert.h"
 
+#include <cuda_fp8.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -25,6 +26,16 @@ __global__ void floatToFp16(float *input, size_t num_elements, __half *output)
   }
 }
 
+__global__ void floatToFp8(float *input, size_t num_elements,
+                           __nv_fp8_storage_t *output, __nv_fp8_interpretation_t interp)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < num_elements)
+  {
+    output[idx] = __nv_cvt_float_to_fp8(input[idx], __NV_SATFINITE, interp);
+  }
+}
+
 void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, int y, int batchsz)
 {
 
@@ -34,7 +45,7 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
   {
     // Allocate memory in the device for host precision (float)
     void *tmpA = allocateHDevArr(precision, x, y, batchsz);
-    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * devsz,
+    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                          cudaMemcpyHostToDevice));
     int num_elements = batchsz * x * y;
     int block_size = 256;
@@ -46,7 +57,7 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
   {
     // Allocate memory in the device for host precision (float)
     void *tmpA = allocateHDevArr(precision, x, y, batchsz);
-    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * devsz,
+    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                          cudaMemcpyHostToDevice));
     int num_elements = batchsz * x * y;
     int block_size = 256;
@@ -54,11 +65,30 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
     floatToBfloat16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA);
     cudaFree(tmpA);
   }
+  else if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2)
+  {
+    // Allocate memory in the device for host precision (float)
+    void *tmpA = allocateHDevArr(precision, x, y, batchsz);
+    checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
+                         cudaMemcpyHostToDevice));
+    int num_elements = batchsz * x * y;
+    int block_size = 256;
+    int num_blocks = (num_elements + block_size - 1) / block_size;
+    __nv_fp8_interpretation_t interp;
+    if (precision == CUDA_R_8F_E4M3)
+    {
+      interp = __NV_E4M3;
+    }
+    else if (precision == CUDA_R_8F_E5M2)
+    {
+      interp = __NV_E5M2;
+    }
+    floatToFp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, interp);
+    cudaFree(tmpA);
+  }
   else
   {
-    // std::cerr << "Error: Precision not supported" << std::endl;
-    //  Simply copy, no convert required
-    checkCuda(cudaMemcpy(devA, hostA, batchsz * x * y * devsz,
+    checkCuda(cudaMemcpy(devA, hostA, (long)batchsz * x * y * hostsz,
                          cudaMemcpyHostToDevice));
   }
 }

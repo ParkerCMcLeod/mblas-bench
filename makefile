@@ -16,13 +16,14 @@ DEPS := $(OBJS:.o=.d)
 
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-LDFLAGS= -lcublas
+LDFLAGS= -lcublas -lcublasLt
 
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_90,code=sm_90
+#CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas -arch=sm_90 
 CXXFLAGS += --std=c++14
-CXX= nvcc
-CC= nvcc
+CXX= /usr/local/cuda-12.0/bin/nvcc
+CC= /usr/local/cuda-12.0/bin/nvcc
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 

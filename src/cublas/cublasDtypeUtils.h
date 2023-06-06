@@ -5,6 +5,7 @@
 #include <string>
 
 bool isReal(cudaDataType_t type);
+bool isFp8(cudaDataType precision);
 std::string precToString(cudaDataType precision);
 std::string computeToString(cublasComputeType_t compute);
 cudaDataType_t precisionStringToDType(std::string stringPrecision);
@@ -14,6 +15,7 @@ cublasComputeType_t selectCompute(std::string computestr,
                                   cudaDataType_t precision);
 cublasOperation_t opStringToOp(std::string opstr);
 std::string opToString(cublasOperation_t);
+
 // data
 
 // clang-format off

@@ -5,9 +5,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <iostream>
 
 #include "cublas/cublasGemm.h"
+#include "cublas/cublasLtGemm.h"
 #include "genericGemm.h"
 
 // #include "fp16_conversion.h"
@@ -15,11 +17,17 @@
 
 //#include "error_handling.h"
 //#include "create-allocate.h"
-#include "cublas/cudaError.h"
+//#include "cublas/cudaError.h"
 using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
+
+std::string sToLower(std::string data) {
+  std::transform(data.begin(), data.end(), data.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return data;
+}
 
 int main(int argc, char **argv) {
   // print device info
@@ -143,7 +151,6 @@ int main(int argc, char **argv) {
             cxxopts::value<string>()->default_value("cublas-bench"));
   opp_adder("h,help", "Print Usage");
 
-  // ParseResultE asdf;
   cxxopts::ParseResult result = options.parse(argc, argv);
 
   if (result.count("help")) {
@@ -154,9 +161,17 @@ int main(int argc, char **argv) {
   genericGemm *gemm;
 
   // Select backend implementation
-  string driver = result["driver"].as<string>();
-  if (driver == "cublas-bench") {
+  string driver = sToLower(result["driver"].as<string>());
+  string function = sToLower(result["function"].as<string>());
+
+  if (driver == "cublaslt" || (driver == "cublas" && function == "matmul")) {
+    // Since regular cublas has no matmul, we can safely assume the user means
+    // cublaslt
+    gemm = new cublasLtGemm(result);
+  } else if (driver == "cublas-bench" || driver == "cublas") {
     gemm = new cublasGemm(result);
+  } else if (driver == "cublaslt") {
+    gemm = new cublasLtGemm(result);
   } else {
     cerr << "Driver \"" << driver << "\" not supported" << endl;
     return 1;

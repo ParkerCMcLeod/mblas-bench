@@ -27,18 +27,14 @@ struct TgemmPrecType {
   }
 };
 
-struct gemmInst {
+struct cublasgemmInst {
   int devIDX;
-  int subIDX;
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
   void *devA;
   void *devB;
   void *devC;
-  void *devWork;
-  int wSZ;
-  ThreadBarrier *devSync;
   /*
     Double pointers
     Only used for Batched variant of gemms
@@ -50,10 +46,9 @@ struct gemmInst {
   void **ptrHostA;
   void **ptrHostB;
   void **ptrHostC;
-  gemmInst(int devID, int subID) {
-    devIDX = devID;
-    subIDX = subID;
-  }
+  void *devWork;
+  long wSZ;
+  cublasgemmInst(int devID) { devIDX = devID; }
 };
 
 class cublasGemm : public genericGemm {
@@ -94,6 +89,8 @@ class cublasGemm : public genericGemm {
   cudaDataType_t b_type;
   cudaDataType_t c_type;
 
+  int workspaceSz = 128 * 1024 * 1024;
+
   std::string initialization;
 
   // std::map<std::string, cudaDataType_t> precDType;
@@ -103,7 +100,7 @@ class cublasGemm : public genericGemm {
 
   static std::vector<gemmPrecType> gemmExSupported;
   static std::vector<TgemmPrecType> TgemmExSupported;
-  std::vector<gemmInst> matPtrs;
+  std::vector<cublasgemmInst> matPtrs;
   std::vector<std::vector<cudaEvent_t *> *> eventPtr;
 
  public:
@@ -113,13 +110,13 @@ class cublasGemm : public genericGemm {
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
-  void parseDevIters(std::string, int);
+  void parseDevIters(std::string);
   cublasOperation_t setOp(std::string);
   void prepareArray();
   void allocHost();
-  void allocDev(gemmInst *);
+  void allocDev(cublasgemmInst *);
   void fillHost();
-  void copyHostToDev(gemmInst *);
+  void copyHostToDev(cublasgemmInst *);
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
 
   virtual void freeMem();
@@ -137,7 +134,7 @@ class cublasGemm : public genericGemm {
                      const T *alpha, const T *A, int lda, const T *B, int ldb,
                      const T *beta, T *C, int ldc)>
                      func,
-                 gemmInst *mat);
+                 cublasgemmInst *mat);
 
   template <typename T>
   void testTgemmBatched(
@@ -146,7 +143,7 @@ class cublasGemm : public genericGemm {
                                    T const *const *, int, T const *const *, int,
                                    T const *, T *const *, int, int)>
           func,
-      gemmInst *mat);
+      cublasgemmInst *mat);
 
   template <typename T>
   void testTgemmStridedBatched(
@@ -155,7 +152,7 @@ class cublasGemm : public genericGemm {
           T const *, T const *, int, long long, T const *, int, long long,
           T const *, T *, int, long long, int)>
           func,
-      gemmInst *mat);
+      cublasgemmInst *mat);
 
   template <typename T>
   void testTGemmEx(
@@ -164,7 +161,7 @@ class cublasGemm : public genericGemm {
           T const *, void const *, cudaDataType_t, int, void const *,
           cudaDataType_t, int, T const *, void *, cudaDataType_t, int)>
           func,
-      gemmInst *mat);
+      cublasgemmInst *mat);
 
-  void testGemmEx(gemmInst *mat);
+  void testGemmEx(cublasgemmInst *mat);
 };

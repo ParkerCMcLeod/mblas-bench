@@ -53,6 +53,13 @@ bool isReal(cudaDataType_t type) {
   }
 }
 
+bool isFp8(cudaDataType precision) {
+  if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2) {
+    return true;
+  }
+  return false;
+}
+
 std::string precToString(cudaDataType precision) {
   for (auto ele : precDType) {
     if (ele.second == precision && ele.first.find("CUDA") != string::npos) {

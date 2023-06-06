@@ -58,6 +58,12 @@ struct fillRandHostTrigFloat {
                   long long int stride);
 };
 
+template <typename T>
+struct fillRandHostConstant {
+  void operator()(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                  long long int stride, float constant);
+};
+
 template <template <typename> class tFunc, class... Args>
 auto typeCallHost(cudaDataType_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
@@ -67,4 +73,5 @@ auto typeCallDev(cudaDataType_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
 
 void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
-              int rows_A, int cols_A, int ld, int batch, long long int stride);
+              int rows_A, int cols_A, int ld, int batch, long long int stride,
+              float constant = 0.f);

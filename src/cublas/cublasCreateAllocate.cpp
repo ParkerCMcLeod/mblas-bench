@@ -232,7 +232,7 @@ void *allocateDevArr(cudaDataType_t type, long x, long y, int batch,
     return NULL;
   }
   void *data;
-  cudaMallocManaged(&data, x * y * batch * typesize);
+  checkCuda(cudaMallocManaged(&data, x * y * batch * typesize));
   return data;
 }
 
@@ -259,10 +259,21 @@ void fillRandHostBlasgemm<T>::operator()(void *ptr, int rows_A, int cols_A,
                                          long long int stride) {
   int a = 1;
   T *A = (T *)ptr;
-  for (int i = 0; i < rows_A * cols_A * batch; i++) {
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
     A[i] = (T)rand() / (T)(RAND_MAX / a);
     // if(i < 10)
     //      std::cout << *((double *)ptr+i)  << std::endl;
+  }
+}
+
+template <typename T>
+void fillRandHostConstant<T>::operator()(void *ptr, int rows_A, int cols_A,
+                                         int ld, int batch,
+                                         long long int stride, float constant) {
+  int a = 1;
+  T *A = (T *)ptr;
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
+    A[i] = (T)(constant);
   }
 }
 
@@ -309,7 +320,8 @@ void dummy() {
 }
 
 void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
-              int rows_A, int cols_A, int ld, int batch, long long int stride) {
+              int rows_A, int cols_A, int ld, int batch, long long int stride,
+              float constant) {
   if (initialization == "rand_int") {
     typeCallHost<fillRandHostRandInt>(precision, ptr, rows_A, cols_A, ld, batch,
                                       stride);
@@ -320,6 +332,9 @@ void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
   } else if (initialization == "blasgemm") {
     typeCallHost<fillRandHostBlasgemm>(precision, ptr, rows_A, cols_A, ld,
                                        batch, stride);
+  } else if (initialization == "constant") {
+    typeCallHost<fillRandHostConstant>(precision, ptr, rows_A, cols_A, ld,
+                                       batch, stride, constant);
   }
 }
 

@@ -73,22 +73,15 @@ std::vector<TgemmPrecType> cublasGemm::TgemmExSupported = {
 
 void cublasGemm::initPrecMap() {}
 
-void cublasGemm::parseDevIters(std::string deviceStr, int instance) {
-  // Parse iters
-  int iters = instance;
+void cublasGemm::parseDevIters(std::string deviceStr) {
   // Parse device
   std::stringstream ss(deviceStr);
   while (ss.good()) {
     string deviceSStr;
     getline(ss, deviceSStr, ',');
     int devInt = stoi(deviceSStr);
-    ThreadBarrier *devSync = new ThreadBarrier(iters);
-
-    for (int i = 0; i < iters; i++) {
-      gemmInst val = gemmInst(devInt, i);
-      val.devSync = devSync;
-      matPtrs.push_back(val);
-    }
+    cublasgemmInst val = cublasgemmInst(devInt);
+    matPtrs.push_back(val);
   }
 }
 
@@ -167,7 +160,7 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   string cT = result["c_type"].as<string>();
   parseMType(computeT, scalarT, aT, bT, cT);
 
-  parseDevIters(result["device"].as<string>(), result["instances"].as<int>());
+  parseDevIters(result["device"].as<string>());
   std::string tA = result["transposeA"].as<std::string>();
   std::string tB = result["transposeB"].as<std::string>();
   transA = opStringToOp(result["transposeA"].as<std::string>());
@@ -211,6 +204,7 @@ void cublasGemm::prepareArray() {
   //  this->allocDev(&instance);
   //  this->copyHostToDev(&instance);
   //}
+
   vector<thread> threads;
   for (auto &instance : matPtrs) {
     threads.push_back(thread(&cublasGemm::allocDev, this, &instance));
@@ -233,13 +227,13 @@ void cublasGemm::allocHost() {
   hostC = allocateHostArr(c_type, n, m, batchct);
 }
 
-void cublasGemm::allocDev(gemmInst *mat) {
+void cublasGemm::allocDev(cublasgemmInst *mat) {
   cudaSetDevice(mat->devIDX);
   mat->devA = allocateDevArr(a_type, m, k, batchct);
   mat->devB = allocateDevArr(b_type, k, n, batchct);
   mat->devC = allocateDevArr(c_type, n, m, batchct);
-  mat->wSZ = 24 * 1024 * 1024;
-  cudaMalloc(&mat->devWork, mat->wSZ);
+  mat->wSZ = workspaceSz;
+  // cudaMalloc(&mat->devWork, mat->wSZ);
 }
 
 void cublasGemm::fillHost() {
@@ -250,7 +244,7 @@ void cublasGemm::fillHost() {
   initHost(c_type, initialization, hostC, m, n, ldc, batchct, stride_c);
 }
 
-void cublasGemm::copyHostToDev(gemmInst *mat) {
+void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
   cudaSetDevice(mat->devIDX);
   copyAndConvert(a_type, hostA, mat->devA, m, k, batchct);
   copyAndConvert(b_type, hostB, mat->devB, k, n, batchct);
@@ -289,6 +283,7 @@ void cublasGemm::freeMem() {
     cudaFree(mat.devA);
     cudaFree(mat.devB);
     cudaFree(mat.devC);
+    cudaFree(mat.devWork);
     if (batched && !strided) {
       free(mat.ptrHostA);
       free(mat.ptrHostB);
@@ -430,16 +425,16 @@ double cublasGemm::test() {
   }
 
   // Sum all gflops
-  gflop_per_second =
-      std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
-                      [](double i, const gemmInst &o) { return o.gflops + i; });
+  gflop_per_second = std::accumulate(
+      begin(matPtrs), end(matPtrs), 0.0,
+      [](double i, const cublasgemmInst &o) { return o.gflops + i; });
 
-  gbyte_per_second =
-      std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
-                      [](double i, const gemmInst &o) { return o.gbytes + i; });
+  gbyte_per_second = std::accumulate(
+      begin(matPtrs), end(matPtrs), 0.0,
+      [](double i, const cublasgemmInst &o) { return o.gbytes + i; });
 
   iter_time_us = std::accumulate(begin(matPtrs), end(matPtrs), 0.0,
-                                 [](double i, const gemmInst &o) {
+                                 [](double i, const cublasgemmInst &o) {
                                    return o.time_us + i;
                                  }) /
                  matPtrs.size();
@@ -506,7 +501,7 @@ void cublasGemm::testTgemm(
         cublasHandle_t, cublasOperation_t, cublasOperation_t, int, int, int,
         const T *, const T *, int, const T *, int, const T *, T *, int)>
         func,
-    gemmInst *mat) {
+    cublasgemmInst *mat) {
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -514,7 +509,7 @@ void cublasGemm::testTgemm(
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
@@ -569,7 +564,7 @@ void cublasGemm::testTgemmBatched(
                                  T const *const *, int, T const *const *, int,
                                  T const *, T *const *, int, int)>
         func,
-    gemmInst *mat) {
+    cublasgemmInst *mat) {
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -577,7 +572,7 @@ void cublasGemm::testTgemmBatched(
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
@@ -632,7 +627,7 @@ void cublasGemm::testTgemmStridedBatched(
         T const *, T const *, int, long long, T const *, int, long long,
         T const *, T *, int, long long, int)>
         func,
-    gemmInst *mat) {
+    cublasgemmInst *mat) {
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -640,7 +635,7 @@ void cublasGemm::testTgemmStridedBatched(
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
@@ -695,7 +690,7 @@ void cublasGemm::testTGemmEx(
         T const *, void const *, cudaDataType_t, int, void const *,
         cudaDataType_t, int, T const *, void *, cudaDataType_t, int)>
         func,
-    gemmInst *mat) {
+    cublasgemmInst *mat) {
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -703,7 +698,7 @@ void cublasGemm::testTGemmEx(
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
@@ -751,7 +746,7 @@ void cublasGemm::testTGemmEx(
       calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
-void cublasGemm::testGemmEx(gemmInst *mat) {
+void cublasGemm::testGemmEx(cublasgemmInst *mat) {
   cublasStatus_t stat;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -759,7 +754,7 @@ void cublasGemm::testGemmEx(gemmInst *mat) {
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {

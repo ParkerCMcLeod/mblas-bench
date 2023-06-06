@@ -27,10 +27,7 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
   ldb = setLd(ldbS, tB, k, n);
   // LDC (and LDD) are always max( 1, m), so use that
   ldc = setLd(ldcS, "N", m, 0);
-  if (false) {
-    // Implement ldd support later
-    ldd = setLd(lddS, "N", m, 0);
-  }
+  ldd = setLd(lddS, "N", m, 0);
 
   strided = false;
   batched = false;
