@@ -117,6 +117,7 @@ class cublasGemm : public genericGemm {
   void allocDev(cublasgemmInst *);
   void fillHost();
   void copyHostToDev(cublasgemmInst *);
+  void runThreaded(void (cublasGemm::*func)(cublasgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
 
   virtual void freeMem();

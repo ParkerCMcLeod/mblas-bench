@@ -5,9 +5,11 @@
 #include <cuda_fp16.h>
 #include <cuda_fp8.h>
 #include <cuda_runtime.h>
+#include <omp.h>
 
 #include <cuda/std/complex>
 #include <iostream>
+#include <random>
 #include <sstream>
 #include <string>
 
@@ -27,62 +29,6 @@ using std::string;
 // template void *allocSetScalar<double>::operator()(string);
 // template void *allocSetScalar<float>::operator()(string);
 
-template <typename T>
-int sizeofCUDT<T>::operator()() {
-  return sizeof(T);
-}
-
-template <typename T>
-int sizeofCUDTP<T>::operator()() {
-  return sizeof(T *);
-}
-
-template <typename T>
-void *allocSetScalar<T>::operator()(string sval1, string sval2) {
-  T dummy;
-  return allocSetScalarFunc(sval1, sval2, std::forward<T>(dummy));
-}
-
-template <typename T>
-void batchedPtrMagic<T>::operator()(void **hptr, void **dptr, void *dAr,
-                                    int batchct, int x, int y) {
-  T **host = reinterpret_cast<T **>(hptr);
-  T *device_array = static_cast<T *>(dAr);
-  for (int i = 0; i < batchct; i++) {
-    host[i] = device_array + (i * x * y);
-  }
-  // checkCuda(cudaMalloc(&dptr, batchct * sizeof(T *)));
-  // hptr = reinterpret_cast<void **>(host);
-  checkCuda(
-      cudaMemcpy(dptr, hptr, batchct * sizeof(T *), cudaMemcpyHostToDevice));
-}
-
-template <typename T>
-void *allocSetScalarFunc(std::string sval, std::string sval2, T dummy) {
-  // Only for real numbers, no need to worry about contents from sval2
-  void *ptr = (void *)malloc(sizeof(T));
-  T *data = (T *)ptr;
-  std::istringstream iss(sval.c_str());
-  iss >> *data;
-  return ptr;
-}
-
-template <typename T>
-void *allocSetScalarFunc(std::string sval, std::string sval2,
-                         complex<T> dummy) {
-  // Complex numbers, do something about sval2
-  void *ptr = (void *)malloc(sizeof(complex<T>));
-  complex<T> *data = (complex<T> *)ptr;
-  T val;
-  std::istringstream iss(sval.c_str());
-  iss >> val;
-  data->real(val);
-  std::istringstream iss2(sval2.c_str());
-  iss2 >> val;
-  data->imag(val);
-  return ptr;
-}
-
 // template <>
 // void *allocSetScalar<complex<float>>::operator()(string sval) {
 //  return NULL;
@@ -93,158 +39,23 @@ void *allocSetScalarFunc(std::string sval, std::string sval2,
 //  return NULL;
 //}
 
-template <template <typename> class tFunc, class... Args>
-auto typeCallHost(cudaDataType_t type, Args... args) ->
-    typename std::result_of<tFunc<double>(Args...)>::type {
-  // At runtime, determine which typed implementation to use and call it
-  switch (type) {
-    case CUDA_R_64F:
-      return tFunc<double>()(args...);
-      break;
-    case CUDA_C_64F:
-      return tFunc<complex<double>>()(args...);
-      // return tFunc<cuDoubleComplex>()(args...);
-      break;
-    case CUDA_R_32F:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_C_32F:
-      return tFunc<complex<float>>()(args...);
-      // return tFunc<cuComplex>()(args...);
-      break;
-    case CUDA_R_16BF:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_C_16BF:
-      return tFunc<complex<float>>()(args...);
-      break;
-    case CUDA_R_16F:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_C_16F:
-      return tFunc<complex<float>>()(args...);
-      break;
-    case CUDA_R_8F_E4M3:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_R_8F_E5M2:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_R_8I:
-      return tFunc<__int8_t>()(args...);
-      break;
-    case CUDA_C_8I:
-      return tFunc<complex<__int8_t>>()(args...);
-      break;
-    case CUDA_R_8U:
-      return tFunc<__uint8_t>()(args...);
-      break;
-    case CUDA_C_8U:
-      return tFunc<complex<__uint8_t>>()(args...);
-      break;
-    case CUDA_R_32I:
-      return tFunc<__int32_t>()(args...);
-      break;
-    case CUDA_C_32I:
-      return tFunc<complex<__int32_t>>()(args...);
-      break;
-    default:
-      return tFunc<double>()(args...);
-      ;
-  }
-}
-
-template <template <typename> class tFunc, class... Args>
-auto typeCallDev(cudaDataType_t type, Args... args) ->
-    typename std::result_of<tFunc<double>(Args...)>::type {
-  // At runtime, determine which typed implementation to use and call it
-  switch (type) {
-    case CUDA_R_64F:
-      return tFunc<double>()(args...);
-      break;
-    case CUDA_C_64F:
-      return tFunc<complex<double>>()(args...);
-      break;
-    case CUDA_R_32F:
-      return tFunc<float>()(args...);
-      break;
-    case CUDA_C_32F:
-      return tFunc<complex<float>>()(args...);
-      break;
-    case CUDA_R_16BF:
-      return tFunc<__nv_bfloat16>()(args...);
-      break;
-    case CUDA_C_16BF:
-      return tFunc<complex<__nv_bfloat16>>()(args...);
-      break;
-    case CUDA_R_16F:
-      return tFunc<__half>()(args...);
-      break;
-    case CUDA_C_16F:
-      return tFunc<complex<__half>>()(args...);
-      break;
-    case CUDA_R_8F_E4M3:
-      return tFunc<__nv_fp8_e4m3>()(args...);
-      break;
-    case CUDA_R_8F_E5M2:
-      return tFunc<__nv_fp8_e5m2>()(args...);
-      break;
-    case CUDA_R_8I:
-      return tFunc<__int8_t>()(args...);
-      break;
-    case CUDA_C_8I:
-      return tFunc<complex<__int8_t>>()(args...);
-      break;
-    case CUDA_R_8U:
-      return tFunc<__uint8_t>()(args...);
-      break;
-    case CUDA_C_8U:
-      return tFunc<complex<__uint8_t>>()(args...);
-      break;
-    case CUDA_R_32I:
-      return tFunc<__int32_t>()(args...);
-      break;
-    case CUDA_C_32I:
-      return tFunc<complex<__int32_t>>()(args...);
-      break;
-    default:
-      return tFunc<double>()(args...);
-      ;
-  }
-}
-
-void *allocateHostArr(cudaDataType_t type, long x, long y, int batch,
-                      bool strided) {
+void *allocateHostArr(cudaDataType_t type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
-  if (!strided) {
-    // Not currently implemented...
-    return NULL;
-  }
   void *data = (void *)malloc(x * y * batch * typesize);
   return data;
 }
 
-void *allocateDevArr(cudaDataType_t type, long x, long y, int batch,
-                     bool strided) {
+void *allocateDevArr(cudaDataType_t type, long x, long y, int batch) {
   int typesize = typeCallDev<sizeofCUDT>(type);
-  if (!strided) {
-    // Not currently implemented...
-    return NULL;
-  }
   void *data;
   checkCuda(cudaMallocManaged(&data, x * y * batch * typesize));
   return data;
 }
 
-void *allocateHDevArr(cudaDataType_t type, long x, long y, int batch,
-                      bool strided) {
+void *allocateHDevArr(cudaDataType_t type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
-  if (!strided) {
-    // Not currently implemented...
-    return NULL;
-  }
   void *data;
-  cudaMallocManaged(&data, x * y * batch * typesize);
+  checkCuda(cudaMallocManaged(&data, x * y * batch * typesize));
   return data;
 }
 
@@ -253,10 +64,81 @@ void *allocateHDevArr(cudaDataType_t type, long x, long y, int batch,
 //  void *scalar = (void *)
 //}
 
+void dummy() {
+  // This function forces the compiler to generate the needed templated variants
+  // of each function. It is never called
+  void *h_A;
+  typeCallHost<sizeofCUDTP>(CUDA_R_64F);
+  typeCallHost<allocSetScalar>(CUDA_R_64F, "1", "0");
+  typeCallDev<batchedPtrMagic>(CUDA_R_64F, (void **)NULL, (void **)NULL,
+                               (void *)NULL, 10, 10, 10);
+  // template void *allocSetScalar<double>::operator()(string);
+}
+
+void initHostH(cudaDataType_t precision, std::string initialization, void *ptr,
+               int rows_A, int cols_A, int ld, int batch, long long int stride,
+               float constant, bool alternating) {
+  typeCallHost<initHost>(precision, initialization, ptr, rows_A, cols_A, ld,
+                         batch, stride, constant, alternating);
+}
+
 template <typename T>
-void fillRandHostBlasgemm<T>::operator()(void *ptr, int rows_A, int cols_A,
-                                         int ld, int batch,
-                                         long long int stride) {
+void initHost<T>::operator()(std::string initialization, void *ptr, int rows_A,
+                             int cols_A, int ld, int batch,
+                             long long int stride, float constant,
+                             bool alternating) {
+  if (initialization == "rand_int") {
+    if (!alternating) {
+      fillRandHostRandInt<T>(ptr, rows_A, cols_A, ld, batch, stride);
+    } else {
+      fillRandHostRandIntAS<T>(ptr, rows_A, cols_A, ld, batch, stride);
+    }
+  } else if (initialization == "trig_float") {
+    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride);
+  } else if (initialization == "hpl") {
+  } else if (initialization == "blasgemm") {
+    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride);
+  } else if (initialization == "constant") {
+    fillRandHostConstant<T>(ptr, rows_A, cols_A, ld, batch, stride, constant);
+  }
+}
+
+template void initHost<double>::operator()(std::string, void *, int, int, int,
+                                           int, long long int, float, bool);
+template void initHost<complex<double>>::operator()(std::string, void *, int,
+                                                    int, int, int,
+                                                    long long int, float, bool);
+template void initHost<float>::operator()(std::string, void *, int, int, int,
+                                          int, long long int, float, bool);
+template void initHost<complex<float>>::operator()(std::string, void *, int,
+                                                   int, int, int, long long int,
+                                                   float, bool);
+template void initHost<__int8_t>::operator()(std::string, void *, int, int, int,
+                                             int, long long int, float, bool);
+template void initHost<complex<__int8_t>>::operator()(std::string, void *, int,
+                                                      int, int, int,
+                                                      long long int, float,
+                                                      bool);
+template void initHost<__uint8_t>::operator()(std::string, void *, int, int,
+                                              int, int, long long int, float,
+                                              bool);
+template void initHost<complex<__uint8_t>>::operator()(std::string, void *, int,
+                                                       int, int, int,
+                                                       long long int, float,
+                                                       bool);
+template void initHost<__int32_t>::operator()(std::string, void *, int, int,
+                                              int, int, long long int, float,
+                                              bool);
+template void initHost<complex<__int32_t>>::operator()(std::string, void *, int,
+                                                       int, int, int,
+                                                       long long int, float,
+                                                       bool);
+
+// Instances of the following functions should be defined implicitly by defining
+// those of initHost
+template <typename T>
+void fillRandHostBlasgemm(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                          long long int stride) {
   int a = 1;
   T *A = (T *)ptr;
   for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
@@ -267,9 +149,8 @@ void fillRandHostBlasgemm<T>::operator()(void *ptr, int rows_A, int cols_A,
 }
 
 template <typename T>
-void fillRandHostConstant<T>::operator()(void *ptr, int rows_A, int cols_A,
-                                         int ld, int batch,
-                                         long long int stride, float constant) {
+void fillRandHostConstant(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                          long long int stride, float constant) {
   int a = 1;
   T *A = (T *)ptr;
   for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
@@ -278,24 +159,50 @@ void fillRandHostConstant<T>::operator()(void *ptr, int rows_A, int cols_A,
 }
 
 template <typename T>
-void fillRandHostRandInt<T>::operator()(void *ptr, int rows_A, int cols_A,
-                                        int ld, int batch,
-                                        long long int stride) {
+void fillRandHostRandInt(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                         long long int stride) {
+  std::random_device r;
+  std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> uniform_dist(1, 10);
   T *A = (T *)ptr;
+  T dummy;
   for (size_t i_batch = 0; i_batch < batch; i_batch++) {
     for (size_t j = 0; j < cols_A; ++j) {
-      size_t offset = j * ld + i_batch * stride;
       for (size_t i = 0; i < rows_A; ++i) {
-        A[i + offset] = T(rand() % 10 + 1);
+        size_t offset = j * ld + i_batch * stride;
+        A[i + offset] = randIntGen(uniform_dist, gen, dummy);
       }
     }
   }
 }
 
 template <typename T>
-void fillRandHostTrigFloat<T>::operator()(void *ptr, int rows_A, int cols_A,
-                                          int ld, int batch,
-                                          long long int stride) {
+void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                           long long int stride) {
+  std::random_device r;
+  std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> uniform_dist(1, 10);
+  T *A = (T *)ptr;
+  T dummy;
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        if (j % 2 ^ i % 2) {
+          A[i + offset] = randIntGen(uniform_dist, gen, dummy);
+        } else {
+          A[i + offset] = randIntGenN(uniform_dist, gen, dummy);
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void fillRandHostTrigFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
+                           long long int stride) {
   T *A = (T *)ptr;
   for (size_t i_batch = 0; i_batch < batch; i_batch++) {
     for (size_t j = 0; j < cols_A; ++j) {
@@ -307,37 +214,29 @@ void fillRandHostTrigFloat<T>::operator()(void *ptr, int rows_A, int cols_A,
   }
 }
 
-void dummy() {
-  // This function forces the compiler to generate the needed templated variants
-  // of each function. It is never called
-  void *h_A;
-  typeCallHost<fillRandHostBlasgemm>(CUDA_R_64F, h_A, 10, 10, 10, 1, 0);
-  typeCallHost<sizeofCUDTP>(CUDA_R_64F);
-  typeCallHost<allocSetScalar>(CUDA_R_64F, "1", "0");
-  typeCallDev<batchedPtrMagic>(CUDA_R_64F, (void **)NULL, (void **)NULL,
-                               (void *)NULL, 10, 10, 10);
-  // template void *allocSetScalar<double>::operator()(string);
+template <typename T>
+inline T randIntGen(std::uniform_int_distribution<int> &idist,
+                    std::mt19937 &gen, T &dummy) {
+  return T(idist(gen));
 }
 
-void initHost(cudaDataType_t precision, std::string initialization, void *ptr,
-              int rows_A, int cols_A, int ld, int batch, long long int stride,
-              float constant) {
-  if (initialization == "rand_int") {
-    typeCallHost<fillRandHostRandInt>(precision, ptr, rows_A, cols_A, ld, batch,
-                                      stride);
-  } else if (initialization == "trig_float") {
-    typeCallHost<fillRandHostTrigFloat>(precision, ptr, rows_A, cols_A, ld,
-                                        batch, stride);
-  } else if (initialization == "hpl") {
-  } else if (initialization == "blasgemm") {
-    typeCallHost<fillRandHostBlasgemm>(precision, ptr, rows_A, cols_A, ld,
-                                       batch, stride);
-  } else if (initialization == "constant") {
-    typeCallHost<fillRandHostConstant>(precision, ptr, rows_A, cols_A, ld,
-                                       batch, stride, constant);
-  }
+template <typename T>
+inline complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
+                             std::mt19937 &gen, complex<T> &dummy) {
+  return {T(idist(gen)), T(idist(gen))};
 }
 
+template <typename T>
+inline T randIntGenN(std::uniform_int_distribution<int> &idist,
+                     std::mt19937 &gen, T &dummy) {
+  return -T(idist(gen));
+}
+
+template <typename T>
+inline complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
+                              std::mt19937 &gen, complex<T> &dummy) {
+  return {-T(idist(gen)), -T(idist(gen))};
+}
 // int sizeof_cudt_host(cudaDataType_t type) {
 //     int size = 0;
 //     complex<double> z1(1,1.5);

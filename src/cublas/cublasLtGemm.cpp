@@ -3,6 +3,7 @@
 #include <cublasLt.h>
 #include <cuda_runtime.h>
 
+#include <future>
 #include <iomanip>
 #include <numeric>
 #include <regex>
@@ -250,9 +251,12 @@ void cublasLtGemm::runThreaded(void (cublasLtGemm::*func)(cublasltgemmInst *)) {
 }
 
 void cublasLtGemm::allocHost() {
-  hostA = allocateHostArr(a_type, m, k, batchct);
-  hostB = allocateHostArr(b_type, k, n, batchct);
-  hostC = allocateHostArr(c_type, n, m, batchct);
+  auto resultA = std::async(allocateHostArr, a_type, m, k, batchct);
+  auto resultB = std::async(allocateHostArr, b_type, k, n, batchct);
+  auto resultC = std::async(allocateHostArr, c_type, n, m, batchct);
+  hostA = resultA.get();
+  hostB = resultB.get();
+  hostC = resultC.get();
 }
 
 void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
@@ -270,11 +274,17 @@ void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
 }
 
 void cublasLtGemm::fillHost() {
-  // typedef decltype(fillRandHostRandInt<double>) randFunc;
   // Some random functions treat the matrix as a vectors, some require a matrix
-  initHost(a_type, initialization, hostA, m, k, lda, batchct, stride_a, 1.f);
-  initHost(b_type, initialization, hostB, k, n, ldb, batchct, stride_b, 2.f);
-  initHost(c_type, initialization, hostC, m, n, ldc, batchct, stride_c);
+  vector<thread> threads;
+  threads.push_back(thread(initHostH, a_type, initialization, hostA, m, k, lda,
+                           batchct, stride_a, 2.f, false));
+  threads.push_back(thread(initHostH, b_type, initialization, hostB, k, n, ldb,
+                           batchct, stride_b, 3.f, true));
+  threads.push_back(thread(initHostH, c_type, initialization, hostC, m, n, ldc,
+                           batchct, stride_c, 1.f, false));
+  for (auto &thread : threads) {
+    thread.join();
+  }
 }
 
 void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {

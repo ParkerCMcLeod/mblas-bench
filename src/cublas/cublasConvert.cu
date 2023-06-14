@@ -36,6 +36,17 @@ __global__ void floatToFp8(float *input, size_t num_elements,
   }
 }
 
+__global__ void intToInt8(__int32_t *input, size_t num_elements,
+                          __int8_t *output, __nv_fp8_interpretation_t interp)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < num_elements)
+  {
+    output[idx] = (__int8_t)input[idx];
+    // output[idx] = dynamic_cast<__int8_t>(input[idx]);
+  }
+}
+
 void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, int y, int batchsz)
 {
 
@@ -86,6 +97,18 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
     floatToFp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, interp);
     cudaFree(tmpA);
   }
+  // else if (precision == CUDA_C_8I || precision == CUDA_R_8I)
+  //{
+  //   // Allocate memory in the device for host precision (float)
+  //   void *tmpA = allocateHDevArr(precision, x, y, batchsz);
+  //   checkCuda(cudaMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
+  //                        cudaMemcpyHostToDevice));
+  //   int num_elements = batchsz * x * y;
+  //   int block_size = 256;
+  //   int num_blocks = (num_elements + block_size - 1) / block_size;
+  //   floatToBfloat16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA);
+  //   cudaFree(tmpA);
+  // }
   else
   {
     checkCuda(cudaMemcpy(devA, hostA, (long)batchsz * x * y * hostsz,

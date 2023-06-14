@@ -3,6 +3,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#include <future>
 #include <iomanip>
 #include <numeric>
 #include <regex>
@@ -182,6 +183,7 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
 void cublasGemm::prepareArray() {
   convertScalar(scalar, alpha);
   convertScalar(scalar, beta);
+
   this->allocHost();
   this->fillHost();
 
@@ -205,16 +207,14 @@ void cublasGemm::prepareArray() {
   //  this->copyHostToDev(&instance);
   //}
 
+  runThreaded(&cublasGemm::allocDev);
+  runThreaded(&cublasGemm::copyHostToDev);
+}
+
+void cublasGemm::runThreaded(void (cublasGemm::*func)(cublasgemmInst *)) {
   vector<thread> threads;
   for (auto &instance : matPtrs) {
-    threads.push_back(thread(&cublasGemm::allocDev, this, &instance));
-  }
-  for (auto &thread : threads) {
-    thread.join();
-  }
-  threads.clear();
-  for (auto &instance : matPtrs) {
-    threads.push_back(thread(&cublasGemm::copyHostToDev, this, &instance));
+    threads.push_back(thread(func, this, &instance));
   }
   for (auto &thread : threads) {
     thread.join();
@@ -222,9 +222,12 @@ void cublasGemm::prepareArray() {
 }
 
 void cublasGemm::allocHost() {
-  hostA = allocateHostArr(a_type, m, k, batchct);
-  hostB = allocateHostArr(b_type, k, n, batchct);
-  hostC = allocateHostArr(c_type, n, m, batchct);
+  auto resultA = std::async(allocateHostArr, a_type, m, k, batchct);
+  auto resultB = std::async(allocateHostArr, b_type, k, n, batchct);
+  auto resultC = std::async(allocateHostArr, c_type, n, m, batchct);
+  hostA = resultA.get();
+  hostB = resultB.get();
+  hostC = resultC.get();
 }
 
 void cublasGemm::allocDev(cublasgemmInst *mat) {
@@ -233,15 +236,27 @@ void cublasGemm::allocDev(cublasgemmInst *mat) {
   mat->devB = allocateDevArr(b_type, k, n, batchct);
   mat->devC = allocateDevArr(c_type, n, m, batchct);
   mat->wSZ = workspaceSz;
-  // cudaMalloc(&mat->devWork, mat->wSZ);
+  cudaMalloc(&mat->devWork, mat->wSZ);
 }
 
 void cublasGemm::fillHost() {
-  // typedef decltype(fillRandHostRandInt<double>) randFunc;
   // Some random functions treat the matrix as a vectors, some require a matrix
-  initHost(a_type, initialization, hostA, m, k, lda, batchct, stride_a);
-  initHost(b_type, initialization, hostB, k, n, ldb, batchct, stride_b);
-  initHost(c_type, initialization, hostC, m, n, ldc, batchct, stride_c);
+  vector<thread> threads;
+  threads.push_back(thread(initHostH, a_type, initialization, hostA, m, k, lda,
+                           batchct, stride_a, 2.f, false));
+  threads.push_back(thread(initHostH, b_type, initialization, hostB, k, n, ldb,
+                           batchct, stride_b, 3.f, true));
+  threads.push_back(thread(initHostH, c_type, initialization, hostC, m, n, ldc,
+                           batchct, stride_c, 0.f, false));
+  for (auto &thread : threads) {
+    thread.join();
+  }
+  // typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
+  //                       stride_a, 1.f);
+  // typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
+  //                       stride_b, 2.f, true);
+  // typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
+  //                       stride_c);
 }
 
 void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
@@ -754,13 +769,13 @@ void cublasGemm::testGemmEx(cublasgemmInst *mat) {
   checkCublas(cublasCreate(&handle));
   checkCuda(cudaStreamCreate(&stream));
   checkCublas(cublasSetStream(handle, stream));
-  // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
-
+  checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
+  cublasSetMathMode(handle, CUBLAS_TF32_TENSOR_OP_MATH);
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
-                        c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
+                        c_type, ldc, compute, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 
     // Check for errors during the gemm run
     checkCublas(stat);
@@ -782,7 +797,7 @@ void cublasGemm::testGemmEx(cublasgemmInst *mat) {
   for (int rep = 0; rep < iters; rep++) {
     stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
-                        c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
+                        c_type, ldc, compute, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
