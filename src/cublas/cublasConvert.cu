@@ -1,5 +1,6 @@
 #include "cublasConvert.h"
 
+#include <bitset>
 #include <cuda_fp8.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
@@ -116,19 +117,24 @@ void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, 
   }
 }
 
-void convertScalar(cublasDataType_t precision, void *scalar)
+void *convertScalar(cublasDataType_t precision, void *scalar)
 {
 
   if (precision == CUDA_R_16F)
   {
-    // For whatever reason,
     float scalarVal = *static_cast<float *>(scalar);
     free(scalar);
-    scalar = (void *)malloc(sizeof(__half));
-    *static_cast<__half *>(scalar) = __float2half(scalarVal);
+    __half *hscalar = (__half *)malloc(sizeof(__half));
+    *hscalar = __float2half(scalarVal);
+    return (void *)hscalar;
   }
   else if (precision == CUDA_C_16F)
   {
     // Implement me...
+    return NULL;
+  }
+  else
+  {
+    return scalar;
   }
 }

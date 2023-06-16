@@ -170,8 +170,6 @@ int main(int argc, char **argv) {
     gemm = new cublasLtGemm(result);
   } else if (driver == "cublas-bench" || driver == "cublas") {
     gemm = new cublasGemm(result);
-  } else if (driver == "cublaslt") {
-    gemm = new cublasLtGemm(result);
   } else {
     cerr << "Driver \"" << driver << "\" not supported" << endl;
     return 1;

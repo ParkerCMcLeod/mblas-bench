@@ -206,8 +206,8 @@ cublasLtGemm::cublasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
 }
 
 void cublasLtGemm::prepareArray() {
-  convertScalar(scalar, alpha);
-  convertScalar(scalar, beta);
+  alpha = convertScalar(scalar, alpha);
+  beta = convertScalar(scalar, beta);
   this->allocHost();
   this->fillHost();
 
@@ -251,12 +251,15 @@ void cublasLtGemm::runThreaded(void (cublasLtGemm::*func)(cublasltgemmInst *)) {
 }
 
 void cublasLtGemm::allocHost() {
-  auto resultA = std::async(allocateHostArr, a_type, m, k, batchct);
-  auto resultB = std::async(allocateHostArr, b_type, k, n, batchct);
-  auto resultC = std::async(allocateHostArr, c_type, n, m, batchct);
-  hostA = resultA.get();
-  hostB = resultB.get();
-  hostC = resultC.get();
+  // auto resultA = std::async(allocateHostArr, a_type, m, k, batchct);
+  // auto resultB = std::async(allocateHostArr, b_type, k, n, batchct);
+  // auto resultC = std::async(allocateHostArr, c_type, n, m, batchct);
+  // hostA = resultA.get();
+  // hostB = resultB.get();
+  // hostC = resultC.get();
+  hostA = allocateHostArr(a_type, m, k, batchct);
+  hostB = allocateHostArr(b_type, k, n, batchct);
+  hostC = allocateHostArr(c_type, n, m, batchct);
 }
 
 void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
@@ -275,16 +278,25 @@ void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
 
 void cublasLtGemm::fillHost() {
   // Some random functions treat the matrix as a vectors, some require a matrix
-  vector<thread> threads;
-  threads.push_back(thread(initHostH, a_type, initialization, hostA, m, k, lda,
-                           batchct, stride_a, 2.f, false));
-  threads.push_back(thread(initHostH, b_type, initialization, hostB, k, n, ldb,
-                           batchct, stride_b, 3.f, true));
-  threads.push_back(thread(initHostH, c_type, initialization, hostC, m, n, ldc,
-                           batchct, stride_c, 1.f, false));
-  for (auto &thread : threads) {
-    thread.join();
-  }
+  // vector<thread> threads;
+  // threads.push_back(thread(initHostH, a_type, initialization, hostA, m, k,
+  // lda,
+  //                         batchct, stride_a, 2.f, false));
+  // threads.push_back(thread(initHostH, b_type, initialization, hostB, k, n,
+  // ldb,
+  //                         batchct, stride_b, 3.f, true));
+  // threads.push_back(thread(initHostH, c_type, initialization, hostC, m, n,
+  // ldc,
+  //                         batchct, stride_c, 1.f, false));
+  // for (auto &thread : threads) {
+  //  thread.join();
+  //}
+  typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
+                         stride_a, 2.f, false);
+  typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
+                         stride_b, 3.f, true);
+  typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
+                         stride_c, 1.f, false);
 }
 
 void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {
@@ -456,6 +468,7 @@ void cublasLtGemm::testMatmul(cublasltgemmInst *mat) {
     checkCublas(stat);
     checkCuda(cudaGetLastError());
   }
+  cudaStreamSynchronize(stream);
 
   cudaEvent_t start, stop;
   checkCuda(cudaEventCreate(&start));
