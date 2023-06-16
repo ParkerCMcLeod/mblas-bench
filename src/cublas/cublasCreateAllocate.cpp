@@ -214,54 +214,77 @@ void fillRandHostTrigFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
   }
 }
 
-// template <typename T>
-// inline T randIntGen(std::uniform_int_distribution<int> &idist,
-//                     std::mt19937 &gen, T &dummy) {
-//   return T(idist(gen));
-// }
-//
-// template <typename T>
-// inline complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
-//                              std::mt19937 &gen, complex<T> &dummy) {
-//   return {T(idist(gen)), T(idist(gen))};
-// }
-//
-// template <typename T>
-// inline T randIntGenN(std::uniform_int_distribution<int> &idist,
-//                      std::mt19937 &gen, T &dummy) {
-//   return -T(idist(gen));
-// }
-//
-// template <typename T>
-// inline complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
-//                               std::mt19937 &gen, complex<T> &dummy) {
-//   return {-T(idist(gen)), -T(idist(gen))};
-// }
-
 template <typename T>
 inline T randIntGen(std::uniform_int_distribution<int> &idist,
                     std::mt19937 &gen, T &dummy) {
-  return T(rand());
+  return T(idist(gen));
 }
 
 template <typename T>
 inline complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
                              std::mt19937 &gen, complex<T> &dummy) {
-  return {T(rand()), T(rand())};
+  return {T(idist(gen)), T(idist(gen))};
 }
 
 template <typename T>
 inline T randIntGenN(std::uniform_int_distribution<int> &idist,
                      std::mt19937 &gen, T &dummy) {
-  return -T(rand());
+  return -T(idist(gen));
 }
 
 template <typename T>
 inline complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
                               std::mt19937 &gen, complex<T> &dummy) {
-  return {-T(rand()), -T(rand())};
+  return {-T(idist(gen)), -T(idist(gen))};
 }
 
+// template <typename T>
+// inline T randIntGen(std::uniform_int_distribution<int> &idist,
+//                    std::mt19937 &gen, T &dummy) {
+//  return T(rand() % 10 + 1);
+//}
+//
+// template <typename T>
+// inline complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
+//                             std::mt19937 &gen, complex<T> &dummy) {
+//  return {T(rand() % 10 + 1), T(rand() % 10 + 1)};
+//}
+//
+// template <typename T>
+// inline T randIntGenN(std::uniform_int_distribution<int> &idist,
+//                     std::mt19937 &gen, T &dummy) {
+//  return -T(rand() % 10 + 1);
+//}
+//
+// template <typename T>
+// inline complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
+//                              std::mt19937 &gen, complex<T> &dummy) {
+//  return {-T(rand() % 10 + 1), -T(rand() % 10 + 1)};
+//}
+
+// template <typename T>
+// inline T randIntGen(std::uniform_int_distribution<int> &idist,
+//                    std::mt19937 &gen, T &dummy) {
+//  return T(rand());
+//}
+//
+// template <typename T>
+// inline complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
+//                             std::mt19937 &gen, complex<T> &dummy) {
+//  return {T(rand()), T(rand())};
+//}
+//
+// template <typename T>
+// inline T randIntGenN(std::uniform_int_distribution<int> &idist,
+//                     std::mt19937 &gen, T &dummy) {
+//  return -T(rand());
+//}
+//
+// template <typename T>
+// inline complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
+//                              std::mt19937 &gen, complex<T> &dummy) {
+//  return {-T(rand()), -T(rand())};
+//}
 // int sizeof_cudt_host(cudaDataType_t type) {
 //     int size = 0;
 //     complex<double> z1(1,1.5);
