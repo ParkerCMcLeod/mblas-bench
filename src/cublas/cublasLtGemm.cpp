@@ -202,7 +202,6 @@ cublasLtGemm::cublasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
   beta = typeCallHost<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-  initialization = result["initialization"].as<string>();
 }
 
 string cublasLtGemm::prepareArray() {
@@ -298,12 +297,13 @@ void cublasLtGemm::fillHost() {
   // for (auto &thread : threads) {
   //  thread.join();
   //}
+
   typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
-                         stride_a, 2.f, false);
+                         stride_a, controlA, constantA);
   typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
-                         stride_b, 3.f, true);
+                         stride_b, controlB, constantB);
   typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
-                         stride_c, 1.f, false);
+                         stride_c, controlC, constantC);
 }
 
 void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {

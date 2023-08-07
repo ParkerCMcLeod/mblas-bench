@@ -178,12 +178,13 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   beta = typeCallHost<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-  initialization = result["initialization"].as<string>();
 }
 
 string cublasGemm::prepareArray() {
-  alpha = convertScalar(scalar, alpha);
-  beta = convertScalar(scalar, beta);
+  // std::cout << "Pre Convert: " << *((float *)alpha) << std::endl;
+  // alpha = convertScalar(scalar, alpha);
+  // std::cout << "Post Convert: " << __half2float(*(__half *)alpha) <<
+  // std::endl; beta = convertScalar(scalar, beta);
   this->allocHost();
   this->fillHost();
 
@@ -265,11 +266,11 @@ void cublasGemm::fillHost() {
   //  thread.join();
   //}
   typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
-                         stride_a, 2.f, false);
+                         stride_a, controlA, constantA);
   typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
-                         stride_b, 3.f, true);
+                         stride_b, controlB, constantB);
   typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
-                         stride_c, 1.f, false);
+                         stride_c, controlC, constantC);
 }
 
 void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
@@ -535,8 +536,8 @@ void cublasGemm::testTgemm(
   checkCublas(cublasSetStream(handle, stream));
   // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
-  T *alphaP = static_cast<T *>(alpha);
-  T *betaP = static_cast<T *>(beta);
+  T *alphaP = static_cast<T *>(mat->alpha);
+  T *betaP = static_cast<T *>(mat->beta);
   T *devAP = static_cast<T *>(mat->devA);
   T *devBP = static_cast<T *>(mat->devB);
   T *devCP = static_cast<T *>(mat->devC);

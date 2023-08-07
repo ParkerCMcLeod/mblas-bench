@@ -26,10 +26,22 @@ class genericGemm {
   int iters;
   int cold_iters;
 
+  bool controlA = false;
+  bool controlB = false;
+  bool controlC = false;
+  bool controlD = false;
+
+  float constantA = 2.f;
+  float constantB = 3.f;
+  float constantC = 1.f;
+  float constantD = 1.f;
+
   double gflop_per_second = 0;
   double gbyte_per_second = 0;
   double iter_time_us = 0;
   std::string function;
+
+  std::string initialization;
 
  public:
   genericGemm(cxxopts::ParseResult);

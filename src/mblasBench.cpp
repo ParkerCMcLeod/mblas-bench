@@ -149,7 +149,7 @@ int main(int argc, char **argv) {
             " Cold Iterations to run before entering the timing loop ",
             cxxopts::value<int>()->default_value("2"));
   opp_adder("driver", "Backend to run the GEMM test with",
-            cxxopts::value<string>()->default_value("cublas-bench"));
+            cxxopts::value<string>()->default_value("cublas"));
   opp_adder("h,help", "Print Usage");
 
   cxxopts::ParseResult result = options.parse(argc, argv);

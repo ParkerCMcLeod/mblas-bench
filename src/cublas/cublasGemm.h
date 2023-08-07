@@ -35,6 +35,8 @@ struct cublasgemmInst {
   void *devA;
   void *devB;
   void *devC;
+  void *alpha;
+  void *beta;
   /*
     Double pointers
     Only used for Batched variant of gemms
@@ -90,8 +92,6 @@ class cublasGemm : public genericGemm {
   cudaDataType_t c_type;
 
   int workspaceSz = 128 * 1024 * 1024;
-
-  std::string initialization;
 
   // std::map<std::string, cudaDataType_t> precDType;
   // std::map<std::string, cublasComputeType_t> computeDType;

@@ -57,8 +57,8 @@ auto typeCallDev(cudaDataType_t type, Args... args) ->
 template <typename T>
 struct initHost {
   void operator()(std::string initialization, void *ptr, int rows_A, int cols_A,
-                  int ld, int batch, long long int stride, float constant = 0.f,
-                  bool alternating = false);
+                  int ld, int batch, long long int stride, bool control = false,
+                  float constant = 0.f);
 };
 template <typename T>
 void *allocSetScalarFunc(std::string sval, std::string sval2, T dummy) {
@@ -129,11 +129,11 @@ void fillRandHostRandInt(void *ptr, int rows_A, int cols_A, int ld, int batch,
 
 template <typename T>
 void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                           long long int stride);
+                           long long int stride, bool alternating);
 
 template <typename T>
 void fillRandHostTrigFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                           long long int stride);
+                           long long int stride, bool isSin);
 
 template <template <typename> class tFunc, class... Args>
 auto typeCallHost(cudaDataType_t type, Args... args) ->

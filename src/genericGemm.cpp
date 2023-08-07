@@ -47,6 +47,14 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
     stride_b = result["stride_b"].as<long long int>();
     stride_c = result["stride_c"].as<long long int>();
   }
+  initialization = result["initialization"].as<string>();
+
+  // Set init control information
+  if (initialization == "rand_int") {
+    controlB = true;
+  } else if (initialization == "trig_float") {
+    controlA = true;
+  }
 }
 
 int genericGemm::setLd(std::string ld, std::string OP, int x, int y) {

@@ -19,6 +19,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 LDFLAGS= -lcublas -lcublasLt
 
 
+#CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas -arch=sm_90 -gencode=arch=compute_90,code=sm_90 -O3
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_90,code=sm_90 -O3
 #CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -lcublas -arch=sm_90 
 CXXFLAGS += --std=c++14

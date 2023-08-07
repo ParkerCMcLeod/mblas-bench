@@ -72,8 +72,6 @@ class cublasLtGemm : public genericGemm {
 
   int workspaceSz = 64 * 1024 * 1024;
 
-  std::string initialization;
-
   static std::vector<matmulPrecType> matmulSupported;
   std::vector<cublasltgemmInst> matPtrs;
 
