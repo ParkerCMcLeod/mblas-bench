@@ -155,25 +155,6 @@ void fillRandHostConstant(void *ptr, int rows_A, int cols_A, int ld, int batch,
 }
 
 template <typename T>
-void fillRandHostRandInt(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                         long long int stride) {
-  std::random_device r;
-  std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
-  std::mt19937 gen(seed);
-  std::uniform_int_distribution<int> uniform_dist(1, 10);
-  T *A = (T *)ptr;
-  T dummy;
-  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-    for (size_t j = 0; j < cols_A; ++j) {
-      for (size_t i = 0; i < rows_A; ++i) {
-        size_t offset = j * ld + i_batch * stride;
-        A[i + offset] = randIntGen(uniform_dist, gen, dummy);
-      }
-    }
-  }
-}
-
-template <typename T>
 void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
                            long long int stride, bool alternating) {
   std::random_device r;

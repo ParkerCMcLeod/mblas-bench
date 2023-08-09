@@ -238,14 +238,14 @@ void cublasGemm::allocHost() {
   // hostC = resultC.get();
   hostA = allocateHostArr(a_type, m, k, batchct);
   hostB = allocateHostArr(b_type, k, n, batchct);
-  hostC = allocateHostArr(c_type, n, m, batchct);
+  hostC = allocateHostArr(c_type, m, n, batchct);
 }
 
 void cublasGemm::allocDev(cublasgemmInst *mat) {
   cudaSetDevice(mat->devIDX);
   mat->devA = allocateDevArr(a_type, m, k, batchct);
   mat->devB = allocateDevArr(b_type, k, n, batchct);
-  mat->devC = allocateDevArr(c_type, n, m, batchct);
+  mat->devC = allocateDevArr(c_type, m, n, batchct);
   mat->wSZ = workspaceSz;
   cudaMalloc(&mat->devWork, mat->wSZ);
 }
@@ -265,12 +265,12 @@ void cublasGemm::fillHost() {
   // for (auto &thread : threads) {
   //  thread.join();
   //}
-  typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
-                         stride_a, controlA, constantA);
-  typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
-                         stride_b, controlB, constantB);
-  typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
-                         stride_c, controlC, constantC);
+  typeCallHost<initHost>(a_type, initialization, hostA, rowsA, colsA, lda,
+                         batchct, stride_a, controlA, constantA);
+  typeCallHost<initHost>(b_type, initialization, hostB, rowsB, colsB, ldb,
+                         batchct, stride_b, controlB, constantB);
+  typeCallHost<initHost>(c_type, initialization, hostC, rowsC, colsC, ldc,
+                         batchct, stride_c, controlC, constantC);
 }
 
 void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
@@ -536,11 +536,12 @@ void cublasGemm::testTgemm(
   checkCublas(cublasSetStream(handle, stream));
   // checkCublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
-  T *alphaP = static_cast<T *>(mat->alpha);
-  T *betaP = static_cast<T *>(mat->beta);
+  T *alphaP = static_cast<T *>(alpha);
+  T *betaP = static_cast<T *>(beta);
   T *devAP = static_cast<T *>(mat->devA);
   T *devBP = static_cast<T *>(mat->devB);
   T *devCP = static_cast<T *>(mat->devC);
+
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,

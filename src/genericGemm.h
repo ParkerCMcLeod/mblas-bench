@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <utility>
 
 #include "third_party/cxxopts.hpp"
 
@@ -8,6 +9,15 @@ class genericGemm {
   int m;
   int n;
   int k;
+
+  int rowsA;
+  int colsA;
+  int rowsB;
+  int colsB;
+  int rowsC;
+  int colsC;
+  int rowsD;
+  int colsD;
 
   int lda;
   int ldb;
@@ -49,6 +59,7 @@ class genericGemm {
   // virtual void setSize();
   // virtual void setTypes();
   int setLd(std::string ld, std::string OP, int x, int y);
+  std::pair<int, int> setRowCol(std::string OP, int d1, int d2);
 
   virtual std::string prepareArray() = 0;
 

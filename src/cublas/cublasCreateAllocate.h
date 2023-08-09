@@ -124,10 +124,6 @@ void fillRandHostConstant(void *ptr, int rows_A, int cols_A, int ld, int batch,
                           long long int stride, float constant);
 
 template <typename T>
-void fillRandHostRandInt(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                         long long int stride);
-
-template <typename T>
 void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
                            long long int stride, bool alternating);
 

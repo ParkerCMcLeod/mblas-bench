@@ -1,6 +1,7 @@
 #include "genericGemm.h"
 
 #include <string>
+#include <utility>
 
 #include "third_party/cxxopts.hpp"
 
@@ -28,6 +29,11 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
   // LDC (and LDD) are always max( 1, m), so use that
   ldc = setLd(ldcS, "N", m, 0);
   ldd = setLd(lddS, "N", m, 0);
+
+  std::tie(rowsA, colsA) = setRowCol(tA, m, k);
+  std::tie(rowsB, colsB) = setRowCol(tB, k, n);
+  std::tie(rowsC, colsC) = setRowCol("N", m, n);
+  std::tie(rowsD, colsD) = setRowCol("N", m, n);
 
   strided = false;
   batched = false;
@@ -66,5 +72,13 @@ int genericGemm::setLd(std::string ld, std::string OP, int x, int y) {
     return x;
   } else {
     return y;
+  }
+}
+
+std::pair<int, int> genericGemm::setRowCol(std::string OP, int d1, int d2) {
+  if (OP == "N") {
+    return std::pair<int, int>(d1, d2);
+  } else {
+    return std::pair<int, int>(d2, d1);
   }
 }
