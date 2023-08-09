@@ -298,12 +298,12 @@ void cublasLtGemm::fillHost() {
   //  thread.join();
   //}
 
-  typeCallHost<initHost>(a_type, initialization, hostA, m, k, lda, batchct,
-                         stride_a, controlA, constantA);
-  typeCallHost<initHost>(b_type, initialization, hostB, k, n, ldb, batchct,
-                         stride_b, controlB, constantB);
-  typeCallHost<initHost>(c_type, initialization, hostC, m, n, ldc, batchct,
-                         stride_c, controlC, constantC);
+  typeCallHost<initHost>(a_type, initialization, hostA, rowsA, colsA, lda,
+                         batchct, stride_a, controlA, constantA);
+  typeCallHost<initHost>(b_type, initialization, hostB, rowsB, colsB, ldb,
+                         batchct, stride_b, controlB, constantB);
+  typeCallHost<initHost>(c_type, initialization, hostC, rowsC, colsC, ldc,
+                         batchct, stride_c, controlC, constantC);
 }
 
 void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {
@@ -320,11 +320,15 @@ void cublasLtGemm::prepareMatrix(cublasltgemmInst *mat) {
   checkCublas(cublasLtMatmulDescSetAttribute(
       mat->descOP, CUBLASLT_MATMUL_DESC_TRANSB, &transB, sizeof(transB)));
 
-  checkCublas(cublasLtMatrixLayoutCreate(&mat->descA, a_type, m, k, lda));
-  checkCublas(cublasLtMatrixLayoutCreate(&mat->descB, b_type, k, n, ldb));
-  checkCublas(cublasLtMatrixLayoutCreate(&mat->descC, c_type, m, n, ldc));
+  checkCublas(
+      cublasLtMatrixLayoutCreate(&mat->descA, a_type, rowsA, colsA, lda));
+  checkCublas(
+      cublasLtMatrixLayoutCreate(&mat->descB, b_type, rowsB, colsB, ldb));
+  checkCublas(
+      cublasLtMatrixLayoutCreate(&mat->descC, c_type, rowsC, colsC, ldc));
   if (!inplace) {
-    checkCublas(cublasLtMatrixLayoutCreate(&mat->descD, d_type, m, n, ldd));
+    checkCublas(
+        cublasLtMatrixLayoutCreate(&mat->descD, d_type, rowsD, colsD, ldd));
   } else {
     mat->descD = mat->descC;
   }
