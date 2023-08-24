@@ -2,7 +2,7 @@
 #include <string>
 #include <utility>
 
-#include "third_party/cxxopts.hpp"
+#include "cxxopts.hpp"
 
 class genericGemm {
  protected:
@@ -44,6 +44,8 @@ class genericGemm {
 
   int iters;
   int cold_iters;
+
+  int nblocks;
 
   bool controlA = false;
   bool controlB = false;

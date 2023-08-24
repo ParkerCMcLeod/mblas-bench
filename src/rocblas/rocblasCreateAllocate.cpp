@@ -5,7 +5,7 @@
 #include <hip/hip_fp16.h>
 // #include <cuda_fp8.h>
 #include <hip/hip_runtime.h>
-#include <omp.h>
+//#include <omp.h>
 
 // #include <cuda/std/complex>
 // #include <hip/hip_complex.h>

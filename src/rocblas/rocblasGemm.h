@@ -1,29 +1,29 @@
 #pragma once
 #include <rocblas/rocblas.h>
-#include <hip/hip_runtime.h>
+//#include <hip/hip_runtime.h>
 #include <cxxabi.h>
-#include "third_party/barrier.h"
 
 #include <iostream>
+#include <vector>
 #include <string>
 
 #include "genericGemm.h"
 
-struct gemmPrecType {
+struct gemmPrecTypeAMD {
   rocblas_datatype compute;
   rocblas_datatype scalar;
   rocblas_datatype ab_type;
   rocblas_datatype c_type;
-  bool operator==(const gemmPrecType rhs) const {
+  bool operator==(const gemmPrecTypeAMD rhs) const {
     return rhs.compute == compute && rhs.scalar == scalar &&
-           rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+           rhs.ab_type == ab_type && rhs.c_type == c_type;
   }
 };
-struct TgemmPrecType {
+struct TgemmPrecTypeAMD {
   rocblas_datatype ab_type;
   rocblas_datatype c_type;
-  bool operator==(const TgemmPrecType rhs) const {
-    return rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+  bool operator==(const TgemmPrecTypeAMD rhs) const {
+    return rhs.ab_type == ab_type && rhs.c_type == c_type;
   }
 };
 
@@ -32,9 +32,9 @@ struct rocblasgemmInst {
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
-  void *devA;
-  void *devB;
-  void *devC;
+  std::vector<void *> devA;
+  std::vector<void *> devB;
+  std::vector<void *> devC;
   void *alpha;
   void *beta;
   /*
@@ -42,22 +42,33 @@ struct rocblasgemmInst {
     Only used for Batched variant of gemms
     Unused for others
   */
-  void **ptrDevA;
-  void **ptrDevB;
-  void **ptrDevC;
-  void **ptrHostA;
-  void **ptrHostB;
-  void **ptrHostC;
+  std::vector<void **> ptrDevA;
+  std::vector<void **> ptrDevB;
+  std::vector<void **> ptrDevC;
+  std::vector<void **> ptrHostA;
+  std::vector<void **> ptrHostB;
+  std::vector<void **> ptrHostC;
   void *devWork;
   long wSZ;
-  rocblasgemmInst(int devID) { devIDX = devID; }
+  rocblasgemmInst(int devID, int nblocks) { 
+    devIDX = devID;
+    devA.resize(nblocks);
+    devB.resize(nblocks);
+    devC.resize(nblocks);
+    ptrDevA.resize(nblocks);
+    ptrDevB.resize(nblocks);
+    ptrDevC.resize(nblocks);
+    ptrHostA.resize(nblocks);
+    ptrHostB.resize(nblocks);
+    ptrHostC.resize(nblocks);
+  }
 };
 
 class rocblasGemm : public genericGemm {
  private:
-  void *hostA;
-  void *hostB;
-  void *hostC;
+  std::vector<void *> hostA;
+  std::vector<void *> hostB;
+  std::vector<void *> hostC;
 
   // // Device array.  These are where the memory is stored on GPU
   // void *devA;
@@ -96,10 +107,10 @@ class rocblasGemm : public genericGemm {
   // std::map<std::string, rocblas_datatype> precDType;
   // std::map<std::string, rocblas_datatype> computeDType;
   // std::map<rocblas_datatype, rocblas_datatype> precToCompute;
-  // static gemmPrecType gemmExSupported[];
+  // static gemmPrecTypeAMD gemmExSupported[];
 
-  static std::vector<gemmPrecType> gemmExSupported;
-  static std::vector<TgemmPrecType> TgemmExSupported;
+  static std::vector<gemmPrecTypeAMD> gemmExSupported;
+  static std::vector<TgemmPrecTypeAMD> TgemmExSupported;
   std::vector<rocblasgemmInst> matPtrs;
   std::vector<std::vector<hipEvent_t *> *> eventPtr;
 
