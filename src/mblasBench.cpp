@@ -9,6 +9,7 @@
 
 #include "genericGemm.h"
 #include "rocblasGemm.h"
+#include "hipblasLtGemm.h"
 #include "cublasGemm.h"
 #include "cublasLtGemm.h"
 
@@ -184,11 +185,10 @@ int main(int argc, char **argv) {
     gemm = new cublasLtGemm(result);
   } else if (driver == "cublas-bench" || driver == "cublas") {
     gemm = new cublasGemm(result);
-  // if (driver == "hipblaslt" || (driver == "rocblas" && function == "matmul")) {
-  //   // Since regular rocblas has no matmul, we can safely assume the user means
-  //   // hipblaslt
-  //   gemm = new cublasLtGemm(result);
-  // } else 
+  } else if (driver == "hipblaslt" || (driver == "rocblas" && function == "matmul")) {
+    // Since regular rocblas has no matmul, we can safely assume the user means
+    // hipblaslt
+    gemm = new hipblasLtGemm(result);
   } else if (driver == "rocblas-bench" || driver == "rocblas") {
     gemm = new rocblasGemm(result);
   } else {

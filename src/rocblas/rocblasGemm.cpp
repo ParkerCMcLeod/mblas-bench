@@ -75,9 +75,9 @@ void rocblasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
     return;
   }
   // Parse each precision
-  a_type = precisionStringToDType(aStr);
-  b_type = precisionStringToDType(bStr);
-  c_type = precisionStringToDType(cStr);
+  a_type = precisionStringToRocblasDType(aStr);
+  b_type = precisionStringToRocblasDType(bStr);
+  c_type = precisionStringToRocblasDType(cStr);
 
   // Validate against supported precision table (fun)
   if (a_type != b_type) {
@@ -113,7 +113,7 @@ rocblasGemm::rocblasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   // checkRocblas(rocblas_create_handle(&handle));
   initPrecMap();
   // Grab precision from command line
-  precision = precisionStringToDType(result["precision"].as<string>());
+  precision = precisionStringToRocblasDType(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
   string scalarT = result["scalar_type"].as<string>();
@@ -125,8 +125,8 @@ rocblasGemm::rocblasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   parseDevIters(result["device"].as<string>());
   std::string tA = result["transposeA"].as<std::string>();
   std::string tB = result["transposeB"].as<std::string>();
-  transA = opStringToOp(result["transposeA"].as<std::string>());
-  transB = opStringToOp(result["transposeB"].as<std::string>());
+  transA = opStringToRocblasOp(result["transposeA"].as<std::string>());
+  transB = opStringToRocblasOp(result["transposeB"].as<std::string>());
 
   // Pull in alpha and beta, alloc memory and save to pointers
   string salpha = result["alpha"].as<string>();

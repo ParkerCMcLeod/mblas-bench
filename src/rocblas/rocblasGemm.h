@@ -121,7 +121,7 @@ class rocblasGemm : public genericGemm {
  public:
   rocblasGemm(cxxopts::ParseResult result);
   void initPrecMap();
-  // rocblas_datatype precisionStringToDType(std::string stringPrecision);
+  // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);

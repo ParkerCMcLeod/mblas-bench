@@ -39,6 +39,38 @@ bool isReal(rocblas_datatype type) {
   }
 }
 
+bool isReal(hipblasDatatype_t type) {
+  // You could also do this based on the string version with _R_ or _C_, but
+  // those are hardcoded anyway
+  switch (type) {
+    case HIPBLAS_R_16F:
+    case HIPBLAS_R_16B:
+    case HIPBLAS_R_32F:
+    case HIPBLAS_R_64F:
+    case HIPBLAS_R_8I:
+    case HIPBLAS_R_8U:
+    case HIPBLAS_R_32I:
+    case HIPBLAS_R_32U:
+      return true;
+      break;
+
+    // Complex numbers
+    case HIPBLAS_C_16F:
+    case HIPBLAS_C_16B:
+    case HIPBLAS_C_32F:
+    case HIPBLAS_C_64F:
+    case HIPBLAS_C_8I:
+    case HIPBLAS_C_8U:
+    case HIPBLAS_C_32I:
+    case HIPBLAS_C_32U:
+      return false;
+      break;
+    // Assume real I guess
+    default:
+      return true;
+  }
+}
+
 bool isFp8(rocblas_datatype precision) {
   // if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2) {
   //   return true;
@@ -46,8 +78,15 @@ bool isFp8(rocblas_datatype precision) {
   return false;
 }
 
+bool isFp8(hipblasDatatype_t precision) {
+  // if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2) {
+  //   return true;
+  // }
+  return false;
+}
+
 std::string precToString(rocblas_datatype precision) {
-  for (auto ele : precDType) {
+  for (auto ele : precRocblasDType) {
     if (ele.second == precision && ele.first.find("rocblas_datatype") != string::npos) {
       return ele.first;
     }
@@ -55,8 +94,17 @@ std::string precToString(rocblas_datatype precision) {
   return "";
 }
 
+std::string precToString(hipblasDatatype_t precision) {
+  for (auto ele : precHipblasDType) {
+    if (ele.second == precision && ele.first.find("HIPBLAS") != string::npos) {
+      return ele.first;
+    }
+  }
+  return "";
+}
+
 std::string computeToString(rocblas_datatype compute) {
-  for (auto ele : computeDType) {
+  for (auto ele : computeRocblasDType) {
     if (ele.second == compute && ele.first.find("rocblas_datatype") != string::npos) {
       return ele.first;
     }
@@ -64,13 +112,32 @@ std::string computeToString(rocblas_datatype compute) {
   return "";
 }
 
-rocblas_datatype precisionStringToDType(std::string stringPrecision) {
+std::string computeToString(hipblasLtComputeType_t compute) {
+  for (auto ele : computeHipblasDType) {
+    if (ele.second == compute && ele.first.find("HIPBLASLT_COMPUTE") != string::npos) {
+      return ele.first;
+    }
+  }
+  return "";
+}
+
+rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision) {
   try {
-    return precDType.at(stringPrecision);
+    return precRocblasDType.at(stringPrecision);
   } catch (std::out_of_range &e) {
     std::cerr << "Failed to parse precision: " << stringPrecision << std::endl;
     throw e;
     return rocblas_datatype_f32_r;
+  }
+}
+
+hipblasDatatype_t precisionStringToHipblasDType(std::string stringPrecision) {
+  try {
+    return precHipblasDType.at(stringPrecision);
+  } catch (std::out_of_range &e) {
+    std::cerr << "Failed to parse precision: " << stringPrecision << std::endl;
+    throw e;
+    return HIPBLAS_R_32F;
   }
 }
 
@@ -80,19 +147,14 @@ rocblas_datatype selectCompute(std::string computestr,
     // If the user doesnt specify, just guess based on precision
     rocblas_datatype compute;
     try {
-      compute = precToCompute.at(precision);
+      compute = precToRocblasCompute.at(precision);
     } catch (std::out_of_range &e) {
       compute = rocblas_datatype_f32_r;
     }
-    // if (computestr == "PEDANTIC") {
-    //   // Borderline insane statement to enable the user to select pedantic
-    //   // version without specifying compute type directly
-    //   compute = static_cast<cublasComputeType_t>(static_cast<int>(compute) + 1);
-    // }
     return compute;
   }
   try {
-    return computeDType.at(computestr);
+    return computeRocblasDType.at(computestr);
   } catch (std::out_of_range &e) {
     std::cerr << "Failed to parse precision: " << computestr << std::endl;
     throw e;
@@ -100,11 +162,32 @@ rocblas_datatype selectCompute(std::string computestr,
   }
 }
 
+hipblasLtComputeType_t selectCompute(std::string computestr,
+                                  hipblasDatatype_t precision) {
+  if (computestr == "") {
+    // If the user doesnt specify, just guess based on precision
+    hipblasLtComputeType_t compute;
+    try {
+      compute = precToHipblasCompute.at(precision);
+    } catch (std::out_of_range &e) {
+      compute = HIPBLASLT_COMPUTE_F32;
+    }
+    return compute;
+  }
+  try {
+    return computeHipblasDType.at(computestr);
+  } catch (std::out_of_range &e) {
+    std::cerr << "Failed to parse precision: " << computestr << std::endl;
+    throw e;
+    return HIPBLASLT_COMPUTE_F32;
+  }
+}
+
 rocblas_datatype selectScalar(std::string scalarstr, rocblas_datatype precision,
                               rocblas_datatype compute) {
   if (scalarstr == "") {
     // Scalar type not specified, setting based on compute type
-    for (auto ele : precToCompute) {
+    for (auto ele : precToRocblasCompute) {
       if (ele.second == compute && isReal(precision) == isReal(ele.first)) {
         return ele.first;
       }
@@ -112,22 +195,59 @@ rocblas_datatype selectScalar(std::string scalarstr, rocblas_datatype precision,
     // something terrible has happened
     return precision;
   }
-  return precisionStringToDType(scalarstr);
+  return precisionStringToRocblasDType(scalarstr);
 }
 
-rocblas_operation opStringToOp(std::string opstr) {
+hipblasDatatype_t selectScalar(std::string scalarstr, hipblasDatatype_t precision,
+                              hipblasLtComputeType_t compute) {
+  if (scalarstr == "") {
+    // Scalar type not specified, setting based on compute type
+    for (auto ele : precToHipblasCompute) {
+      if (ele.second == compute && isReal(precision) == isReal(ele.first)) {
+        return ele.first;
+      }
+    }
+    // something terrible has happened
+    return precision;
+  }
+  return precisionStringToHipblasDType(scalarstr);
+}
+
+rocblas_operation opStringToRocblasOp(std::string opstr) {
   if (opstr.empty()) {
     return rocblas_operation_none;
   }
   try {
-    return opType.at(opstr);
+    return rocblasOpType.at(opstr);
   } catch (std::out_of_range &e) {
     std::cerr << "Failed to parse precision: " << opstr << std::endl;
     throw e;
   }
 }
+
+hipblasOperation_t opStringToHipblasOp(std::string opstr) {
+  if (opstr.empty()) {
+    return HIPBLAS_OP_N;
+  }
+  try {
+    return hipblasOpType.at(opstr);
+  } catch (std::out_of_range &e) {
+    std::cerr << "Failed to parse precision: " << opstr << std::endl;
+    throw e;
+  }
+}
+
 std::string opToString(rocblas_operation op) {
-  for (auto ele : opType) {
+  for (auto ele : rocblasOpType) {
+    if (ele.second == op) {
+      return ele.first;
+    }
+  }
+  return "N";
+}
+
+std::string opToString(hipblasOperation_t op) {
+  for (auto ele : hipblasOpType) {
     if (ele.second == op) {
       return ele.first;
     }
