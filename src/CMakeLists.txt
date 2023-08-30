@@ -26,7 +26,7 @@ endif()
 #find_package(rocblas REQUIRED)
 #find_package(Threads REQUIRED) 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__HIP_PLATFORM_AMD__")
 
 add_subdirectory(generic)
 

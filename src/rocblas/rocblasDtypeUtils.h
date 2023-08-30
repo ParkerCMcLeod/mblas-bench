@@ -6,23 +6,23 @@
 #include <string>
 
 bool isReal(rocblas_datatype type);
-bool isReal(hipblasDatatype_t type);
+bool isReal(hipblasltDatatype_t type);
 bool isFp8(rocblas_datatype precision);
-bool isFp8(hipblasDatatype_t precision);
+bool isFp8(hipblasltDatatype_t precision);
 std::string precToString(rocblas_datatype precision);
-std::string precToString(hipblasDatatype_t precision);
+std::string precToString(hipblasltDatatype_t precision);
 std::string computeToString(rocblas_datatype compute);
 std::string computeToString(hipblasLtComputeType_t compute);
 rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
-hipblasDatatype_t precisionStringToHipblasDType(std::string stringPrecision);
+hipblasltDatatype_t precisionStringToHipblasltDType(std::string stringPrecision);
 rocblas_datatype selectScalar(std::string scalarstr, rocblas_datatype precision,
                               rocblas_datatype compute);
-hipblasDatatype_t selectScalar(std::string scalarstr, hipblasDatatype_t precision,
+hipblasltDatatype_t selectScalar(std::string scalarstr, hipblasltDatatype_t precision,
                               hipblasLtComputeType_t compute);
 rocblas_datatype selectCompute(std::string computestr,
                                rocblas_datatype precision);
 hipblasLtComputeType_t selectCompute(std::string computestr,
-                               hipblasDatatype_t precision);
+                               hipblasltDatatype_t precision);
 rocblas_operation opStringToRocblasOp(std::string opstr);
 hipblasOperation_t opStringToHipblasOp(std::string opstr);
 std::string opToString(rocblas_operation);
@@ -68,29 +68,25 @@ const std::map<std::string, rocblas_datatype> precRocblasDType = {
     {"rocblas_datatype_u32_c",  rocblas_datatype_u32_c},
 };
 
-const std::map<std::string, hipblasDatatype_t> precHipblasDType = {
-    {"h", HIPBLAS_R_16F},       {"s", HIPBLAS_R_32F},       {"d", HIPBLAS_R_64F},
-    {"c", HIPBLAS_C_32F},       {"z", HIPBLAS_C_64F},       {"f16_r", HIPBLAS_R_16F},
-    {"f16_c", HIPBLAS_C_16F},   {"f32_r", HIPBLAS_R_32F},   {"f32_c", HIPBLAS_C_32F},
-    {"f64_r", HIPBLAS_R_64F},   {"f64_c", HIPBLAS_C_64F},   {"bf16_r", HIPBLAS_R_16B},
-    {"bf16_c", HIPBLAS_C_16B},  {"i8_r", HIPBLAS_R_8I},     {"i8_c", HIPBLAS_C_8I},
-    {"i32_r", HIPBLAS_R_32I},   {"i32_c", HIPBLAS_C_32I},
-    {"HIPBLAS_R_16F",   HIPBLAS_R_16F},
-    {"HIPBLAS_C_16F",   HIPBLAS_C_16F},
-    {"HIPBLAS_R_16B",   HIPBLAS_R_16B},
-    {"HIPBLAS_C_16B",   HIPBLAS_C_16B},
-    {"HIPBLAS_R_32F",   HIPBLAS_R_32F},
-    {"HIPBLAS_C_32F",   HIPBLAS_C_32F},
-    {"HIPBLAS_R_64F",   HIPBLAS_R_64F},
-    {"HIPBLAS_C_64F",   HIPBLAS_C_64F},
-    {"HIPBLAS_R_8I",    HIPBLAS_R_8I},
-    {"HIPBLAS_C_8I",    HIPBLAS_C_8I},
-    {"HIPBLAS_R_8U",    HIPBLAS_R_8U},
-    {"HIPBLAS_C_8U",    HIPBLAS_C_8U},
-    {"HIPBLAS_R_32I",   HIPBLAS_R_32I},
-    {"HIPBLAS_C_32I",   HIPBLAS_C_32I},
-    {"HIPBLAS_R_32U",   HIPBLAS_R_32U},
-    {"HIPBLAS_C_32U",   HIPBLAS_C_32U},
+const std::map<std::string, hipblasltDatatype_t> precHipblasltDType = {
+    {"h", HIPBLASLT_R_16F},         {"s", HIPBLASLT_R_32F},         // {"d", HIPBLASLT_R_64F},
+    // {"c", HIPBLASLT_C_32F},         {"z", HIPBLASLT_C_64F},
+    {"f16_r", HIPBLASLT_R_16F},     // {"f16_c", HIPBLASLT_C_16F},
+    {"f32_r", HIPBLASLT_R_32F},     // {"f32_c", HIPBLASLT_C_32F},
+    // {"f64_r", HIPBLASLT_R_64F},     {"f64_c", HIPBLASLT_C_64F},
+    {"bf16_r", HIPBLASLT_R_16B},    // {"bf16_c", HIPBLASLT_C_16B},
+    // {"i8_r", HIPBLASLT_R_8I},       {"i8_c", HIPBLASLT_C_8I},
+    // {"i32_r", HIPBLASLT_R_32I},     {"i32_c", HIPBLASLT_C_32I},
+    {"HIPBLASLT_R_16F", HIPBLASLT_R_16F},
+    // {"HIPBLASLT_C_16F",   HIPBLASLT_C_16F},
+    {"HIPBLASLT_R_16B", HIPBLASLT_R_16B},
+    // {"HIPBLASLT_C_16B",   HIPBLASLT_C_16B},
+    {"HIPBLASLT_R_32F", HIPBLASLT_R_32F},
+    // {"HIPBLASLT_C_32F",   HIPBLASLT_C_32F},
+    // {"HIPBLASLT_R_64F",   HIPBLASLT_R_64F},
+    // {"HIPBLASLT_C_64F",   HIPBLASLT_C_64F},
+    {"HIPBLASLT_R_8F_E4M3", HIPBLASLT_R_8F_E4M3},
+    {"HIPBLASLT_R_8F_E5M2", HIPBLASLT_R_8F_E5M2},
 };
 
 const std::map<std::string, rocblas_datatype> computeRocblasDType = {
@@ -104,7 +100,7 @@ const std::map<std::string, rocblas_datatype> computeRocblasDType = {
     {"i32_r", rocblas_datatype_i32_r},
 };
 
-const std::map<std::string, hipblasLtComputeType_t> computeHipblasDType = {
+const std::map<std::string, hipblasLtComputeType_t> computeHipblasltDType = {
     {"HIPBLASLT_COMPUTE_F32", HIPBLASLT_COMPUTE_F32},
     {"f32_r", HIPBLASLT_COMPUTE_F32},
 };
@@ -121,8 +117,8 @@ const std::map<rocblas_datatype, rocblas_datatype> precToRocblasCompute = {
     {rocblas_datatype_i32_r, rocblas_datatype_i32_r},
 };
 
-const std::map<hipblasDatatype_t, hipblasLtComputeType_t> precToHipblasCompute = {
-    {HIPBLAS_R_32F, HIPBLASLT_COMPUTE_F32},
-    {HIPBLAS_C_32F, HIPBLASLT_COMPUTE_F32},
+const std::map<hipblasltDatatype_t, hipblasLtComputeType_t> precToHipblasltCompute = {
+    {HIPBLASLT_R_32F, HIPBLASLT_COMPUTE_F32},
+    // {HIPBLASLT_C_32F, HIPBLASLT_COMPUTE_F32},
 };
 // clang-format on

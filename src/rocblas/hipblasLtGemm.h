@@ -10,19 +10,19 @@
 
 struct matmulPrecType {
   hipblasLtComputeType_t compute;
-  hipblasDatatype_t scalar;
-  hipblasDatatype_t a_type;
-  hipblasDatatype_t b_type;
-  hipblasDatatype_t c_type;
-  hipblasDatatype_t d_type;
-  hipblasDatatype_t bias_type;
+  hipblasltDatatype_t scalar;
+  hipblasltDatatype_t a_type;
+  hipblasltDatatype_t b_type;
+  hipblasltDatatype_t c_type;
+  hipblasltDatatype_t d_type;
+  hipblasltDatatype_t bias_type;
   bool operator==(const matmulPrecType rhs) const {
     return rhs.compute == compute && rhs.scalar == scalar &&
            rhs.a_type == rhs.a_type && rhs.b_type == b_type &&
            rhs.c_type == c_type && rhs.d_type == d_type &&
            // Omitting bias type is acceptable
            (rhs.bias_type == bias_type ||
-            rhs.bias_type == (hipblasDatatype_t)(-1));
+            rhs.bias_type == (hipblasltDatatype_t)(-1));
   }
 };
 
@@ -60,14 +60,14 @@ class hipblasLtGemm : public genericGemm {
   hipblasOperation_t transA;
   hipblasOperation_t transB;
 
-  hipblasDatatype_t precision;
+  hipblasltDatatype_t precision;
   hipblasLtComputeType_t compute;
-  hipblasDatatype_t scalar;
-  hipblasDatatype_t a_type;
-  hipblasDatatype_t b_type;
-  hipblasDatatype_t c_type;
-  hipblasDatatype_t d_type;
-  hipblasDatatype_t bias_type;
+  hipblasltDatatype_t scalar;
+  hipblasltDatatype_t a_type;
+  hipblasltDatatype_t b_type;
+  hipblasltDatatype_t c_type;
+  hipblasltDatatype_t d_type;
+  hipblasltDatatype_t bias_type;
 
   int workspaceSz = 64 * 1024 * 1024;
 
@@ -76,7 +76,7 @@ class hipblasLtGemm : public genericGemm {
 
  public:
   hipblasLtGemm(cxxopts::ParseResult result);
-  // hipblasDatatype_t precisionStringToHipblasDType(std::string stringPrecision);
+  // hipblasltDatatype_t precisionStringToHipblasltDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,

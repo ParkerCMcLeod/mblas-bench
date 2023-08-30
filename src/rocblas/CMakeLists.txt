@@ -7,6 +7,7 @@ set(CMAKE_CXX_COMPILER "/opt/rocm/hip/bin/hipcc")
 set(CMAKE_CXX_STANDARD 17)
 project(mblas_bench LANGUAGES CXX HIP)
 set(CMAKE_HIP_FLAGS "-fPIC -fgpu-rdc -w -D__HIP_PLATFORM_AMD__")
+set(CMAKE_CXX_FLAGS "-D__HIP_PLATFORM_AMD__")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Set the GPU to compile for
