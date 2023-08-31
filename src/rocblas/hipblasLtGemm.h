@@ -18,7 +18,7 @@ struct matmulPrecType {
   hipblasltDatatype_t bias_type;
   bool operator==(const matmulPrecType rhs) const {
     return rhs.compute == compute && rhs.scalar == scalar &&
-           rhs.a_type == rhs.a_type && rhs.b_type == b_type &&
+           rhs.a_type == a_type && rhs.b_type == b_type &&
            rhs.c_type == c_type && rhs.d_type == d_type &&
            // Omitting bias type is acceptable
            (rhs.bias_type == bias_type ||
@@ -74,16 +74,14 @@ class hipblasLtGemm : public genericGemm {
   static std::vector<matmulPrecType> matmulSupported;
   std::vector<hipblasLtGemmInst> matPtrs;
 
- public:
-  hipblasLtGemm(cxxopts::ParseResult result);
-  // hipblasltDatatype_t precisionStringToHipblasltDType(std::string stringPrecision);
+ private:
+  // hipblasDatatype_t precisionStringToHipblasDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);
   void validateParameters();
   void parseDevIters(std::string);
-  std::string prepareArray();
   void allocHost();
   void allocDev(hipblasLtGemmInst *);
   void fillHost();
@@ -91,14 +89,14 @@ class hipblasLtGemm : public genericGemm {
   void prepareMatrix(hipblasLtGemmInst *);
   void noTuning(hipblasLtGemmInst *);
   void autoTuning(hipblasLtGemmInst *);
-
   void runThreaded(void (hipblasLtGemm::*func)(hipblasLtGemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
-
-  virtual void freeMem();
-
-  std::string getResultString();
-  double test();
-
   void testMatmul(hipblasLtGemmInst *mat);
+
+ public:
+  hipblasLtGemm(cxxopts::ParseResult result);
+  std::string prepareArray();
+  double test();
+  std::string getResultString();
+  virtual void freeMem();
 };

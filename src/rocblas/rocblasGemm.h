@@ -118,8 +118,6 @@ class rocblasGemm : public genericGemm {
   template<typename T>
   inline T * getOffsetPtrNC(T * mat, long long int blockstride, int rep); 
 
- public:
-  rocblasGemm(cxxopts::ParseResult result);
   void initPrecMap();
   // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
@@ -127,7 +125,6 @@ class rocblasGemm : public genericGemm {
                   std::string aStr, std::string bStr, std::string cStr);
   void parseDevIters(std::string);
   rocblas_operation setOp(std::string);
-  std::string prepareArray();
   void allocHost();
   void allocDev(rocblasgemmInst *);
   void fillHost();
@@ -135,12 +132,7 @@ class rocblasGemm : public genericGemm {
   void runThreaded(void (rocblasGemm::*func)(rocblasgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
 
-  virtual void freeMem();
 
-  std::string getResultString();
-  double test();
-  double testGemmExBatched();
-  double testGemmExStridedBatched();
 
   template <typename T>
   void testTgemm(std::function<rocblas_status_(_rocblas_handle*, rocblas_operation_, rocblas_operation_, int, int, int, T const*, T const*, int, T const*, int, T const*, T*, int)> func, rocblasgemmInst *mat);
@@ -160,4 +152,12 @@ class rocblasGemm : public genericGemm {
   void test_gemm_ex(rocblasgemmInst *mat);
   void test_gemm_batched_ex(rocblasgemmInst *mat);
   void test_gemm_strided_batched_ex(rocblasgemmInst *mat);
+
+ public:
+  rocblasGemm(cxxopts::ParseResult result);
+  std::string prepareArray();
+  double test();
+  std::string getResultString();
+  virtual void freeMem();
+
 };

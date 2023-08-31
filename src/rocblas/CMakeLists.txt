@@ -18,6 +18,7 @@ list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
 # Find hip packages
 find_package(hip REQUIRED)
 find_package(rocblas REQUIRED)
+find_package(hipblas REQUIRED)
 find_package(hipblaslt REQUIRED)
 find_package(Threads REQUIRED) 
 
@@ -45,6 +46,7 @@ target_link_libraries(mblasrocm PRIVATE
 	hip::device
     hip::host
     roc::rocblas
+    roc::hipblas
     roc::hipblaslt
     Threads::Threads
     mblasgeneric

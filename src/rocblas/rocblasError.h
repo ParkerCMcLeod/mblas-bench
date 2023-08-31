@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <rocblas/rocblas.h>
 #include <hipblaslt/hipblaslt.h>
+#include <hipblas/hipblas.h>
 #include <hip/hip_runtime.h>
 #include <stdlib.h>
 #include <unistd.h>

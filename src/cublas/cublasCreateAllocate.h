@@ -32,7 +32,7 @@ struct sizeofCUDTP {
 template <typename T>
 struct batchedPtrMagic {
   void operator()(void **hptr, void **dptr, void *hArr, int batchct, int x,
-                  int y, int blockct);
+                  int y, int blockct = 1);
 };
 
 template <typename T>
@@ -116,7 +116,7 @@ void batchedPtrMagic<T>::operator()(void **hptr, void **dptr, void *dAr,
   // checkCuda(cudaMalloc(&dptr, batchct * sizeof(T *)));
   // hptr = reinterpret_cast<void **>(host);
   // checkCuda(
-  cudaMemcpy(dptr, hptr, batchct * sizeof(T *), cudaMemcpyHostToDevice);
+  cudaMemcpy(dptr, hptr, batchct * blockct * sizeof(T *), cudaMemcpyHostToDevice);
 }
 
 template <typename T>

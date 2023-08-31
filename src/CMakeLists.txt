@@ -56,21 +56,21 @@ target_include_directories(mblas-bench PUBLIC
 # If backend is disabled, use the dummy implementation
 if (WITH_ROCM)
     target_include_directories(mblas-bench PRIVATE
-        rocblas
+        "include/rocblas"
     )
 else ()
     target_include_directories(mblas-bench PRIVATE
-        dummy/rocblas
+        "dummy/rocblas"
     )
 endif()
 
 if (WITH_CUDA)
     target_include_directories(mblas-bench PRIVATE
-        cublas
+        "include/cublas"
     )
 else ()
     target_include_directories(mblas-bench PRIVATE
-        dummy/cublas
+        "dummy/cublas"
     )
 endif()
 
@@ -81,27 +81,18 @@ target_link_libraries(mblas-bench PUBLIC
 )
 
 if (WITH_ROCM)
-    #set(CMAKE_CXX_COMPILER "hipcc")
-    #set(HIP_PLATFORM AMD)
     target_link_libraries(mblas-bench PRIVATE
     mblasrocm
-    )
-    target_include_directories(mblas-bench PRIVATE
-    /opt/rocm/include
     )
 endif()
 
 
 if (WITH_CUDA)
-    link_directories(/usr/local/cuda/lib64/)
+    #link_directories(/usr/local/cuda/lib64/)
     target_link_libraries(mblas-bench PRIVATE
         mblascuda
         -lstdc++
         -lm
         -lpthread
-    )
-else()
-    target_include_directories(mblas-bench PUBLIC
-        generic/dummy/cublas
     )
 endif()

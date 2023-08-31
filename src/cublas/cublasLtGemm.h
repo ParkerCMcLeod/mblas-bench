@@ -75,8 +75,7 @@ class cublasLtGemm : public genericGemm {
   static std::vector<matmulPrecType> matmulSupported;
   std::vector<cublasltgemmInst> matPtrs;
 
- public:
-  cublasLtGemm(cxxopts::ParseResult result);
+ private:
   // cudaDataType_t precisionStringToDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
   void parseMType(std::string computeTStr, std::string scalarTStr,
@@ -84,7 +83,6 @@ class cublasLtGemm : public genericGemm {
                   std::string dStr);
   void validateParameters();
   void parseDevIters(std::string);
-  std::string prepareArray();
   void allocHost();
   void allocDev(cublasltgemmInst *);
   void fillHost();
@@ -92,14 +90,14 @@ class cublasLtGemm : public genericGemm {
   void prepareMatrix(cublasltgemmInst *);
   void noTuning(cublasltgemmInst *);
   void autoTuning(cublasltgemmInst *);
-
   void runThreaded(void (cublasLtGemm::*func)(cublasltgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
-
-  virtual void freeMem();
-
-  std::string getResultString();
-  double test();
-
   void testMatmul(cublasltgemmInst *mat);
+
+ public:
+  cublasLtGemm(cxxopts::ParseResult result);
+  std::string prepareArray();
+  double test();
+  std::string getResultString();
+  virtual void freeMem();
 };

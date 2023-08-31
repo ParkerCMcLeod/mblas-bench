@@ -103,8 +103,7 @@ class cublasGemm : public genericGemm {
   std::vector<cublasgemmInst> matPtrs;
   std::vector<std::vector<cudaEvent_t *> *> eventPtr;
 
- public:
-  cublasGemm(cxxopts::ParseResult result);
+ private:
   void initPrecMap();
   // cudaDataType_t precisionStringToDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
@@ -112,7 +111,6 @@ class cublasGemm : public genericGemm {
                   std::string aStr, std::string bStr, std::string cStr);
   void parseDevIters(std::string);
   cublasOperation_t setOp(std::string);
-  std::string prepareArray();
   void allocHost();
   void allocDev(cublasgemmInst *);
   void fillHost();
@@ -120,10 +118,7 @@ class cublasGemm : public genericGemm {
   void runThreaded(void (cublasGemm::*func)(cublasgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
 
-  virtual void freeMem();
 
-  std::string getResultString();
-  double test();
   double testGemmExBatched();
   double testGemmExStridedBatched();
 
@@ -165,4 +160,10 @@ class cublasGemm : public genericGemm {
       cublasgemmInst *mat);
 
   void testGemmEx(cublasgemmInst *mat);
+ public:
+  cublasGemm(cxxopts::ParseResult result);
+  std::string prepareArray();
+  double test();
+  std::string getResultString();
+  virtual void freeMem();
 };
