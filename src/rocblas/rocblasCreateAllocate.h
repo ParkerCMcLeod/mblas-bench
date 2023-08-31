@@ -13,18 +13,18 @@
 #include <string>
 
 // int sizeof_cudt_host(rocblas_datatype type);
-// int sizeof_cudt_host(hipblasltDatatype_t type);
+// int sizeof_cudt_host(hipblasDatatype_t type);
 void *allocateHostArr(rocblas_datatype type, long x, long y, int batch = 1, int block = 1);
-void *allocateHostArr(hipblasltDatatype_t type, long x, long y, int batch = 1, int block = 1);
+void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch = 1, int block = 1);
 void *allocateDevArr(rocblas_datatype type, long x, long y, int batch = 1, int block = 1);
-void *allocateDevArr(hipblasltDatatype_t type, long x, long y, int batch = 1, int block = 1);
+void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch = 1, int block = 1);
 void *allocateHDevArr(rocblas_datatype type, long x, long y, int batch = 1, int block = 1);
-void *allocateHDevArr(hipblasltDatatype_t type, long x, long y, int batch = 1, int block = 1);
+void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch = 1, int block = 1);
 
 void initHostH(rocblas_datatype precision, std::string initialization, void *ptr,
                int rows_A, int cols_A, int ld, int batch, long long int stride,
                float constant = 0.f, bool alternating = false);
-void initHostH(hipblasltDatatype_t precision, std::string initialization, void *ptr,
+void initHostH(hipblasDatatype_t precision, std::string initialization, void *ptr,
                int rows_A, int cols_A, int ld, int batch, long long int stride,
                float constant = 0.f, bool alternating = false);
 
@@ -60,7 +60,7 @@ auto typeCallHost(rocblas_datatype type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
 
 template <template <typename> class tFunc, class... Args>
-auto typeCallHost(hipblasltDatatype_t type, Args... args) ->
+auto typeCallHost(hipblasDatatype_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
 
 template <template <typename> class tFunc, class... Args>
@@ -68,7 +68,7 @@ auto typeCallDev(rocblas_datatype type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
 
 template <template <typename> class tFunc, class... Args>
-auto typeCallDev(hipblasltDatatype_t type, Args... args) ->
+auto typeCallDev(hipblasDatatype_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
 
 template <typename T>
@@ -208,31 +208,31 @@ auto typeCallHost(rocblas_datatype type, Args... args) ->
 }
 
 template <template <typename> class tFunc, class... Args>
-auto typeCallHost(hipblasltDatatype_t type, Args... args) ->
+auto typeCallHost(hipblasDatatype_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type {
   // At runtime, determine which typed implementation to use and call it
   switch (type) {
-    case HIPBLASLT_R_64F:
+    case HIPBLAS_R_64F:
       return tFunc<double>()(args...);
-    // case HIPBLASLT_C_64F:
+    // case HIPBLAS_C_64F:
     //   return tFunc<hipDoubleComplex>()(args...);
-    case HIPBLASLT_R_32F:
+    case HIPBLAS_R_32F:
       return tFunc<float>()(args...);
-    // case HIPBLASLT_C_32F:
+    // case HIPBLAS_C_32F:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_16B:
+    case HIPBLAS_R_16B:
       return tFunc<float>()(args...);
-    // case HIPBLASLT_C_16B:
+    // case HIPBLAS_C_16B:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_16F:
+    case HIPBLAS_R_16F:
       return tFunc<float>()(args...);
-    // case HIPBLASLT_C_16F:
+    // case HIPBLAS_C_16F:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_8I:
+    case HIPBLAS_R_8I:
       return tFunc<__int8_t>()(args...);
-    case HIPBLASLT_R_8U:
+    case HIPBLAS_R_8U:
       return tFunc<__uint8_t>()(args...);
-    case HIPBLASLT_R_32I:
+    case HIPBLAS_R_32I:
       return tFunc<__int32_t>()(args...);
     default:
       return tFunc<double>()(args...);
@@ -272,31 +272,31 @@ auto typeCallDev(rocblas_datatype type, Args... args) ->
 }
 
 template <template <typename> class tFunc, class... Args>
-auto typeCallDev(hipblasltDatatype_t type, Args... args) ->
+auto typeCallDev(hipblasDatatype_t type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type {
   // At runtime, determine which typed implementation to use and call it
   switch (type) {
-    case HIPBLASLT_R_64F:
+    case HIPBLAS_R_64F:
       return tFunc<double>()(args...);
-    // case HIPBLASLT_C_64F:
+    // case HIPBLAS_C_64F:
     //   return tFunc<hipDoubleComplex>()(args...);
-    case HIPBLASLT_R_32F:
+    case HIPBLAS_R_32F:
       return tFunc<float>()(args...);
-    // case HIPBLASLT_C_32F:
+    // case HIPBLAS_C_32F:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_16B:
+    case HIPBLAS_R_16B:
       return tFunc<hip_bfloat16>()(args...);
-    // case HIPBLASLT_C_16B:
+    // case HIPBLAS_C_16B:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_16F:
+    case HIPBLAS_R_16F:
       return tFunc<__half>()(args...);
-    // case HIPBLASLT_C_16F:
+    // case HIPBLAS_C_16F:
     //   return tFunc<hipComplex>()(args...);
-    case HIPBLASLT_R_8I:
+    case HIPBLAS_R_8I:
       return tFunc<__int8_t>()(args...);
-    case HIPBLASLT_R_8U:
+    case HIPBLAS_R_8U:
       return tFunc<__uint8_t>()(args...);
-    case HIPBLASLT_R_32I:
+    case HIPBLAS_R_32I:
       return tFunc<__int32_t>()(args...);
     default:
       return tFunc<double>()(args...);

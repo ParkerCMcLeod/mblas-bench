@@ -13,12 +13,12 @@ __global__ void floatToFp16(float *input, size_t num_elements, __half *output);
 
 void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x,
                     int y, int batchsz, int blockct);
-void copyAndConvert(hipblasltDatatype_t precision, void *hostA, void *devA, int x,
+void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x,
                     int y, int batchsz, int blockct);
 void *convertScalar(rocblas_datatype precision, void *scalar);
-void *convertScalar(hipblasltDatatype_t precision, void *scalar);
+void *convertScalar(hipblasDatatype_t precision, void *scalar);
 void copyAndConvertScalar(rocblas_datatype scalarPrecision, void *hostScalar,
                           void *devScalar);
-void copyAndConvertScalar(hipblasltDatatype_t scalarPrecision, void *hostScalar,
+void copyAndConvertScalar(hipblasDatatype_t scalarPrecision, void *hostScalar,
                           void *devScalar);
                           

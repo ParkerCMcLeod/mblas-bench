@@ -49,7 +49,7 @@ void *allocateHostArr(rocblas_datatype type, long x, long y, int batch, int bloc
   return data;
 }
 
-void *allocateHostArr(hipblasltDatatype_t type, long x, long y, int batch, int block) {
+void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
   int typesize = typeCallHost<sizeofCUDT>(type);
   void *data = (void *)malloc(x * y * batch * block * typesize);
   return data;
@@ -62,7 +62,7 @@ void *allocateDevArr(rocblas_datatype type, long x, long y, int batch, int block
   return data;
 }
 
-void *allocateDevArr(hipblasltDatatype_t type, long x, long y, int batch, int block) {
+void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
   int typesize = typeCallDev<sizeofCUDT>(type);
   void *data;
   checkHip(hipMalloc(&data, x * y * batch * block * typesize));
@@ -76,7 +76,7 @@ void *allocateHDevArr(rocblas_datatype type, long x, long y, int batch, int bloc
   return data;
 }
 
-void *allocateHDevArr(hipblasltDatatype_t type, long x, long y, int batch, int block) {
+void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
   int typesize = typeCallHost<sizeofCUDT>(type);
   void *data;
   checkHip(hipMalloc(&data, x * y * batch * block * typesize));
@@ -96,9 +96,9 @@ void dummy() {
   typeCallHost<allocSetScalar>(rocblas_datatype_f64_r, "1", "0");
   typeCallDev<batchedPtrMagic>(rocblas_datatype_f64_r, (void **)NULL, (void **)NULL,
                                (void *)NULL, 10, 10, 10, 10);
-  typeCallHost<sizeofCUDTP>(HIPBLASLT_R_32F);
-  typeCallHost<allocSetScalar>(HIPBLASLT_R_32F, "1", "0");
-  typeCallDev<batchedPtrMagic>(HIPBLASLT_R_32F, (void **)NULL, (void **)NULL,
+  typeCallHost<sizeofCUDTP>(HIPBLAS_R_32F);
+  typeCallHost<allocSetScalar>(HIPBLAS_R_32F, "1", "0");
+  typeCallDev<batchedPtrMagic>(HIPBLAS_R_32F, (void **)NULL, (void **)NULL,
                                (void *)NULL, 10, 10, 10, 10);
   // template void *allocSetScalar<double>::operator()(string);
 }
@@ -110,7 +110,7 @@ void initHostH(rocblas_datatype precision, std::string initialization, void *ptr
                          batch, stride, constant, alternating);
 }
 
-void initHostH(hipblasltDatatype_t precision, std::string initialization, void *ptr,
+void initHostH(hipblasDatatype_t precision, std::string initialization, void *ptr,
                int rows_A, int cols_A, int ld, int batch, long long int stride,
                float constant, bool alternating) {
   typeCallHost<initHost>(precision, initialization, ptr, rows_A, cols_A, ld,

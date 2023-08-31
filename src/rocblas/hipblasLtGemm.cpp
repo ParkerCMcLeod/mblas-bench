@@ -1,5 +1,6 @@
 #include "hipblasLtGemm.h"
 
+#include <hipblaslt/hipblaslt.h>
 #include <hip/hip_runtime.h>
 
 #include <future>
@@ -25,10 +26,10 @@ using std::vector;
 
 // clang-format off
 std::vector<matmulPrecType> hipblasLtGemm::matmulSupported = {
-  // Compute type           Scale Type        A Type            B Type            C Type            D Type            Bias Type
-  {HIPBLASLT_COMPUTE_F32,   HIPBLASLT_R_32F,  HIPBLASLT_R_32F,  HIPBLASLT_R_32F,  HIPBLASLT_R_32F,  HIPBLASLT_R_32F,  HIPBLASLT_R_32F},
-  {HIPBLASLT_COMPUTE_F32,   HIPBLASLT_R_32F,  HIPBLASLT_R_16F,  HIPBLASLT_R_16F,  HIPBLASLT_R_16F,  HIPBLASLT_R_16F,  HIPBLASLT_R_32F},
-  {HIPBLASLT_COMPUTE_F32,   HIPBLASLT_R_32F,  HIPBLASLT_R_16B,  HIPBLASLT_R_16B,  HIPBLASLT_R_16B,  HIPBLASLT_R_16B,  HIPBLASLT_R_32F},
+  // Compute type           Scale Type      A Type          B Type          C Type          D Type          Bias Type
+  {HIPBLASLT_COMPUTE_F32,   HIPBLAS_R_32F,  HIPBLAS_R_32F,  HIPBLAS_R_32F,  HIPBLAS_R_32F,  HIPBLAS_R_32F,  HIPBLAS_R_32F},
+  {HIPBLASLT_COMPUTE_F32,   HIPBLAS_R_32F,  HIPBLAS_R_16F,  HIPBLAS_R_16F,  HIPBLAS_R_16F,  HIPBLAS_R_16F,  HIPBLAS_R_16F},
+  {HIPBLASLT_COMPUTE_F32,   HIPBLAS_R_32F,  HIPBLAS_R_16B,  HIPBLAS_R_16B,  HIPBLAS_R_16B,  HIPBLAS_R_16B,  HIPBLAS_R_16B},
 };
 // clang-format on
 
@@ -71,17 +72,17 @@ void hipblasLtGemm::parseMType(string computeTStr, string scalarTStr,
 
   // Parse each precision
   if (!noParse) {
-    a_type = precisionStringToHipblasltDType(aStr);
-    b_type = precisionStringToHipblasltDType(bStr);
-    c_type = precisionStringToHipblasltDType(cStr);
-    d_type = precisionStringToHipblasltDType(dStr);
+    a_type = precisionStringToHipblasDType(aStr);
+    b_type = precisionStringToHipblasDType(bStr);
+    c_type = precisionStringToHipblasDType(cStr);
+    d_type = precisionStringToHipblasDType(dStr);
   }
 }
 
 void hipblasLtGemm::validateParameters() {
   // Validate that data types exist in table of supported configurations
   matmulPrecType selType = {
-      compute, scalar, a_type, b_type, c_type, d_type, (hipblasltDatatype_t)(-1)};
+      compute, scalar, a_type, b_type, c_type, d_type, (hipblasDatatype_t)(-1)};
   auto result =
       std::find(begin(matmulSupported), end(matmulSupported), selType);
   if (result == end(matmulSupported)) {
@@ -112,7 +113,7 @@ void hipblasLtGemm::validateParameters() {
 
 hipblasLtGemm::hipblasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
   // Grab precision from command line
-  precision = precisionStringToHipblasltDType(result["precision"].as<string>());
+  precision = precisionStringToHipblasDType(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
   string scalarT = result["scalar_type"].as<string>();

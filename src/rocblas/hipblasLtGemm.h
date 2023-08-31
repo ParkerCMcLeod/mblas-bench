@@ -10,19 +10,19 @@
 
 struct matmulPrecType {
   hipblasLtComputeType_t compute;
-  hipblasltDatatype_t scalar;
-  hipblasltDatatype_t a_type;
-  hipblasltDatatype_t b_type;
-  hipblasltDatatype_t c_type;
-  hipblasltDatatype_t d_type;
-  hipblasltDatatype_t bias_type;
+  hipblasDatatype_t scalar;
+  hipblasDatatype_t a_type;
+  hipblasDatatype_t b_type;
+  hipblasDatatype_t c_type;
+  hipblasDatatype_t d_type;
+  hipblasDatatype_t bias_type;
   bool operator==(const matmulPrecType rhs) const {
     return rhs.compute == compute && rhs.scalar == scalar &&
            rhs.a_type == a_type && rhs.b_type == b_type &&
            rhs.c_type == c_type && rhs.d_type == d_type &&
            // Omitting bias type is acceptable
            (rhs.bias_type == bias_type ||
-            rhs.bias_type == (hipblasltDatatype_t)(-1));
+            rhs.bias_type == (hipblasDatatype_t)(-1));
   }
 };
 
@@ -60,14 +60,14 @@ class hipblasLtGemm : public genericGemm {
   hipblasOperation_t transA;
   hipblasOperation_t transB;
 
-  hipblasltDatatype_t precision;
+  hipblasDatatype_t precision;
   hipblasLtComputeType_t compute;
-  hipblasltDatatype_t scalar;
-  hipblasltDatatype_t a_type;
-  hipblasltDatatype_t b_type;
-  hipblasltDatatype_t c_type;
-  hipblasltDatatype_t d_type;
-  hipblasltDatatype_t bias_type;
+  hipblasDatatype_t scalar;
+  hipblasDatatype_t a_type;
+  hipblasDatatype_t b_type;
+  hipblasDatatype_t c_type;
+  hipblasDatatype_t d_type;
+  hipblasDatatype_t bias_type;
 
   int workspaceSz = 64 * 1024 * 1024;
 
