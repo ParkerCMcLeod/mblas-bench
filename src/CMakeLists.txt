@@ -56,7 +56,7 @@ target_include_directories(mblas-bench PUBLIC
 # If backend is disabled, use the dummy implementation
 if (WITH_ROCM)
     target_include_directories(mblas-bench PRIVATE
-        "include/rocblas"
+        "rocblas"
     )
 else ()
     target_include_directories(mblas-bench PRIVATE
@@ -66,7 +66,7 @@ endif()
 
 if (WITH_CUDA)
     target_include_directories(mblas-bench PRIVATE
-        "include/cublas"
+        "cublas"
     )
 else ()
     target_include_directories(mblas-bench PRIVATE

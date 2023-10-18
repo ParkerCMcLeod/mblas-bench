@@ -18,7 +18,9 @@ find_package(Threads REQUIRED)
 
 add_library(mblascuda SHARED
     cublasGemm.cpp
+    cublasGemmFactory.cpp
     cublasLtGemm.cpp
+    cublasLtGemmFactory.cpp
     cublasConvert.cu
     cublasCreateAllocate.cpp
     cublasDtypeUtils.cpp

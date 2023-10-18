@@ -7,11 +7,16 @@
 #include <iostream>
 
 
-#include "genericGemm.h"
-#include "rocblasGemm.h"
-#include "hipblasLtGemm.h"
-#include "cublasGemm.h"
-#include "cublasLtGemm.h"
+//#include "genericGemm.h"
+//#include "rocblasGemm.h"
+//#include "hipblasLtGemm.h"
+//#include "cublasGemm.h"
+//#include "cublasLtGemm.h"
+#include <genericGemmFactory.h>
+#include <rocblasGemmFactory.h>
+#include <hipblasLtGemmFactory.h>
+#include <cublasGemmFactory.h>
+#include <cublasLtGemmFactory.h>
 
 #include "third_party/cxxopts.hpp"
 
@@ -173,8 +178,7 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  genericGemm *gemm;
-
+  genericGemmFactory *gemm;
   // Select backend implementation
   string driver = sToLower(result["driver"].as<string>());
   string function = sToLower(result["function"].as<string>());
@@ -182,20 +186,22 @@ int main(int argc, char **argv) {
   if (driver == "cublaslt" || (driver == "cublas" && function == "matmul")) {
     // Since regular cublas has no matmul, we can safely assume the user means
     // cublaslt
-    gemm = new cublasLtGemm(result);
+    gemm = new cublasLtGemmFactory();
   } else if (driver == "cublas-bench" || driver == "cublas") {
-    gemm = new cublasGemm(result);
+    gemm = new cublasGemmFactory();
   } else if (driver == "hipblaslt" || (driver == "rocblas" && function == "matmul")) {
     // Since regular rocblas has no matmul, we can safely assume the user means
     // hipblaslt
-    gemm = new hipblasLtGemm(result);
+    // gemm = new hipblasLtGemm(result);
+    gemm = new hipblasLtGemmFactory();
   } else if (driver == "rocblas-bench" || driver == "rocblas") {
-    gemm = new rocblasGemm(result);
+    gemm = new rocblasGemmFactory();
   } else {
     cerr << "Driver \"" << driver << "\" not supported" << endl;
     return 1;
   }
 
+  gemm->createGemm(result);
   string header = gemm->prepareArray();
   cout << header << flush;
   gemm->test();

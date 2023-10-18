@@ -24,7 +24,9 @@ find_package(Threads REQUIRED)
 
 add_library(mblasrocm SHARED
     rocblasGemm.cpp
+    rocblasGemmFactory.cpp
     hipblasLtGemm.cpp
+    hipblasLtGemmFactory.cpp
     rocblasConvert.hip
     rocblasCreateAllocate.cpp
     rocblasDtypeUtils.cpp
