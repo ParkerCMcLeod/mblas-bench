@@ -14,7 +14,7 @@
 #include "cublasCreateAllocate.h"
 #include "cublasDtypeUtils.h"
 #include "cudaError.h"
-#include "third_party/cxxopts.hpp"
+#include "cxxopts.hpp"
 
 using std::cerr;
 using std::cout;

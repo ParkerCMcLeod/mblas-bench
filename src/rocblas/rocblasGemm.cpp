@@ -237,9 +237,9 @@ void rocblasGemm::fillHost() {
 
 void rocblasGemm::copyHostToDev(rocblasgemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  copyAndConvert(a_type, hostA, mat->devA, rowsMemA, colsMemA, batchct);
-  copyAndConvert(b_type, hostB, mat->devB, rowsMemB, colsMemB, batchct);
-  copyAndConvert(c_type, hostC, mat->devC, rowsMemC, colsMemC, batchct);
+  copyAndConvert(a_type, hostA, mat->devA, rowsMemA, colsMemA, batchct, blockct);
+  copyAndConvert(b_type, hostB, mat->devB, rowsMemB, colsMemB, batchct, blockct);
+  copyAndConvert(c_type, hostC, mat->devC, rowsMemC, colsMemC, batchct, blockct);
   if (batched && !strided) {
     // Perform some pointer arithmetic to calculate the arrays we pass to the
     // gpu

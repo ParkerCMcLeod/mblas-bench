@@ -2,7 +2,7 @@
 #include <cublasLt.h>
 #include <cuda_runtime.h>
 #include <cxxabi.h>
-#include <third_party/barrier.h>
+#include <barrier.h>
 
 #include <iostream>
 #include <string>
