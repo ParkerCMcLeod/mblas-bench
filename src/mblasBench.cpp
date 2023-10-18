@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
             "Defaults to a value based on -r/--precision when not specified",
             cxxopts::value<string>()->default_value(""));
   opp_adder("composite_compute_type",
-            "rocblas-bench compatibility variable, maps directly to --compute_type"
+            "rocblas-bench compatibility variable, maps directly to --compute_type",
             cxxopts::value<string>()->default_value(""));
   opp_adder("scalar_type",
             "What scalar type to use "
