@@ -197,16 +197,16 @@ void rocblasGemm::allocHost() {
   // hostA = resultA.get();
   // hostB = resultB.get();
   // hostC = resultC.get();
-  hostA = allocateHostArr(a_type, m, k, batchct, blockct);
-  hostB = allocateHostArr(b_type, k, n, batchct, blockct);
-  hostC = allocateHostArr(c_type, m, n, batchct, blockct);
+  hostA = allocateHostArr(a_type, rowsMemA, colsMemA, batchct);
+  hostB = allocateHostArr(b_type, rowsMemB, colsMemB, batchct);
+  hostC = allocateHostArr(c_type, rowsMemC, colsMemC, batchct);
 }
 
 void rocblasGemm::allocDev(rocblasgemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  mat->devA = allocateDevArr(a_type, m, k, batchct, blockct);
-  mat->devB = allocateDevArr(b_type, k, n, batchct, blockct);
-  mat->devC = allocateDevArr(c_type, m, n, batchct, blockct);
+  mat->devA = allocateDevArr(a_type, rowsMemA, colsMemA, batchct);
+  mat->devB = allocateDevArr(b_type, rowsMemB, colsMemB, batchct);
+  mat->devC = allocateDevArr(c_type, rowsMemC, colsMemC, batchct);
   mat->wSZ = workspaceSz;
   hipMalloc(&mat->devWork, mat->wSZ);
 }
@@ -237,9 +237,9 @@ void rocblasGemm::fillHost() {
 
 void rocblasGemm::copyHostToDev(rocblasgemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  copyAndConvert(a_type, hostA, mat->devA, m, k, batchct, blockct);
-  copyAndConvert(b_type, hostB, mat->devB, k, n, batchct, blockct);
-  copyAndConvert(c_type, hostC, mat->devC, n, m, batchct, blockct);
+  copyAndConvert(a_type, hostA, mat->devA, rowsMemA, colsMemA, batchct);
+  copyAndConvert(b_type, hostB, mat->devB, rowsMemB, colsMemB, batchct);
+  copyAndConvert(c_type, hostC, mat->devC, rowsMemC, colsMemC, batchct);
   if (batched && !strided) {
     // Perform some pointer arithmetic to calculate the arrays we pass to the
     // gpu
@@ -256,11 +256,11 @@ void rocblasGemm::copyHostToDev(rocblasgemmInst *mat) {
     checkHip(
         hipMalloc(&mat->ptrDevC, batchct * blockct * typeCallHost<sizeofCUDTP>(c_type)));
     typeCallDev<batchedPtrMagic>(a_type, mat->ptrHostA, mat->ptrDevA, mat->devA,
-                                batchct, m, k, blockct);
+                                batchct, rowsMemA, colsMemA, blockct);
     typeCallDev<batchedPtrMagic>(b_type, mat->ptrHostB, mat->ptrDevB, mat->devB,
-                                batchct, k, n, blockct);
+                                batchct, rowsMemB, colsMemB, blockct);
     typeCallDev<batchedPtrMagic>(c_type, mat->ptrHostC, mat->ptrDevC, mat->devC,
-                                batchct, n, m, blockct);
+                                batchct, rowsMemC, colsMemC, blockct);
   }
 }
 
