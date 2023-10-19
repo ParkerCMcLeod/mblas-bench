@@ -51,8 +51,8 @@ __global__ void intToInt8(__int32_t *input, size_t num_elements,
 void copyAndConvert(cublasDataType_t precision, void *hostA, void *devA, int x, int y, int batchsz)
 {
 
-  int hostsz = typeCallHost<sizeofCUDT>(precision);
-  int devsz = typeCallDev<sizeofCUDT>(precision);
+  long hostsz = typeCallHost<sizeofCUDT>(precision);
+  long devsz = typeCallDev<sizeofCUDT>(precision);
   if (precision == CUDA_C_16F || precision == CUDA_R_16F)
   {
     // Allocate memory in the device for host precision (float)
