@@ -48,7 +48,7 @@ __global__ void floatToFp16(float *input, size_t num_elements, __half *output)
 //   }
 // }
 
-void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x, int y, int batchsz, int blockct)
+void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x, int y, int batchsz)
 {
 
   int hostsz = typeCallHost<sizeofCUDT>(precision);
@@ -56,10 +56,10 @@ void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x, 
   if (precision == rocblas_datatype_f16_c || precision == rocblas_datatype_f16_r)
   {
     // Allocate memory in the device for host precision (float)
-    void *tmpA = allocateHDevArr(precision, x, y, batchsz, blockct);
-    checkHip(hipMemcpy(tmpA, hostA, blockct * batchsz * x * y * hostsz,
+    void *tmpA = allocateHDevArr(precision, x, y, batchsz);
+    checkHip(hipMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
-    long num_elements = batchsz * x * y * blockct;
+    long num_elements = batchsz * x * y;
     long block_size = 256;
     long num_blocks = (num_elements + block_size - 1) / block_size;
     floatToFp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
@@ -68,21 +68,21 @@ void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x, 
   else if (precision == rocblas_datatype_bf16_c || precision == rocblas_datatype_bf16_r)
   {
     // Allocate memory in the device for host precision (float)
-    void *tmpA = allocateHDevArr(precision, x, y, batchsz, blockct);
-    checkHip(hipMemcpy(tmpA, hostA, blockct * batchsz * x * y * hostsz,
+    void *tmpA = allocateHDevArr(precision, x, y, batchsz);
+    checkHip(hipMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
-    long num_elements = batchsz * x * y * blockct;
+    long num_elements = batchsz * x * y;
     long block_size = 256;
     long num_blocks = (num_elements + block_size - 1) / block_size;
     floatToBfloat16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (hip_bfloat16 *)devA);
     hipFree(tmpA);
   } else {
-    checkHip(hipMemcpy(devA, hostA, (long)batchsz * blockct * x * y * hostsz,
+    checkHip(hipMemcpy(devA, hostA, (long)batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
   }
 }
 
-void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x, int y, int batchsz, int blockct)
+void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x, int y, int batchsz)
 {
 
   int hostsz = typeCallHost<sizeofCUDT>(precision);
@@ -93,7 +93,7 @@ void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x,
     void *tmpA = allocateHDevArr(precision, x, y, batchsz);
     checkHip(hipMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
-    long num_elements = batchsz * x * y * blockct;
+    long num_elements = batchsz * x * y;
     long block_size = 256;
     long num_blocks = (num_elements + block_size - 1) / block_size;
     floatToFp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
@@ -105,13 +105,13 @@ void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x,
     void *tmpA = allocateHDevArr(precision, x, y, batchsz);
     checkHip(hipMemcpy(tmpA, hostA, batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
-    long num_elements = batchsz * x * y * blockct;
+    long num_elements = batchsz * x * y;
     long block_size = 256;
     long num_blocks = (num_elements + block_size - 1) / block_size;
     floatToBfloat16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (hip_bfloat16 *)devA);
     hipFree(tmpA);
   } else {
-    checkHip(hipMemcpy(devA, hostA, (long)batchsz * blockct * x * y * hostsz,
+    checkHip(hipMemcpy(devA, hostA, (long)batchsz * x * y * hostsz,
                        hipMemcpyHostToDevice));
   }
 }

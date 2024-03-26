@@ -12,9 +12,9 @@ __global__ void floatToBfloat16(float *input, size_t num_elements,
 __global__ void floatToFp16(float *input, size_t num_elements, __half *output);
 
 void copyAndConvert(rocblas_datatype precision, void *hostA, void *devA, int x,
-                    int y, int batchsz, int blockct);
+                    int y, int batchsz);
 void copyAndConvert(hipblasDatatype_t precision, void *hostA, void *devA, int x,
-                    int y, int batchsz, int blockct);
+                    int y, int batchsz);
 void *convertScalar(rocblas_datatype precision, void *scalar);
 void *convertScalar(hipblasDatatype_t precision, void *scalar);
 void copyAndConvertScalar(rocblas_datatype scalarPrecision, void *hostScalar,

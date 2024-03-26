@@ -50,17 +50,8 @@ struct rocblasgemmInst {
   void ** ptrHostC;
   void *devWork;
   long wSZ;
-  rocblasgemmInst(int devID, int nblocks) { 
+  rocblasgemmInst(int devID) { 
     devIDX = devID;
-    //devA.resize(nblocks);
-    //devB.resize(nblocks);
-    //devC.resize(nblocks);
-    //ptrDevA.resize(nblocks);
-    //ptrDevB.resize(nblocks);
-    //ptrDevC.resize(nblocks);
-    //ptrHostA.resize(nblocks);
-    //ptrHostB.resize(nblocks);
-    //ptrHostC.resize(nblocks);
   }
 };
 
@@ -113,10 +104,6 @@ class rocblasGemm : public genericGemm {
   static std::vector<TgemmPrecTypeAMD> TgemmExSupported;
   std::vector<rocblasgemmInst> matPtrs;
   std::vector<std::vector<hipEvent_t *> *> eventPtr;
-
-  inline void * getOffsetPtr(void * mat, long long int blockstride, int rep, int nblocks, rocblas_datatype type);
-  template<typename T>
-  inline T * getOffsetPtrNC(T * mat, long long int blockstride, int rep); 
 
   void initPrecMap();
   // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);

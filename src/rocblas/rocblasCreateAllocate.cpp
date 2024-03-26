@@ -43,43 +43,43 @@ using std::string;
 //  return NULL;
 //}
 
-void *allocateHostArr(rocblas_datatype type, long x, long y, int batch, int block) {
+void *allocateHostArr(rocblas_datatype type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
-  void *data = (void *)malloc(x * y * batch * block * typesize);
+  void *data = (void *)malloc(x * y * batch * typesize);
   return data;
 }
 
-void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
+void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
-  void *data = (void *)malloc(x * y * batch * block * typesize);
+  void *data = (void *)malloc(x * y * batch * typesize);
   return data;
 }
 
-void *allocateDevArr(rocblas_datatype type, long x, long y, int batch, int block) {
+void *allocateDevArr(rocblas_datatype type, long x, long y, int batch) {
   int typesize = typeCallDev<sizeofCUDT>(type);
   void *data;
-  checkHip(hipMalloc(&data, x * y * batch * block * typesize));
+  checkHip(hipMalloc(&data, x * y * batch * typesize));
   return data;
 }
 
-void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
+void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch) {
   int typesize = typeCallDev<sizeofCUDT>(type);
   void *data;
-  checkHip(hipMalloc(&data, x * y * batch * block * typesize));
+  checkHip(hipMalloc(&data, x * y * batch * typesize));
   return data;
 }
 
-void *allocateHDevArr(rocblas_datatype type, long x, long y, int batch, int block) {
+void *allocateHDevArr(rocblas_datatype type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
   void *data;
-  checkHip(hipMalloc(&data, x * y * batch * block * typesize));
+  checkHip(hipMalloc(&data, x * y * batch * typesize));
   return data;
 }
 
-void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch, int block) {
+void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
   void *data;
-  checkHip(hipMalloc(&data, x * y * batch * block * typesize));
+  checkHip(hipMalloc(&data, x * y * batch * typesize));
   return data;
 }
 
@@ -95,11 +95,11 @@ void dummy() {
   typeCallHost<sizeofCUDTP>(rocblas_datatype_f64_r);
   typeCallHost<allocSetScalar>(rocblas_datatype_f64_r, "1", "0");
   typeCallDev<batchedPtrMagic>(rocblas_datatype_f64_r, (void **)NULL, (void **)NULL,
-                               (void *)NULL, 10, 10, 10, 10);
+                               (void *)NULL, 10, 10, 10);
   typeCallHost<sizeofCUDTP>(HIPBLAS_R_32F);
   typeCallHost<allocSetScalar>(HIPBLAS_R_32F, "1", "0");
   typeCallDev<batchedPtrMagic>(HIPBLAS_R_32F, (void **)NULL, (void **)NULL,
-                               (void *)NULL, 10, 10, 10, 10);
+                               (void *)NULL, 10, 10, 10);
   // template void *allocSetScalar<double>::operator()(string);
 }
 
@@ -120,49 +120,49 @@ void initHostH(hipblasDatatype_t precision, std::string initialization, void *pt
 template <typename T>
 void initHost<T>::operator()(std::string initialization, void *ptr, int rows_A,
                              int cols_A, int ld, int batch,
-                             long long int stride, int block, bool control,
+                             long long int stride, bool control,
                              float constant, std::string filename) {
   if (!filename.empty()) {
-    fillRandHostFromCSV<T>(ptr, rows_A, cols_A, ld, batch, stride, block, filename);
+    fillRandHostFromCSV<T>(ptr, rows_A, cols_A, ld, batch, stride, filename);
   } else if (initialization == "rand_int") {
-    fillRandHostRandIntAS<T>(ptr, rows_A, cols_A, ld, batch, stride, block, control);
+    fillRandHostRandIntAS<T>(ptr, rows_A, cols_A, ld, batch, stride, control);
   } else if (initialization == "trig_float") {
-    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride, block, control);
+    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride, control);
   } else if (initialization == "normal_float") {
-    fillRandHostNormalFloat<T>(ptr, rows_A, cols_A, ld, batch, stride, block);
+    fillRandHostNormalFloat<T>(ptr, rows_A, cols_A, ld, batch, stride);
   } else if (initialization == "hpl") {
   } else if (initialization == "blasgemm") {
-    fillRandHostBlasgemm<T>(ptr, rows_A, cols_A, ld, batch, stride, block );
+    fillRandHostBlasgemm<T>(ptr, rows_A, cols_A, ld, batch, stride);
   } else if (initialization == "constant") {
-    fillRandHostConstant<T>(ptr, rows_A, cols_A, ld, batch, stride, block, constant);
+    fillRandHostConstant<T>(ptr, rows_A, cols_A, ld, batch, stride, constant);
   }
 }
 
 template void initHost<double>::operator()(std::string, void *, int, int, int,
-                                           int, long long int, int, bool, float, std::string);
+                                           int, long long int, bool, float, std::string);
 // template void initHost<hipDoubleComplex>::operator()(std::string, void *, int,
 //                                                     int, int, int,
 //                                                     long long int, int, bool, float, std::string);
 template void initHost<float>::operator()(std::string, void *, int, int, int,
-                                          int, long long int, int, bool, float, std::string);
+                                          int, long long int, bool, float, std::string);
 // template void initHost<hipComplex>::operator()(std::string, void *, int,
 //                                                    int, int, int, long long int,
 //                                                    bool, float, std::string);
 template void initHost<__int8_t>::operator()(std::string, void *, int, int, int,
-                                             int, long long int, int, bool, float, std::string);
+                                             int, long long int, bool, float, std::string);
 // template void initHost<complex<__int8_t>>::operator()(std::string, void *, int,
 //                                                       int, int, int,
 //                                                       long long int, int, bool,
 //                                                       float, std::string);
 template void initHost<__uint8_t>::operator()(std::string, void *, int, int,
-                                              int, int, long long int, int, bool,
+                                              int, int, long long int, bool,
                                               float, std::string);
 // template void initHost<complex<__uint8_t>>::operator()(std::string, void *, int,
 //                                                        int, int, int,
 //                                                        long long int, int, bool,
 //                                                        float, std::string);
 template void initHost<__int32_t>::operator()(std::string, void *, int, int,
-                                              int, int, long long int, int, bool,
+                                              int, int, long long int, bool,
                                               float, std::string);
 // template void initHost<complex<__int32_t>>::operator()(std::string, void *, int,
 //                                                        int, int, int,
@@ -173,27 +173,27 @@ template void initHost<__int32_t>::operator()(std::string, void *, int, int,
 // those of initHost
 template <typename T>
 void fillRandHostBlasgemm(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                          long long int stride, int block) {
+                          long long int stride) {
   int a = 1;
   T *A = (T *)ptr;
-  for (size_t i = 0; i < rows_A * cols_A * batch * block; i++) {
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
     A[i] = (T)rand() / (T)(RAND_MAX / a);
   }
 }
 
 template <typename T>
 void fillRandHostConstant(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                          long long int stride, int block, float constant) {
+                          long long int stride, float constant) {
   int a = 1;
   T *A = (T *)ptr;
-  for (size_t i = 0; i < rows_A * cols_A * batch * block; i++) {
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
     A[i] = (T)(constant);
   }
 }
 
 template <typename T>
 void fillRandHostFromCSV(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                         long long int stride, int block, std::string filename) {
+                         long long int stride, std::string filename) {
   std::ifstream file(filename);
   std::vector<std::vector<T>> result;
 
@@ -213,15 +213,12 @@ void fillRandHostFromCSV(void *ptr, int rows_A, int cols_A, int ld, int batch,
 
   T *A = (T *)ptr;
   size_t n_rows = result.size();
-  long long int blockstride = stride * batch;
-  for (size_t i_block = 0; i_block < block; i_block++) {
-    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-      for (size_t j = 0; j < cols_A; ++j) {
-        size_t offset = j * ld + i_batch * stride + i_block * blockstride;
-        for (size_t i = 0; i < rows_A; ++i) {
-          size_t n_cols = result[i % n_rows].size();
-          A[i + offset] = result[i % n_rows][j % n_cols];
-        }
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        size_t n_cols = result[i % n_rows].size();
+        A[i + offset] = result[i % n_rows][j % n_cols];
       }
     }
   }
@@ -229,24 +226,21 @@ void fillRandHostFromCSV(void *ptr, int rows_A, int cols_A, int ld, int batch,
 
 template <typename T>
 void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                           long long int stride, int block, bool alternating) {
+                           long long int stride, bool alternating) {
   std::random_device r;
   std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> uniform_dist(1, 10);
   T *A = (T *)ptr;
   T dummy;
-  long long int blockstride = stride * batch;
-  for (size_t i_block = 0; i_block < block; i_block++) {
-    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-      for (size_t j = 0; j < cols_A; ++j) {
-        size_t offset = j * ld + i_batch * stride + i_block * blockstride;
-        for (size_t i = 0; i < rows_A; ++i) {
-          if ((!alternating) || (j % 2 ^ i % 2)) {
-            A[i + offset] = randIntGen(uniform_dist, gen, dummy);
-          } else {
-            A[i + offset] = randIntGenN(uniform_dist, gen, dummy);
-          }
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        if ((!alternating) || (j % 2 ^ i % 2)) {
+          A[i + offset] = randIntGen(uniform_dist, gen, dummy);
+        } else {
+          A[i + offset] = randIntGenN(uniform_dist, gen, dummy);
         }
       }
     }
@@ -255,19 +249,16 @@ void fillRandHostRandIntAS(void *ptr, int rows_A, int cols_A, int ld, int batch,
 
 template <typename T>
 void fillRandHostTrigFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                           long long int stride, int block, bool isSin) {
+                           long long int stride, bool isSin) {
   T *A = (T *)ptr;
-  long long int blockstride = stride * batch;
-  for (size_t i_block = 0; i_block < block; i_block++) {
-    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-      for (size_t j = 0; j < cols_A; ++j) {
-        size_t offset = j * ld + i_batch * stride + i_block * blockstride;
-        for (size_t i = 0; i < rows_A; ++i) {
-          if (isSin) {
-            A[i + offset] = T(sin(i + offset));
-          } else {
-            A[i + offset] = T(cos(i + offset));
-          }
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        if (isSin) {
+          A[i + offset] = T(sin(i + offset));
+        } else {
+          A[i + offset] = T(cos(i + offset));
         }
       }
     }
@@ -276,21 +267,18 @@ void fillRandHostTrigFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
 
 template <typename T>
 void fillRandHostNormalFloat(void *ptr, int rows_A, int cols_A, int ld, int batch,
-                             long long int stride, int block) {
+                             long long int stride) {
   std::random_device r;
   std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
   std::mt19937 gen(seed);
   std::normal_distribution<double> normal_dist(5.0, 2.0);
   T *A = (T *)ptr;
   T dummy;
-  long long int blockstride = stride * batch;
-  for (size_t i_block = 0; i_block < block; i_block++) {
-    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-      for (size_t j = 0; j < cols_A; ++j) {
-        size_t offset = j * ld + i_batch * stride;
-        for (size_t i = 0; i < rows_A; ++i) {
-          A[i + offset] = normalFloatGen(normal_dist, gen, dummy);
-        }
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        A[i + offset] = normalFloatGen(normal_dist, gen, dummy);
       }
     }
   }

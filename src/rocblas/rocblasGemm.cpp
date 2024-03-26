@@ -54,7 +54,7 @@ void rocblasGemm::parseDevIters(std::string deviceStr) {
     string deviceSStr;
     getline(ss, deviceSStr, ',');
     int devInt = stoi(deviceSStr);
-    rocblasgemmInst val = rocblasgemmInst(devInt, blockct);
+    rocblasgemmInst val = rocblasgemmInst(devInt);
     matPtrs.push_back(val);
   }
 }
@@ -228,39 +228,39 @@ void rocblasGemm::fillHost() {
   //}
 
   typeCallHost<initHost>(a_type, initialization, hostA, rowsA, colsA, lda,
-                         batchct, stride_a, blockct, controlA, constantA, filenameA);
+                         batchct, stride_a, controlA, constantA, filenameA);
   typeCallHost<initHost>(b_type, initialization, hostB, rowsB, colsB, ldb,
-                         batchct, stride_b, blockct, controlB, constantB, filenameB);
+                         batchct, stride_b, controlB, constantB, filenameB);
   typeCallHost<initHost>(c_type, initialization, hostC, rowsC, colsC, ldc,
-                         batchct, stride_c, blockct, controlC, constantC, filenameC);
+                         batchct, stride_c, controlC, constantC, filenameC);
 }
 
 void rocblasGemm::copyHostToDev(rocblasgemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  copyAndConvert(a_type, hostA, mat->devA, rowsMemA, colsMemA, batchct, blockct);
-  copyAndConvert(b_type, hostB, mat->devB, rowsMemB, colsMemB, batchct, blockct);
-  copyAndConvert(c_type, hostC, mat->devC, rowsMemC, colsMemC, batchct, blockct);
+  copyAndConvert(a_type, hostA, mat->devA, rowsMemA, colsMemA, batchct);
+  copyAndConvert(b_type, hostB, mat->devB, rowsMemB, colsMemB, batchct);
+  copyAndConvert(c_type, hostC, mat->devC, rowsMemC, colsMemC, batchct);
   if (batched && !strided) {
     // Perform some pointer arithmetic to calculate the arrays we pass to the
     // gpu
     mat->ptrHostA =
-        (void **)malloc(batchct * blockct * typeCallHost<sizeofCUDTP>(a_type));
+        (void **)malloc(batchct * typeCallHost<sizeofCUDTP>(a_type));
     mat->ptrHostB =
-        (void **)malloc(batchct * blockct * typeCallHost<sizeofCUDTP>(b_type));
+        (void **)malloc(batchct * typeCallHost<sizeofCUDTP>(b_type));
     mat->ptrHostC =
-        (void **)malloc(batchct * blockct * typeCallHost<sizeofCUDTP>(c_type));
+        (void **)malloc(batchct * typeCallHost<sizeofCUDTP>(c_type));
     checkHip(
-        hipMalloc(&mat->ptrDevA, batchct * blockct * typeCallHost<sizeofCUDTP>(a_type)));
+        hipMalloc(&mat->ptrDevA, batchct * typeCallHost<sizeofCUDTP>(a_type)));
     checkHip(
-        hipMalloc(&mat->ptrDevB, batchct * blockct * typeCallHost<sizeofCUDTP>(b_type)));
+        hipMalloc(&mat->ptrDevB, batchct * typeCallHost<sizeofCUDTP>(b_type)));
     checkHip(
-        hipMalloc(&mat->ptrDevC, batchct * blockct * typeCallHost<sizeofCUDTP>(c_type)));
+        hipMalloc(&mat->ptrDevC, batchct * typeCallHost<sizeofCUDTP>(c_type)));
     typeCallDev<batchedPtrMagic>(a_type, mat->ptrHostA, mat->ptrDevA, mat->devA,
-                                batchct, rowsMemA, colsMemA, blockct);
+                                batchct, rowsMemA, colsMemA);
     typeCallDev<batchedPtrMagic>(b_type, mat->ptrHostB, mat->ptrDevB, mat->devB,
-                                batchct, rowsMemB, colsMemB, blockct);
+                                batchct, rowsMemB, colsMemB);
     typeCallDev<batchedPtrMagic>(c_type, mat->ptrHostC, mat->ptrDevC, mat->devC,
-                                batchct, rowsMemC, colsMemC, blockct);
+                                batchct, rowsMemC, colsMemC);
   }
 }
 
@@ -574,10 +574,6 @@ void rocblasGemm::testTgemm_batched(std::function<rocblas_status_(_rocblas_handl
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculateFOM(static_cast<double>(elapsedTime_ms));
 }
-template<typename T>
-inline T * rocblasGemm::getOffsetPtrNC(T * mat, long long int blockstride, int rep) {
-  return (mat + (rep%blockct)*blockstride);
-}
 
 template <typename T>
 void rocblasGemm::testTgemm_strided_batched(
@@ -591,30 +587,21 @@ void rocblasGemm::testTgemm_strided_batched(
   checkHip(hipStreamCreate(&stream));
   checkRocblas(rocblas_set_stream(handle, stream));
   // checkRocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
-  int blockstrideA = stride_a*blockct;
-  int blockstrideB = stride_b*blockct;
-  int blockstrideC = stride_c*blockct;
 
   T *alphaP = static_cast<T *>(alpha);
   T *betaP = static_cast<T *>(beta);
   T *devAP = static_cast<T *>(mat->devA);
   T *devBP = static_cast<T *>(mat->devB);
   T *devCP = static_cast<T *>(mat->devC);
-  T * matA = devAP;
-  T * matB = devBP;
-  T * matC = devCP;
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     // clang-format off
     stat = func(handle, transA, transB, m, n, k, alphaP, 
-                matA, lda, stride_a,
-                matB, ldb, stride_b, betaP, 
-                matC, ldc, stride_c, batchct);
+                devAP, lda, stride_a,
+                devBP, ldb, stride_b, betaP, 
+                devCP, ldc, stride_c, batchct);
     // clang-format on
-    matA = getOffsetPtrNC(devAP, blockstrideA, rep);
-    matB = getOffsetPtrNC(devBP, blockstrideB, rep);
-    matC = getOffsetPtrNC(devCP, blockstrideC, rep);
     // Check for errors during the gemm run
     checkRocblas(stat);
     checkHip(hipGetLastError());
@@ -632,13 +619,10 @@ void rocblasGemm::testTgemm_strided_batched(
   for (int rep = 0; rep < iters; rep++) {
     // clang-format off
     stat = func(handle, transA, transB, m, n, k, alphaP, 
-                matA, lda, stride_a,
-                matB, ldb, stride_b, betaP, 
-                matC, ldc, stride_c, batchct);
+                devAP, lda, stride_a,
+                devBP, ldb, stride_b, betaP, 
+                devCP, ldc, stride_c, batchct);
     // clang-format on
-    matA = getOffsetPtrNC(devAP, blockstrideA, rep);
-    matB = getOffsetPtrNC(devBP, blockstrideB, rep);
-    matC = getOffsetPtrNC(devCP, blockstrideC, rep);
   }
   hipEventRecord(stop, stream);
   hipEventSynchronize(stop);
@@ -654,11 +638,6 @@ void rocblasGemm::testTgemm_strided_batched(
       calculateFOM(static_cast<double>(elapsedTime_ms));
 }
 
-
-inline void * rocblasGemm::getOffsetPtr(void * mat, long long int blockstride, int rep, int blockct, rocblas_datatype type) {
-  return (void*)(((char*)mat) + (rep%blockct)*blockstride*typeCallDev<sizeofCUDT>(type));
-}
-
 void rocblasGemm::test_gemm_ex(rocblasgemmInst *mat) {
   rocblas_status stat;
   rocblas_handle handle;
@@ -668,25 +647,17 @@ void rocblasGemm::test_gemm_ex(rocblasgemmInst *mat) {
   checkHip(hipStreamCreate(&stream));
   checkRocblas(rocblas_set_stream(handle, stream));
   checkRocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
-  int blockstrideA = m * n;
-  int blockstrideB = n * k;
-  int blockstrideC = m * k;
-  void * matA = mat->devA;
-  void * matB = mat->devB;
-  void * matC = mat->devC;
+
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     // clang-format off
     stat = rocblas_gemm_ex(handle, transA, transB, m, n, k, alpha, 
-                           matA, a_type, lda, 
-                           matB, b_type, ldb, beta, 
-                           matC, c_type, ldc, 
-                           matC, c_type, ldc, compute,
+                           mat->devA, a_type, lda, 
+                           mat->devB, b_type, ldb, beta, 
+                           mat->devC, c_type, ldc, 
+                           mat->devC, c_type, ldc, compute,
                            rocblas_gemm_algo_standard, 0, 0);
     // clang-format on
-    matA = getOffsetPtr(mat->devA, blockstrideA, rep, blockct, a_type);
-    matB = getOffsetPtr(mat->devB, blockstrideB, rep, blockct, b_type);
-    matC = getOffsetPtr(mat->devC, blockstrideC, rep, blockct, c_type);
     // Check for errors during the gemm run
     checkRocblas(stat);
     checkHip(hipGetLastError());
@@ -700,22 +671,16 @@ void rocblasGemm::test_gemm_ex(rocblasgemmInst *mat) {
   /*
     Run and time the performance test
   */
-  matA = mat->devA;
-  matB = mat->devB;
-  matC = mat->devC;
   hipEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
     // clang-format off
     stat = rocblas_gemm_ex(handle, transA, transB, m, n, k, alpha, 
-                           matA, a_type, lda, 
-                           matB, b_type, ldb, beta, 
-                           matC, c_type, ldc, 
-                           matC, c_type, ldc, compute,
+                           mat->devA, a_type, lda, 
+                           mat->devB, b_type, ldb, beta, 
+                           mat->devC, c_type, ldc, 
+                           mat->devC, c_type, ldc, compute,
                            rocblas_gemm_algo_standard, 0, 0);
     // clang-format on
-    matA = getOffsetPtr(mat->devA, blockstrideA, rep, blockct, a_type);
-    matB = getOffsetPtr(mat->devB, blockstrideB, rep, blockct, b_type);
-    matC = getOffsetPtr(mat->devC, blockstrideC, rep, blockct, c_type);
   }  
   hipEventRecord(stop, stream);
   hipEventSynchronize(stop);

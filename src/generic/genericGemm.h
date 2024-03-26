@@ -44,7 +44,6 @@ class genericGemm {
   int iters;
   int cold_iters;
 
-  int blockct;
   int batchct;
 
   bool controlA = false;

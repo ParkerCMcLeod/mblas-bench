@@ -201,18 +201,18 @@ void hipblasLtGemm::allocHost() {
   // hostA = resultA.get();
   // hostB = resultB.get();
   // hostC = resultC.get();
-  hostA = allocateHostArr(a_type, m, k, batchct, blockct);
-  hostB = allocateHostArr(b_type, k, n, batchct, blockct);
-  hostC = allocateHostArr(c_type, m, n, batchct, blockct);
+  hostA = allocateHostArr(a_type, m, k, batchct);
+  hostB = allocateHostArr(b_type, k, n, batchct);
+  hostC = allocateHostArr(c_type, m, n, batchct);
 }
 
 void hipblasLtGemm::allocDev(hipblasLtGemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  mat->devA = allocateDevArr(a_type, m, k, batchct, blockct);
-  mat->devB = allocateDevArr(b_type, k, n, batchct, blockct);
-  mat->devC = allocateDevArr(c_type, m, n, batchct, blockct);
+  mat->devA = allocateDevArr(a_type, m, k, batchct);
+  mat->devB = allocateDevArr(b_type, k, n, batchct);
+  mat->devC = allocateDevArr(c_type, m, n, batchct);
   if (!inplace) {
-    mat->devD = allocateDevArr(d_type, n, m, batchct, blockct);
+    mat->devD = allocateDevArr(d_type, n, m, batchct);
   } else {
     mat->devD = mat->devC;
   }
@@ -237,18 +237,18 @@ void hipblasLtGemm::fillHost() {
   //}
 
   typeCallHost<initHost>(a_type, initialization, hostA, rowsA, colsA, lda,
-                         batchct, stride_a, blockct, controlA, constantA, filenameA);
+                         batchct, stride_a, controlA, constantA, filenameA);
   typeCallHost<initHost>(b_type, initialization, hostB, rowsB, colsB, ldb,
-                         batchct, stride_b, blockct, controlB, constantB, filenameB);
+                         batchct, stride_b, controlB, constantB, filenameB);
   typeCallHost<initHost>(c_type, initialization, hostC, rowsC, colsC, ldc,
-                         batchct, stride_c, blockct, controlC, constantC, filenameC);
+                         batchct, stride_c, controlC, constantC, filenameC);
 }
 
 void hipblasLtGemm::copyHostToDev(hipblasLtGemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  copyAndConvert(a_type, hostA, mat->devA, m, k, batchct, blockct);
-  copyAndConvert(b_type, hostB, mat->devB, k, n, batchct, blockct);
-  copyAndConvert(c_type, hostC, mat->devC, n, m, batchct, blockct);
+  copyAndConvert(a_type, hostA, mat->devA, m, k, batchct);
+  copyAndConvert(b_type, hostB, mat->devB, k, n, batchct);
+  copyAndConvert(c_type, hostC, mat->devC, n, m, batchct);
 }
 
 void hipblasLtGemm::prepareMatrix(hipblasLtGemmInst *mat) {

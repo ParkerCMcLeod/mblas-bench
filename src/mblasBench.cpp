@@ -139,10 +139,10 @@ int main(int argc, char **argv) {
             "Number of matrices. Only applicable to batched and "
             "strided_batched routines  (Default value is: 1)",
             cxxopts::value<int>()->default_value("1"));
-  opp_adder("block_count",
-            "Number of memory blocks for arrays. Each benchmarking iteration "
-            "will use the next block of memory (or loop to the first block)",
-            cxxopts::value<int>()->default_value("1"));
+  // opp_adder("block_count",
+  //           "Number of memory blocks for arrays. Each benchmarking iteration "
+  //           "will use the next block of memory (or loop to the first block)",
+  //           cxxopts::value<int>()->default_value("1"));
   opp_adder("device", "GPU device(s) to run on",
             cxxopts::value<string>()->default_value("0"));
   opp_adder("instances", "Number of instances to run on each GPU",
