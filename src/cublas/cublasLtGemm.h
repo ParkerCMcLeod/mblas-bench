@@ -8,22 +8,23 @@
 #include <string>
 
 #include "genericGemm.h"
+#include "mblasCuDataType.h"
 
 struct matmulPrecType {
   cublasComputeType_t compute;
-  cublasDataType_t scalar;
-  cublasDataType_t a_type;
-  cublasDataType_t b_type;
-  cublasDataType_t c_type;
-  cublasDataType_t d_type;
-  cublasDataType_t bias_type;
+  mblasDataType scalar;
+  mblasDataType a_type;
+  mblasDataType b_type;
+  mblasDataType c_type;
+  mblasDataType d_type;
+  mblasDataType bias_type;
   bool operator==(const matmulPrecType rhs) const {
-    return rhs.compute == compute && rhs.scalar == scalar &&
-           rhs.a_type == rhs.a_type && rhs.b_type == b_type &&
-           rhs.c_type == c_type && rhs.d_type == d_type &&
+    return compute == rhs.compute && scalar == rhs.scalar &&
+           a_type == rhs.a_type && b_type == rhs.b_type &&
+           c_type == rhs.c_type && d_type == rhs.d_type &&
            // Omitting bias type is acceptable
-           (rhs.bias_type == bias_type ||
-            rhs.bias_type == (cudaDataType_t)(-1));
+           (bias_type == rhs.bias_type ||
+            rhs.bias_type == mblasDataType::MBLAS_ANY);
   }
 };
 
@@ -61,14 +62,14 @@ class cublasLtGemm : public genericGemm {
   cublasOperation_t transA;
   cublasOperation_t transB;
 
-  cudaDataType_t precision;
+  mblasCuDataType precision;
   cublasComputeType_t compute;
-  cudaDataType_t scalar;
-  cudaDataType_t a_type;
-  cudaDataType_t b_type;
-  cudaDataType_t c_type;
-  cudaDataType_t d_type;
-  cudaDataType_t bias_type;
+  mblasCuDataType scalar;
+  mblasCuDataType a_type;
+  mblasCuDataType b_type;
+  mblasCuDataType c_type;
+  mblasCuDataType d_type;
+  mblasCuDataType bias_type;
 
   int workspaceSz = 64 * 1024 * 1024;
 

@@ -1,6 +1,7 @@
 
 add_library(mblasgeneric STATIC
     genericGemm.cpp
+    mblasDataType.cpp
 )
 
 set_target_properties(mblasgeneric PROPERTIES POSITION_INDEPENDENT_CODE ON)

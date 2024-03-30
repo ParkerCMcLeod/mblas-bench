@@ -27,71 +27,71 @@ using std::vector;
 // clang-format off
 std::vector<matmulPrecType> cublasLtGemm::matmulSupported = {
   // Compute type                   Scale Type    A Type            B Type            C Type        D Type            Bias Type
-  {CUBLAS_COMPUTE_16F,              CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_16F_PEDANTIC,     CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32I,              CUDA_R_32I,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32I,   CUDA_R_32I,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I_PEDANTIC,     CUDA_R_32I,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32I,   CUDA_R_32I,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I,              CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_8I,    CUDA_R_8I,        (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I_PEDANTIC,     CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_8I,    CUDA_R_8I,        (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_16BF,      CUDA_R_16BF,      CUDA_R_16BF,  CUDA_R_16BF,      CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_16BF,      CUDA_R_16BF,      CUDA_R_16BF,  CUDA_R_16BF,      CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32F,   CUDA_R_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32F,   CUDA_R_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_16BF,      CUDA_R_16BF,      CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_16BF,      CUDA_R_16BF,      CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_16F,       CUDA_R_16F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F ,             CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_8I,        CUDA_C_8I,        CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_C_32F,   CUDA_C_8I,        CUDA_C_8I,        CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_32F,       CUDA_C_32F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_PEDANTIC,     CUDA_C_32F,   CUDA_C_32F,       CUDA_C_32F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_FAST_16F,     CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_FAST_16BF,    CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_FAST_TF32,    CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F,       CUDA_R_32F,   CUDA_R_32F,       CUDA_R_32F},
-  {CUBLAS_COMPUTE_32F_FAST_16F,     CUDA_C_32F,   CUDA_C_32F,       CUDA_C_32F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_FAST_16BF,    CUDA_C_32F,   CUDA_C_32F,       CUDA_C_32F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F_FAST_TF32,    CUDA_C_32F,   CUDA_C_32F,       CUDA_C_32F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_64F,              CUDA_R_64F,   CUDA_R_64F,       CUDA_R_64F,       CUDA_R_64F,   CUDA_R_64F,       CUDA_R_64F},
-  {CUBLAS_COMPUTE_64F_PEDANTIC,     CUDA_R_64F,   CUDA_R_64F,       CUDA_R_64F,       CUDA_R_64F,   CUDA_R_64F,       CUDA_R_64F},
-  {CUBLAS_COMPUTE_64F,              CUDA_C_64F,   CUDA_C_64F,       CUDA_C_64F,       CUDA_C_64F,   CUDA_C_64F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_64F_PEDANTIC,     CUDA_C_64F,   CUDA_C_64F,       CUDA_C_64F,       CUDA_C_64F,   CUDA_C_64F,       (cudaDataType_t)(-1) },
+  {CUBLAS_COMPUTE_16F,              mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_16F_PEDANTIC,     mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32I,              mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_32I,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I_PEDANTIC,     mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_32I,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,    mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,    mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_8I,        mblasDataType::MBLAS_C_8I,        mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_8I,        mblasDataType::MBLAS_C_8I,        mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_PEDANTIC,     mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_FAST_16F,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_FAST_16BF,    mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_FAST_TF32,    mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_32F},
+  {CUBLAS_COMPUTE_32F_FAST_16F,     mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_FAST_16BF,    mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F_FAST_TF32,    mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_64F,              mblasDataType::MBLAS_R_64F,   mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F,   mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F},
+  {CUBLAS_COMPUTE_64F_PEDANTIC,     mblasDataType::MBLAS_R_64F,   mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F,   mblasDataType::MBLAS_R_64F,       mblasDataType::MBLAS_R_64F},
+  {CUBLAS_COMPUTE_64F,              mblasDataType::MBLAS_C_64F,   mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_C_64F,   mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_64F_PEDANTIC,     mblasDataType::MBLAS_C_64F,   mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_C_64F,   mblasDataType::MBLAS_C_64F,       mblasDataType::MBLAS_ANY },
   // IMMA kernels
   // Compute type                   Scale Type    A Type            B Type            C Type        D Type            Bias Type
-  {CUBLAS_COMPUTE_32I,              CUDA_R_32I,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32I,   CUDA_R_32I,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I_PEDANTIC,     CUDA_R_32I,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_32I,   CUDA_R_32I,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I,              CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_8I,    CUDA_R_8I,        (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32I_PEDANTIC,     CUDA_R_32F,   CUDA_R_8I,        CUDA_R_8I,        CUDA_R_8I,    CUDA_R_8I,        (cudaDataType_t)(-1)},
+  {CUBLAS_COMPUTE_32I,              mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_32I,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I_PEDANTIC,     mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_32I,   mblasDataType::MBLAS_R_32I,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,    mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32I_PEDANTIC,     mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_R_8I,    mblasDataType::MBLAS_R_8I,        mblasDataType::MBLAS_ANY},
   // FP8 kernels
   // Compute type                   Scale Type    A Type            B Type            C Type        D Type            Bias Type
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E4M3,   CUDA_R_16BF,  CUDA_R_16BF,      CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E4M3,   CUDA_R_16BF,  CUDA_R_8F_E4M3,   CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E4M3,   CUDA_R_16F,   CUDA_R_8F_E4M3,   CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E4M3,   CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E4M3,   CUDA_R_32F,   CUDA_R_32F,       CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16BF,  CUDA_R_16BF,      CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16BF,  CUDA_R_8F_E4M3,   CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16BF,  CUDA_R_8F_E5M2,   CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16F,   CUDA_R_8F_E4M3,   CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16F,   CUDA_R_8F_E5M2,   CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E4M3,   CUDA_R_8F_E5M2,   CUDA_R_32F,   CUDA_R_32F,       CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16BF,  CUDA_R_16BF,      CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16BF,  CUDA_R_8F_E4M3,   CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16BF,  CUDA_R_8F_E5M2,   CUDA_R_16BF},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16F,   CUDA_R_8F_E4M3,   CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16F,   CUDA_R_8F_E5M2,   CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_16F,   CUDA_R_16F,       CUDA_R_16F},
-  {CUBLAS_COMPUTE_32F,              CUDA_R_32F,   CUDA_R_8F_E5M2,   CUDA_R_8F_E4M3,   CUDA_R_32F,   CUDA_R_32F,       CUDA_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_16BF,      mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16BF,  mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16BF},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
+  {CUBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_16BF},
   // Mixed precision complex kernels
   // Compute type                   Scale Type    A Type            B Type            C Type        D Type            Bias Type
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_16F,       CUDA_C_16F,       CUDA_C_16F,   CUDA_C_16F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_16F,       CUDA_C_16F,       CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_16BF,      CUDA_C_16BF,      CUDA_C_16BF,  CUDA_C_16BF,      (cudaDataType_t)(-1)},
-  {CUBLAS_COMPUTE_32F ,             CUDA_C_32F,   CUDA_C_16BF,      CUDA_C_16BF,      CUDA_C_32F,   CUDA_C_32F,       (cudaDataType_t)(-1)},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_16F,       mblasDataType::MBLAS_C_16F,       mblasDataType::MBLAS_C_16F,   mblasDataType::MBLAS_C_16F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_16F,       mblasDataType::MBLAS_C_16F,       mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_16BF,      mblasDataType::MBLAS_C_16BF,      mblasDataType::MBLAS_C_16BF,  mblasDataType::MBLAS_C_16BF,      mblasDataType::MBLAS_ANY},
+  {CUBLAS_COMPUTE_32F ,             mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_16BF,      mblasDataType::MBLAS_C_16BF,      mblasDataType::MBLAS_C_32F,   mblasDataType::MBLAS_C_32F,       mblasDataType::MBLAS_ANY},
 };
 // clang-format on
 
@@ -134,17 +134,17 @@ void cublasLtGemm::parseMType(string computeTStr, string scalarTStr,
 
   // Parse each precision
   if (!noParse) {
-    a_type = precisionStringToDType(aStr);
-    b_type = precisionStringToDType(bStr);
-    c_type = precisionStringToDType(cStr);
-    d_type = precisionStringToDType(dStr);
+    a_type = mblasCuDataType(aStr);
+    b_type = mblasCuDataType(bStr);
+    c_type = mblasCuDataType(cStr);
+    d_type = mblasCuDataType(dStr);
   }
 }
 
 void cublasLtGemm::validateParameters() {
   // Validate that data types exist in table of supported configurations
   matmulPrecType selType = {
-      compute, scalar, a_type, b_type, c_type, d_type, (cudaDataType_t)(-1)};
+      compute, scalar, a_type, b_type, c_type, d_type, mblasDataType::MBLAS_ANY};
   auto result =
       std::find(begin(matmulSupported), end(matmulSupported), selType);
   if (result == end(matmulSupported)) {
@@ -175,7 +175,7 @@ void cublasLtGemm::validateParameters() {
 
 cublasLtGemm::cublasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
   // Grab precision from command line
-  precision = precisionStringToDType(result["precision"].as<string>());
+  precision = mblasCuDataType(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
   string scalarT = result["scalar_type"].as<string>();

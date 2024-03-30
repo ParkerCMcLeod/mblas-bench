@@ -8,67 +8,67 @@
 #include <vector>
 using namespace std;
 
-bool isReal(cudaDataType_t type) {
-  // You could also do this based on the string version with _R_ or _C_, but
-  // those are hardcoded anyway
-  switch (type) {
-    case CUDA_R_16F:
-    case CUDA_R_16BF:
-    case CUDA_R_32F:
-    case CUDA_R_64F:
-    case CUDA_R_4I:
-    case CUDA_R_4U:
-    case CUDA_R_8I:
-    case CUDA_R_8U:
-    case CUDA_R_16I:
-    case CUDA_R_16U:
-    case CUDA_R_32I:
-    case CUDA_R_32U:
-    case CUDA_R_64I:
-    case CUDA_R_64U:
-    case CUDA_R_8F_E4M3:
-    case CUDA_R_8F_E5M2:
-      return true;
-      break;
+// bool isReal(cudaDataType_t type) {
+//   // You could also do this based on the string version with _R_ or _C_, but
+//   // those are hardcoded anyway
+//   switch (type) {
+//     case CUDA_R_16F:
+//     case CUDA_R_16BF:
+//     case CUDA_R_32F:
+//     case CUDA_R_64F:
+//     case CUDA_R_4I:
+//     case CUDA_R_4U:
+//     case CUDA_R_8I:
+//     case CUDA_R_8U:
+//     case CUDA_R_16I:
+//     case CUDA_R_16U:
+//     case CUDA_R_32I:
+//     case CUDA_R_32U:
+//     case CUDA_R_64I:
+//     case CUDA_R_64U:
+//     case CUDA_R_8F_E4M3:
+//     case CUDA_R_8F_E5M2:
+//       return true;
+//       break;
+// 
+//     // Complex numbers
+//     case CUDA_C_16F:
+//     case CUDA_C_16BF:
+//     case CUDA_C_32F:
+//     case CUDA_C_64F:
+//     case CUDA_C_4I:
+//     case CUDA_C_4U:
+//     case CUDA_C_8I:
+//     case CUDA_C_8U:
+//     case CUDA_C_16I:
+//     case CUDA_C_16U:
+//     case CUDA_C_32I:
+//     case CUDA_C_32U:
+//     case CUDA_C_64I:
+//     case CUDA_C_64U:
+//       return false;
+//       break;
+//     // Assume real I guess
+//     default:
+//       return true;
+//   }
+// }
+// 
+// bool isFp8(cudaDataType precision) {
+//   if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2) {
+//     return true;
+//   }
+//   return false;
+// }
 
-    // Complex numbers
-    case CUDA_C_16F:
-    case CUDA_C_16BF:
-    case CUDA_C_32F:
-    case CUDA_C_64F:
-    case CUDA_C_4I:
-    case CUDA_C_4U:
-    case CUDA_C_8I:
-    case CUDA_C_8U:
-    case CUDA_C_16I:
-    case CUDA_C_16U:
-    case CUDA_C_32I:
-    case CUDA_C_32U:
-    case CUDA_C_64I:
-    case CUDA_C_64U:
-      return false;
-      break;
-    // Assume real I guess
-    default:
-      return true;
-  }
-}
-
-bool isFp8(cudaDataType precision) {
-  if (precision == CUDA_R_8F_E4M3 || precision == CUDA_R_8F_E5M2) {
-    return true;
-  }
-  return false;
-}
-
-std::string precToString(cudaDataType precision) {
-  for (auto ele : precDType) {
-    if (ele.second == precision && ele.first.find("CUDA") != string::npos) {
-      return ele.first;
-    }
-  }
-  return "";
-}
+// std::string precToString(cudaDataType precision) {
+//   for (auto ele : precDType) {
+//     if (ele.second == precision && ele.first.find("CUDA") != string::npos) {
+//       return ele.first;
+//     }
+//   }
+//   return "";
+// }
 
 std::string computeToString(cublasComputeType_t compute) {
   for (auto ele : computeDType) {
@@ -79,15 +79,15 @@ std::string computeToString(cublasComputeType_t compute) {
   return "";
 }
 
-cudaDataType_t precisionStringToDType(std::string stringPrecision) {
-  try {
-    return precDType.at(stringPrecision);
-  } catch (std::out_of_range &e) {
-    std::cerr << "Failed to parse precision: " << stringPrecision << std::endl;
-    throw e;
-    return CUDA_R_32F;
-  }
-}
+// cudaDataType_t precisionStringToDType(std::string stringPrecision) {
+//   try {
+//     return precDType.at(stringPrecision);
+//   } catch (std::out_of_range &e) {
+//     std::cerr << "Failed to parse precision: " << stringPrecision << std::endl;
+//     throw e;
+//     return CUDA_R_32F;
+//   }
+// }
 
 cublasComputeType_t selectCompute(std::string computestr,
                                   cudaDataType_t precision) {
@@ -127,7 +127,7 @@ cudaDataType_t selectScalar(std::string scalarstr, cudaDataType_t precision,
     // something terrible has happened
     return precision;
   }
-  return precisionStringToDType(scalarstr);
+  //return precisionStringToDType(scalarstr);
 }
 
 cublasOperation_t opStringToOp(std::string opstr) {

@@ -17,6 +17,7 @@
 #include "cudaError.h"
 #include "cxxopts.hpp"
 #include "genericInit.h"
+#include "mblasCuDataType.h"
 
 using std::cerr;
 using std::cout;
@@ -29,48 +30,48 @@ using std::vector;
 // clang-format off
 std::vector<gemmPrecType> cublasGemm::gemmExSupported = {
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_16F,            CUDA_R_16F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_16F_PEDANTIC,   CUDA_R_16F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_32I,            CUDA_R_32I,   CUDA_R_8I,    CUDA_R_32I  },
-    {CUBLAS_COMPUTE_32I_PEDANTIC,   CUDA_R_32I,   CUDA_R_8I,    CUDA_R_32I  },
+    {CUBLAS_COMPUTE_16F,            MBLAS_R_16F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {CUBLAS_COMPUTE_16F_PEDANTIC,   MBLAS_R_16F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {CUBLAS_COMPUTE_32I,            MBLAS_R_32I,   MBLAS_R_8I,    MBLAS_R_32I  },
+    {CUBLAS_COMPUTE_32I_PEDANTIC,   MBLAS_R_32I,   MBLAS_R_8I,    MBLAS_R_32I  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  }, 
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_16BF },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_16BF },
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_16F  }, 
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_8I,    MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_8I,    MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F,            CUDA_C_32F,   CUDA_C_8I,    CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_C_32F,   CUDA_C_8I,    CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_C_32F,   MBLAS_C_8I,    MBLAS_C_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_C_32F,   MBLAS_C_8I,    MBLAS_C_32F  },
+    {CUBLAS_COMPUTE_32F,            MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {CUBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F_FAST_16F,   CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16BF,  CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_TF32,  CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16F,   CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16BF,  CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_TF32,  CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_16F,   MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_16BF,  MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_TF32,  MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_16F,   MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_16BF,  MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {CUBLAS_COMPUTE_32F_FAST_TF32,  MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_64F,            CUDA_R_64F,   CUDA_R_64F,   CUDA_R_64F  },
-    {CUBLAS_COMPUTE_64F_PEDANTIC,   CUDA_R_64F,   CUDA_R_64F,   CUDA_R_64F  },
-    {CUBLAS_COMPUTE_64F,            CUDA_C_64F,   CUDA_C_64F,   CUDA_C_64F  },
-    {CUBLAS_COMPUTE_64F_PEDANTIC,   CUDA_C_64F,   CUDA_C_64F,   CUDA_C_64F  },
+    {CUBLAS_COMPUTE_64F,            MBLAS_R_64F,   MBLAS_R_64F,   MBLAS_R_64F  },
+    {CUBLAS_COMPUTE_64F_PEDANTIC,   MBLAS_R_64F,   MBLAS_R_64F,   MBLAS_R_64F  },
+    {CUBLAS_COMPUTE_64F,            MBLAS_C_64F,   MBLAS_C_64F,   MBLAS_C_64F  },
+    {CUBLAS_COMPUTE_64F_PEDANTIC,   MBLAS_C_64F,   MBLAS_C_64F,   MBLAS_C_64F  },
 };
 // clang-format on
 
 std::vector<TgemmPrecType> cublasGemm::TgemmExSupported = {
-    {CUDA_R_16BF, CUDA_R_16BF}, {CUDA_R_16F, CUDA_R_16F},
-    {CUDA_R_8I, CUDA_R_32F},    {CUDA_R_16BF, CUDA_R_32F},
-    {CUDA_R_16F, CUDA_R_32F},   {CUDA_R_32F, CUDA_R_32F},
-    {CUDA_C_8I, CUDA_C_32F},    {CUDA_C_32F, CUDA_C_32F},
+    {mblasCuDataType::MBLAS_R_16BF, mblasCuDataType::MBLAS_R_16BF}, {mblasCuDataType::MBLAS_R_16F, mblasCuDataType::MBLAS_R_16F},
+    {mblasCuDataType::MBLAS_R_8I, mblasCuDataType::MBLAS_R_32F},    {mblasCuDataType::MBLAS_R_16BF, mblasCuDataType::MBLAS_R_32F},
+    {mblasCuDataType::MBLAS_R_16F, mblasCuDataType::MBLAS_R_32F},   {mblasCuDataType::MBLAS_R_32F, mblasCuDataType::MBLAS_R_32F},
+    {mblasCuDataType::MBLAS_C_8I, mblasCuDataType::MBLAS_C_32F},    {mblasCuDataType::MBLAS_C_32F, mblasCuDataType::MBLAS_C_32F},
 
 };
 
@@ -104,9 +105,9 @@ void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
     return;
   }
   // Parse each precision
-  a_type = precisionStringToDType(aStr);
-  b_type = precisionStringToDType(bStr);
-  c_type = precisionStringToDType(cStr);
+  a_type = mblasCuDataType(aStr);
+  b_type = mblasCuDataType(bStr);
+  c_type = mblasCuDataType(cStr);
 
   // Validate against supported precision table (fun)
   if (a_type != b_type) {
@@ -154,7 +155,8 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   // checkCublas(cublasCreate(&handle));
   initPrecMap();
   // Grab precision from command line
-  precision = precisionStringToDType(result["precision"].as<string>());
+  //precision = mblasCuDataType(result["precision"].as<string>());
+  precision = mblasCuDataType(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
   string scalarT = result["scalar_type"].as<string>();

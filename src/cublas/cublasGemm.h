@@ -7,22 +7,24 @@
 #include <string>
 
 #include "genericGemm.h"
+#include "mblasCuDataType.h"
 
 struct gemmPrecType {
   cublasComputeType_t compute;
-  cublasDataType_t scalar;
-  cublasDataType_t ab_type;
-  cublasDataType_t c_type;
+  mblasDataType scalar;
+  mblasDataType ab_type;
+  mblasDataType c_type;
   bool operator==(const gemmPrecType rhs) const {
-    return rhs.compute == compute && rhs.scalar == scalar &&
-           rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+    return compute == rhs.compute && scalar == rhs.scalar &&
+           ab_type == rhs.ab_type && c_type == rhs.c_type;
   }
 };
 struct TgemmPrecType {
-  cublasDataType_t ab_type;
-  cublasDataType_t c_type;
+  mblasDataType ab_type;
+  mblasDataType c_type;
   bool operator==(const TgemmPrecType rhs) const {
-    return rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+    return  ab_type == rhs.ab_type &&
+            c_type == rhs.c_type;
   }
 };
 
@@ -83,12 +85,12 @@ class cublasGemm : public genericGemm {
 
   // cublasStatus_t stat;
   // cublasHandle_t handle;
-  cudaDataType_t precision;
+  mblasCuDataType precision;
   cublasComputeType_t compute;
-  cudaDataType_t scalar;
-  cudaDataType_t a_type;
-  cudaDataType_t b_type;
-  cudaDataType_t c_type;
+  mblasCuDataType scalar;
+  mblasCuDataType a_type;
+  mblasCuDataType b_type;
+  mblasCuDataType c_type;
 
   int workspaceSz = 128 * 1024 * 1024;
 
