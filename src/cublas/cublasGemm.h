@@ -2,28 +2,31 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cxxabi.h>
-#include <third_party/barrier.h>
 
 #include <iostream>
 #include <string>
 
 #include "genericGemm.h"
+#include "mblasCuDataType.h"
+#include "mblasCuComputeType.h"
+#include "mblasCuOperation.h"
 
 struct gemmPrecType {
-  cublasComputeType_t compute;
-  cublasDataType_t scalar;
-  cublasDataType_t ab_type;
-  cublasDataType_t c_type;
+  mblasComputeType compute;
+  mblasDataType scalar;
+  mblasDataType ab_type;
+  mblasDataType c_type;
   bool operator==(const gemmPrecType rhs) const {
-    return rhs.compute == compute && rhs.scalar == scalar &&
-           rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+    return compute == rhs.compute && scalar == rhs.scalar &&
+           ab_type == rhs.ab_type && c_type == rhs.c_type;
   }
 };
 struct TgemmPrecType {
-  cublasDataType_t ab_type;
-  cublasDataType_t c_type;
+  mblasDataType ab_type;
+  mblasDataType c_type;
   bool operator==(const TgemmPrecType rhs) const {
-    return rhs.ab_type == rhs.ab_type && rhs.c_type == c_type;
+    return  ab_type == rhs.ab_type &&
+            c_type == rhs.c_type;
   }
 };
 
@@ -79,32 +82,26 @@ class cublasGemm : public genericGemm {
   void *alpha;
   void *beta;
 
-  cublasOperation_t transA;
-  cublasOperation_t transB;
+  mblasCuOperation transA;
+  mblasCuOperation transB;
 
   // cublasStatus_t stat;
   // cublasHandle_t handle;
-  cudaDataType_t precision;
-  cublasComputeType_t compute;
-  cudaDataType_t scalar;
-  cudaDataType_t a_type;
-  cudaDataType_t b_type;
-  cudaDataType_t c_type;
+  mblasCuDataType precision;
+  mblasCuComputeType compute;
+  mblasCuDataType scalar;
+  mblasCuDataType a_type;
+  mblasCuDataType b_type;
+  mblasCuDataType c_type;
 
   int workspaceSz = 128 * 1024 * 1024;
-
-  // std::map<std::string, cudaDataType_t> precDType;
-  // std::map<std::string, cublasComputeType_t> computeDType;
-  // std::map<cudaDataType_t, cublasComputeType_t> precToCompute;
-  // static gemmPrecType gemmExSupported[];
 
   static std::vector<gemmPrecType> gemmExSupported;
   static std::vector<TgemmPrecType> TgemmExSupported;
   std::vector<cublasgemmInst> matPtrs;
   std::vector<std::vector<cudaEvent_t *> *> eventPtr;
 
- public:
-  cublasGemm(cxxopts::ParseResult result);
+ private:
   void initPrecMap();
   // cudaDataType_t precisionStringToDType(std::string stringPrecision);
   // void parseMType(std::string a, std::string b, std::string c);
@@ -112,7 +109,6 @@ class cublasGemm : public genericGemm {
                   std::string aStr, std::string bStr, std::string cStr);
   void parseDevIters(std::string);
   cublasOperation_t setOp(std::string);
-  std::string prepareArray();
   void allocHost();
   void allocDev(cublasgemmInst *);
   void fillHost();
@@ -120,10 +116,7 @@ class cublasGemm : public genericGemm {
   void runThreaded(void (cublasGemm::*func)(cublasgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);
 
-  virtual void freeMem();
 
-  std::string getResultString();
-  double test();
   double testGemmExBatched();
   double testGemmExStridedBatched();
 
@@ -165,4 +158,10 @@ class cublasGemm : public genericGemm {
       cublasgemmInst *mat);
 
   void testGemmEx(cublasgemmInst *mat);
+ public:
+  cublasGemm(cxxopts::ParseResult result);
+  std::string prepareArray();
+  double test();
+  std::string getResultString();
+  virtual void freeMem();
 };

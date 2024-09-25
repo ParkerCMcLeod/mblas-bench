@@ -53,18 +53,21 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
   iters = result["iters"].as<int>();
   cold_iters = result["cold_iters"].as<int>();
   batchct = 1;
-  if (function.find("Batched") != string::npos) {
+  if (function.find("Batched") != string::npos || function.find("batched") != string::npos) {
     batched = true;
-    batchct = result["batch_count"].as<int>();
   }
-
-  if (function.find("Strided") != string::npos) {
+  batchct = result["batch_count"].as<int>();
+  if (function.find("Strided") != string::npos || function.find("strided") != string::npos) {
     strided = true;
-    stride_a = result["stride_a"].as<long long int>();
-    stride_b = result["stride_b"].as<long long int>();
-    stride_c = result["stride_c"].as<long long int>();
   }
+  stride_a = result["stride_a"].as<long long int>();
+  stride_b = result["stride_b"].as<long long int>();
+  stride_c = result["stride_c"].as<long long int>();
+
   initialization = result["initialization"].as<string>();
+  filenameA = result["filenameA"].as<string>();
+  filenameB = result["filenameB"].as<string>();
+  filenameC = result["filenameC"].as<string>();
 
   // Set init control information
   if (initialization == "rand_int") {

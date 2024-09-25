@@ -2,7 +2,7 @@
 #include <string>
 #include <utility>
 
-#include "third_party/cxxopts.hpp"
+#include "cxxopts.hpp"
 
 class genericGemm {
  protected:
@@ -40,10 +40,11 @@ class genericGemm {
 
   bool strided;
   bool batched;
-  int batchct;
 
   int iters;
   int cold_iters;
+
+  int batchct;
 
   bool controlA = false;
   bool controlB = false;
@@ -54,6 +55,11 @@ class genericGemm {
   float constantB = 3.f;
   float constantC = 1.f;
   float constantD = 1.f;
+
+  std::string filenameA;
+  std::string filenameB;
+  std::string filenameC;
+  std::string filenameD;
 
   double gflop_per_second = 0;
   double gbyte_per_second = 0;

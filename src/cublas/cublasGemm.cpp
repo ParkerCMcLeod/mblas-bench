@@ -15,7 +15,9 @@
 #include "cublasCreateAllocate.h"
 #include "cublasDtypeUtils.h"
 #include "cudaError.h"
-#include "third_party/cxxopts.hpp"
+#include "cxxopts.hpp"
+#include "genericInit.h"
+#include "mblasCuDataType.h"
 
 using std::cerr;
 using std::cout;
@@ -28,48 +30,48 @@ using std::vector;
 // clang-format off
 std::vector<gemmPrecType> cublasGemm::gemmExSupported = {
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_16F,            CUDA_R_16F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_16F_PEDANTIC,   CUDA_R_16F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_32I,            CUDA_R_32I,   CUDA_R_8I,    CUDA_R_32I  },
-    {CUBLAS_COMPUTE_32I_PEDANTIC,   CUDA_R_32I,   CUDA_R_8I,    CUDA_R_32I  },
+    {MBLAS_COMPUTE_16F,            MBLAS_R_16F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {MBLAS_COMPUTE_16F_PEDANTIC,   MBLAS_R_16F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {MBLAS_COMPUTE_32I,            MBLAS_R_32I,   MBLAS_R_8I,    MBLAS_R_32I  },
+    {MBLAS_COMPUTE_32I_PEDANTIC,   MBLAS_R_32I,   MBLAS_R_8I,    MBLAS_R_32I  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_16BF },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_16F  }, 
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_8I,    CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16BF,  CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_16F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_16F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_16BF },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_16BF },
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_16F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_16F  }, 
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_8I,    MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_8I,    MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16BF,  MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_16F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F,            CUDA_C_32F,   CUDA_C_8I,    CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_C_32F,   CUDA_C_8I,    CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F,            CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_PEDANTIC,   CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_C_32F,   MBLAS_C_8I,    MBLAS_C_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_C_32F,   MBLAS_C_8I,    MBLAS_C_32F  },
+    {MBLAS_COMPUTE_32F,            MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {MBLAS_COMPUTE_32F_PEDANTIC,   MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_32F_FAST_16F,   CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16BF,  CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_TF32,  CUDA_R_32F,   CUDA_R_32F,   CUDA_R_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16F,   CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_16BF,  CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
-    {CUBLAS_COMPUTE_32F_FAST_TF32,  CUDA_C_32F,   CUDA_C_32F,   CUDA_C_32F  },
+    {MBLAS_COMPUTE_32F_FAST_16F,   MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_FAST_16BF,  MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_FAST_TF32,  MBLAS_R_32F,   MBLAS_R_32F,   MBLAS_R_32F  },
+    {MBLAS_COMPUTE_32F_FAST_16F,   MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {MBLAS_COMPUTE_32F_FAST_16BF,  MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
+    {MBLAS_COMPUTE_32F_FAST_TF32,  MBLAS_C_32F,   MBLAS_C_32F,   MBLAS_C_32F  },
     // Compute type                 Scale Type    A/B Type      C Type
-    {CUBLAS_COMPUTE_64F,            CUDA_R_64F,   CUDA_R_64F,   CUDA_R_64F  },
-    {CUBLAS_COMPUTE_64F_PEDANTIC,   CUDA_R_64F,   CUDA_R_64F,   CUDA_R_64F  },
-    {CUBLAS_COMPUTE_64F,            CUDA_C_64F,   CUDA_C_64F,   CUDA_C_64F  },
-    {CUBLAS_COMPUTE_64F_PEDANTIC,   CUDA_C_64F,   CUDA_C_64F,   CUDA_C_64F  },
+    {MBLAS_COMPUTE_64F,            MBLAS_R_64F,   MBLAS_R_64F,   MBLAS_R_64F  },
+    {MBLAS_COMPUTE_64F_PEDANTIC,   MBLAS_R_64F,   MBLAS_R_64F,   MBLAS_R_64F  },
+    {MBLAS_COMPUTE_64F,            MBLAS_C_64F,   MBLAS_C_64F,   MBLAS_C_64F  },
+    {MBLAS_COMPUTE_64F_PEDANTIC,   MBLAS_C_64F,   MBLAS_C_64F,   MBLAS_C_64F  },
 };
 // clang-format on
 
 std::vector<TgemmPrecType> cublasGemm::TgemmExSupported = {
-    {CUDA_R_16BF, CUDA_R_16BF}, {CUDA_R_16F, CUDA_R_16F},
-    {CUDA_R_8I, CUDA_R_32F},    {CUDA_R_16BF, CUDA_R_32F},
-    {CUDA_R_16F, CUDA_R_32F},   {CUDA_R_32F, CUDA_R_32F},
-    {CUDA_C_8I, CUDA_C_32F},    {CUDA_C_32F, CUDA_C_32F},
+    {mblasCuDataType::MBLAS_R_16BF, mblasCuDataType::MBLAS_R_16BF}, {mblasCuDataType::MBLAS_R_16F, mblasCuDataType::MBLAS_R_16F},
+    {mblasCuDataType::MBLAS_R_8I, mblasCuDataType::MBLAS_R_32F},    {mblasCuDataType::MBLAS_R_16BF, mblasCuDataType::MBLAS_R_32F},
+    {mblasCuDataType::MBLAS_R_16F, mblasCuDataType::MBLAS_R_32F},   {mblasCuDataType::MBLAS_R_32F, mblasCuDataType::MBLAS_R_32F},
+    {mblasCuDataType::MBLAS_C_8I, mblasCuDataType::MBLAS_C_32F},    {mblasCuDataType::MBLAS_C_32F, mblasCuDataType::MBLAS_C_32F},
 
 };
 
@@ -89,8 +91,8 @@ void cublasGemm::parseDevIters(std::string deviceStr) {
 
 void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
                             string bStr, string cStr) {
-  compute = selectCompute(computeTStr, precision);
-  scalar = selectScalar(scalarTStr, precision, compute);
+  compute.setCompute(computeTStr, precision);
+  scalar.setScalar(scalarTStr, precision, compute);
 
   if (aStr == "" || bStr == "" || cStr == "") {
     // Precision not completely specified, default to precision
@@ -103,16 +105,16 @@ void cublasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
     return;
   }
   // Parse each precision
-  a_type = precisionStringToDType(aStr);
-  b_type = precisionStringToDType(bStr);
-  c_type = precisionStringToDType(cStr);
+  a_type = mblasCuDataType(aStr);
+  b_type = mblasCuDataType(bStr);
+  c_type = mblasCuDataType(cStr);
 
   // Validate against supported precision table (fun)
   if (a_type != b_type) {
     string errorString = "A Type must the same as B Type";
     throw std::invalid_argument(errorString);
   }
-  if (function.find("GemmEx")) {
+  if (function.find("GemmEx") || function.find("gemm_ex")) {
     /*
       Possible functions:
         cublasGemmEx
@@ -153,7 +155,8 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   // checkCublas(cublasCreate(&handle));
   initPrecMap();
   // Grab precision from command line
-  precision = precisionStringToDType(result["precision"].as<string>());
+  //precision = mblasCuDataType(result["precision"].as<string>());
+  precision = mblasCuDataType(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
   string scalarT = result["scalar_type"].as<string>();
@@ -170,8 +173,8 @@ cublasGemm::cublasGemm(cxxopts::ParseResult result) : genericGemm(result) {
   parseDevIters(result["device"].as<string>());
   std::string tA = result["transposeA"].as<std::string>();
   std::string tB = result["transposeB"].as<std::string>();
-  transA = opStringToOp(result["transposeA"].as<std::string>());
-  transB = opStringToOp(result["transposeB"].as<std::string>());
+  transA = mblasCuOperation(result["transposeA"].as<std::string>());
+  transB = mblasCuOperation(result["transposeB"].as<std::string>());
 
   // Pull in alpha and beta, alloc memory and save to pointers
   string salpha = result["alpha"].as<string>();
@@ -269,11 +272,17 @@ void cublasGemm::fillHost() {
   //  thread.join();
   //}
   typeCallHost<initHost>(a_type, initialization, hostA, rowsA, colsA, lda,
-                         batchct, stride_a, controlA, constantA);
+                         batchct, stride_a, controlA, constantA, filenameA);
   typeCallHost<initHost>(b_type, initialization, hostB, rowsB, colsB, ldb,
-                         batchct, stride_b, controlB, constantB);
+                         batchct, stride_b, controlB, constantB, filenameB);
   typeCallHost<initHost>(c_type, initialization, hostC, rowsC, colsC, ldc,
-                         batchct, stride_c, controlC, constantC);
+                         batchct, stride_c, controlC, constantC, filenameC);
+  // initHostH(a_type, initialization, hostA, rowsA, colsA, lda,
+  //           batchct, stride_a, controlA, constantA, filenameA);
+  // initHostH(b_type, initialization, hostB, rowsB, colsB, ldb,
+  //           batchct, stride_b, controlB, constantB, filenameB);
+  // initHostH(c_type, initialization, hostC, rowsC, colsC, ldc,
+  //                        batchct, stride_c, controlC, constantC, filenameC);
 }
 
 void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
@@ -297,11 +306,11 @@ void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
     checkCuda(
         cudaMalloc(&mat->ptrDevC, batchct * typeCallHost<sizeofCUDTP>(c_type)));
     typeCallDev<batchedPtrMagic>(a_type, mat->ptrHostA, mat->ptrDevA, mat->devA,
-                                 batchct, m, k);
+                                batchct, rowsMemA, colsMemA);
     typeCallDev<batchedPtrMagic>(b_type, mat->ptrHostB, mat->ptrDevB, mat->devB,
-                                 batchct, k, n);
+                                batchct, rowsMemB, colsMemB);
     typeCallDev<batchedPtrMagic>(c_type, mat->ptrHostC, mat->ptrDevC, mat->devC,
-                                 batchct, n, m);
+                                batchct, rowsMemC, colsMemC);
   }
 }
 
@@ -332,57 +341,57 @@ double cublasGemm::test() {
   double gflops = 0.0;
   for (auto &mat : matPtrs) {
     // TgemmBatched
-    if (matchGemmType(precision, function, CUDA_R_64F, {"cublasDgemm", "dgemm", "gemm"})) {
+    if (matchGemmType(precision, function, mblasDataType::MBLAS_R_64F, {"cublasDgemm", "dgemm", "gemm"})) {
       std::function<decltype(cublasDgemm)> dgemm_var = cublasDgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<double>, this, dgemm_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_R_32F, {"cublasSgemm", "sgemm", "gemm"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_R_32F, {"cublasSgemm", "sgemm", "gemm"})) {
       std::function<decltype(cublasSgemm)> sgemm_var = cublasSgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<float>, this, sgemm_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_R_16F, {"cublasHgemm", "hgemm", "gemm"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_R_16F, {"cublasHgemm", "hgemm", "gemm"})) {
       std::function<decltype(cublasHgemm)> hgemm_var = cublasHgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<__half>, this, hgemm_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_C_64F, {"cublasZgemm", "zgemm", "gemm"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_C_64F, {"cublasZgemm", "zgemm", "gemm"})) {
       std::function<decltype(cublasZgemm)> zgemm_var = cublasZgemm;
       threads.push_back(thread(&cublasGemm::testTgemm<cuDoubleComplex>, this,
                                zgemm_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_C_32F, {"cublasCgemm", "cgemm", "gemm"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_C_32F, {"cublasCgemm", "cgemm", "gemm"})) {
       std::function<decltype(cublasCgemm)> cgemm_var = cublasCgemm;
       threads.push_back(
           thread(&cublasGemm::testTgemm<cuComplex>, this, cgemm_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_C_64F, {"cublasZgemm3m", "zgemm3m", "gemm3m"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_C_64F, {"cublasZgemm3m", "zgemm3m", "gemm3m"})) {
       std::function<decltype(cublasZgemm3m)> zgemm3m_var = cublasZgemm3m;
       threads.push_back(thread(&cublasGemm::testTgemm<cuDoubleComplex>, this,
                                zgemm3m_var, &mat));
-    } else if (matchGemmType(precision, function, CUDA_C_32F, {"cublasCgemm3m", "cgemm3m", "gemm3m"})) {
+    } else if (matchGemmType(precision, function, mblasDataType::MBLAS_C_32F, {"cublasCgemm3m", "cgemm3m", "gemm3m"})) {
       std::function<decltype(cublasCgemm3m)> cgemm3m_var = cublasCgemm3m;
       threads.push_back(
           thread(&cublasGemm::testTgemm<cuComplex>, this, cgemm3m_var, &mat));
     }
     // TgemmBatched
-    else if (function == "cublasDgemmBatched" && precision == CUDA_R_64F) {
+    else if (function == "cublasDgemmBatched" && precision == mblasDataType::MBLAS_R_64F) {
       std::function<decltype(cublasDgemmBatched)> dgemm_var =
           cublasDgemmBatched;
       threads.push_back(
           thread(&cublasGemm::testTgemmBatched<double>, this, dgemm_var, &mat));
-    } else if (function == "cublasSgemmBatched" && precision == CUDA_R_32F) {
+    } else if (function == "cublasSgemmBatched" && precision == mblasDataType::MBLAS_R_32F) {
       std::function<decltype(cublasSgemmBatched)> sgemm_var =
           cublasSgemmBatched;
       threads.push_back(
           thread(&cublasGemm::testTgemmBatched<float>, this, sgemm_var, &mat));
-    } else if (function == "cublasHgemmBatched" && precision == CUDA_R_16F) {
+    } else if (function == "cublasHgemmBatched" && precision == mblasDataType::MBLAS_R_16F) {
       std::function<decltype(cublasHgemmBatched)> hgemm_var =
           cublasHgemmBatched;
       threads.push_back(
           thread(&cublasGemm::testTgemmBatched<__half>, this, hgemm_var, &mat));
-    } else if (function == "cublasZgemmBatched" && precision == CUDA_C_64F) {
+    } else if (function == "cublasZgemmBatched" && precision == mblasDataType::MBLAS_C_64F) {
       std::function<decltype(cublasZgemmBatched)> zgemm_var =
           cublasZgemmBatched;
       threads.push_back(thread(&cublasGemm::testTgemmBatched<cuDoubleComplex>,
                                this, zgemm_var, &mat));
-    } else if (function == "cublasCgemmBatched" && precision == CUDA_C_32F) {
+    } else if (function == "cublasCgemmBatched" && precision == mblasDataType::MBLAS_C_32F) {
       std::function<decltype(cublasCgemmBatched)> cgemm_var =
           cublasCgemmBatched;
       threads.push_back(thread(&cublasGemm::testTgemmBatched<cuComplex>, this,
@@ -390,38 +399,38 @@ double cublasGemm::test() {
     }
     // TgemmStridedBatched
     else if (function == "cublasDgemmStridedBatched" &&
-             precision == CUDA_R_64F) {
+             precision == mblasDataType::MBLAS_R_64F) {
       std::function<decltype(cublasDgemmStridedBatched)> dgemm_var =
           cublasDgemmStridedBatched;
       threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<double>,
                                this, dgemm_var, &mat));
     } else if (function == "cublasSgemmStridedBatched" &&
-               precision == CUDA_R_32F) {
+               precision == mblasDataType::MBLAS_R_32F) {
       std::function<decltype(cublasSgemmStridedBatched)> sgemm_var =
           cublasSgemmStridedBatched;
       threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<float>,
                                this, sgemm_var, &mat));
     } else if (function == "cublasHgemmStridedBatched" &&
-               precision == CUDA_R_16F) {
+               precision == mblasDataType::MBLAS_R_16F) {
       std::function<decltype(cublasHgemmStridedBatched)> hgemm_var =
           cublasHgemmStridedBatched;
       threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<__half>,
                                this, hgemm_var, &mat));
     } else if (function == "cublasZgemmStridedBatched" &&
-               precision == CUDA_C_64F) {
+               precision == mblasDataType::MBLAS_C_64F) {
       std::function<decltype(cublasZgemmStridedBatched)> zgemm_var =
           cublasZgemmStridedBatched;
       threads.push_back(
           thread(&cublasGemm::testTgemmStridedBatched<cuDoubleComplex>, this,
                  zgemm_var, &mat));
     } else if (function == "cublasCgemmStridedBatched" &&
-               precision == CUDA_C_32F) {
+               precision == mblasDataType::MBLAS_C_32F) {
       std::function<decltype(cublasCgemmStridedBatched)> cgemm_var =
           cublasCgemmStridedBatched;
       threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<cuComplex>,
                                this, cgemm_var, &mat));
     } else if (function == "cublasCgemm3mStridedBatched" &&
-               precision == CUDA_C_32F) {
+               precision == mblasDataType::MBLAS_C_32F) {
       std::function<decltype(cublasCgemm3mStridedBatched)> cgemm_var =
           cublasCgemm3mStridedBatched;
       threads.push_back(thread(&cublasGemm::testTgemmStridedBatched<cuComplex>,
@@ -472,7 +481,7 @@ double cublasGemm::test() {
 std::string cublasGemm::getResultString() {
   std::ostringstream ossValues;
   ossValues << std::setprecision(7);
-  ossValues << opToString(transA) << ',' << opToString(transB) << ',' << m
+  ossValues << transA.toStringShort() << ',' << transB.toStringShort() << ',' << m
             << ',' << n << ',' << k << ',' << lda << ',' << ldb << ',' << ldc
             << ',';
   if (batched) {
@@ -496,7 +505,7 @@ std::tuple<double, double, double> cublasGemm::calculateFOM(
   int c_sz = typeCallDev<sizeofCUDT>(c_type);
 
   int flopPerSize = 2;
-  if (!isReal(precision)) {
+  if (!precision.isReal()) {
     int flopPerSize = 8;
   }
   double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *
@@ -542,7 +551,7 @@ void cublasGemm::testTgemm(
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc);
 
     // Check for errors during the gemm run
@@ -560,7 +569,7 @@ void cublasGemm::testTgemm(
   */
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc);
   }
   cudaEventRecord(stop, stream);
@@ -602,7 +611,7 @@ void cublasGemm::testTgemmBatched(
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc, batchct);
 
     // Check for errors during the gemm run
@@ -620,7 +629,7 @@ void cublasGemm::testTgemmBatched(
   */
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, devBP, ldb,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
                 betaP, devCP, ldc, batchct);
   }
   cudaEventRecord(stop, stream);
@@ -662,7 +671,7 @@ void cublasGemm::testTgemmStridedBatched(
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, stride_a,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, stride_a,
                 devBP, ldb, stride_b, betaP, devCP, ldc, stride_c, batchct);
 
     // Check for errors during the gemm run
@@ -680,7 +689,7 @@ void cublasGemm::testTgemmStridedBatched(
   */
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, devAP, lda, stride_a,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, devAP, lda, stride_a,
                 devBP, ldb, stride_b, betaP, devCP, ldc, stride_c, batchct);
   }
   cudaEventRecord(stop, stream);
@@ -722,7 +731,7 @@ void cublasGemm::testTGemmEx(
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, mat->devA, a_type, lda,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, mat->devA, a_type, lda,
                 mat->devB, b_type, ldb, betaP, mat->devC, c_type, ldc);
 
     // Check for errors during the gemm run
@@ -740,7 +749,7 @@ void cublasGemm::testTGemmEx(
   */
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = func(handle, transA, transB, m, n, k, alphaP, mat->devA, a_type, lda,
+    stat = func(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alphaP, mat->devA, a_type, lda,
                 mat->devB, b_type, ldb, betaP, mat->devC, c_type, ldc);
   }
   cudaEventRecord(stop, stream);
@@ -769,7 +778,7 @@ void cublasGemm::testGemmEx(cublasgemmInst *mat) {
   // cublasSetMathMode(handle, CUBLAS_TF32_TENSOR_OP_MATH);
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
+    stat = cublasGemmEx(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
                         c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
 
@@ -788,7 +797,7 @@ void cublasGemm::testGemmEx(cublasgemmInst *mat) {
   */
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = cublasGemmEx(handle, transA, transB, m, n, k, alpha, mat->devA,
+    stat = cublasGemmEx(handle, transA.convertToCuda(), transB.convertToCuda(), m, n, k, alpha, mat->devA,
                         a_type, lda, mat->devB, b_type, ldb, beta, mat->devC,
                         c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
   }

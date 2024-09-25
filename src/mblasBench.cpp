@@ -1,6 +1,4 @@
 #include <assert.h>
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
 #include <cxxabi.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,16 +6,20 @@
 #include <cctype>
 #include <iostream>
 
-#include "cublas/cublasGemm.h"
-#include "cublas/cublasLtGemm.h"
-#include "genericGemm.h"
 
-// #include "fp16_conversion.h"
+//#include "genericGemm.h"
+//#include "rocblasGemm.h"
+//#include "hipblasLtGemm.h"
+//#include "cublasGemm.h"
+//#include "cublasLtGemm.h"
+#include <genericGemmFactory.h>
+#include <rocblasGemmFactory.h>
+#include <hipblasLtGemmFactory.h>
+#include <cublasGemmFactory.h>
+#include <cublasLtGemmFactory.h>
+
 #include "third_party/cxxopts.hpp"
 
-//#include "error_handling.h"
-//#include "create-allocate.h"
-//#include "cublas/cudaError.h"
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -42,7 +44,7 @@ int main(int argc, char **argv) {
   //             << ", " << prop.memoryClockRate / 1000 << " MHZ" << std::endl;
   // }
   // parse input arguments
-  cxxopts::Options options("cublas_bench", "Benchmark Cublas");
+  cxxopts::Options options("rocblas_bench", "Benchmark rocBLAS");
   string supPrec = "h,s,d,c,z,f16_r,f32_r,f64_r,bf16_r,f32_c,f64_c,i8_r,i32_r";
   auto opp_adder = options.add_options();
   opp_adder("m,sizem", "Specific matrix size",
@@ -75,15 +77,15 @@ int main(int argc, char **argv) {
             "BLAS-3.  (Default value is based on size of A if not specified)",
             cxxopts::value<string>()->default_value(""));
   opp_adder("ldb",
-            "Leading dimension of matrix A, is only applicable to BLAS-2 & "
+            "Leading dimension of matrix B, is only applicable to BLAS-2 & "
             "BLAS-3.  (Default value is based on size of B if not specified)",
             cxxopts::value<string>()->default_value(""));
   opp_adder("ldc",
-            "Leading dimension of matrix A, is only applicable to BLAS-2 & "
+            "Leading dimension of matrix C, is only applicable to BLAS-2 & "
             "BLAS-3.  (Default value is based on size of C if not specified)",
             cxxopts::value<string>()->default_value(""));
   opp_adder("ldd",
-            "Leading dimension of matrix A, is only applicable to BLAS-EX.  "
+            "Leading dimension of matrix D, is only applicable to BLAS-EX.  "
             "(Default value is based on size of D if not specified)",
             cxxopts::value<string>()->default_value(""));
   opp_adder("stride_a",
@@ -137,14 +139,28 @@ int main(int argc, char **argv) {
             "Number of matrices. Only applicable to batched and "
             "strided_batched routines  (Default value is: 1)",
             cxxopts::value<int>()->default_value("1"));
+  // opp_adder("block_count",
+  //           "Number of memory blocks for arrays. Each benchmarking iteration "
+  //           "will use the next block of memory (or loop to the first block)",
+  //           cxxopts::value<int>()->default_value("1"));
   opp_adder("device", "GPU device(s) to run on",
             cxxopts::value<string>()->default_value("0"));
   opp_adder("instances", "Number of instances to run on each GPU",
             cxxopts::value<int>()->default_value("1"));
   opp_adder("initialization",
             "Intialize with random integers, trig functions sin and cos, or "
-            "hpl-like input. Options: rand_int, trig_float, hpl, blasgemm",
+            "hpl-like input. Options: rand_int, trig_float, normal_float, "
+            "hpl, blasgemm",
             cxxopts::value<string>()->default_value("rand_int"));
+  opp_adder("filenameA",
+            "Intialize matrix A with contents of a csv file",
+            cxxopts::value<string>()->default_value(""));
+  opp_adder("filenameB",
+            "Intialize matrix B with contents of a csv file",
+            cxxopts::value<string>()->default_value(""));
+  opp_adder("filenameC",
+            "Intialize matrix C with contents of a csv file",
+            cxxopts::value<string>()->default_value(""));
   opp_adder("i,iters",
             "Iterations to run inside timing loop  (Default value is: 10)",
             cxxopts::value<int>()->default_value("10"));
@@ -152,7 +168,7 @@ int main(int argc, char **argv) {
             " Cold Iterations to run before entering the timing loop ",
             cxxopts::value<int>()->default_value("2"));
   opp_adder("driver", "Backend to run the GEMM test with",
-            cxxopts::value<string>()->default_value("cublas"));
+            cxxopts::value<string>()->default_value("rocblas"));
   opp_adder("h,help", "Print Usage");
 
   cxxopts::ParseResult result = options.parse(argc, argv);
@@ -162,8 +178,7 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  genericGemm *gemm;
-
+  genericGemmFactory *gemm;
   // Select backend implementation
   string driver = sToLower(result["driver"].as<string>());
   string function = sToLower(result["function"].as<string>());
@@ -171,14 +186,22 @@ int main(int argc, char **argv) {
   if (driver == "cublaslt" || (driver == "cublas" && function == "matmul")) {
     // Since regular cublas has no matmul, we can safely assume the user means
     // cublaslt
-    gemm = new cublasLtGemm(result);
+    gemm = new cublasLtGemmFactory();
   } else if (driver == "cublas-bench" || driver == "cublas") {
-    gemm = new cublasGemm(result);
+    gemm = new cublasGemmFactory();
+  } else if (driver == "hipblaslt" || (driver == "rocblas" && function == "matmul")) {
+    // Since regular rocblas has no matmul, we can safely assume the user means
+    // hipblaslt
+    // gemm = new hipblasLtGemm(result);
+    gemm = new hipblasLtGemmFactory();
+  } else if (driver == "rocblas-bench" || driver == "rocblas") {
+    gemm = new rocblasGemmFactory();
   } else {
     cerr << "Driver \"" << driver << "\" not supported" << endl;
     return 1;
   }
 
+  gemm->createGemm(result);
   string header = gemm->prepareArray();
   cout << header << flush;
   gemm->test();
