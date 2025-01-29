@@ -208,6 +208,10 @@ cublasLtGemm::cublasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
   beta = typeCallHost<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
+  uint64_t a_offset, b_offset, c_offset, d_offset;
+  set_flush_batch_count(a_offset, b_offset, c_offset, d_offset, 
+      typeCallDev<sizeofCUDT>(a_type), typeCallDev<sizeofCUDT>(b_type), 
+      typeCallDev<sizeofCUDT>(c_type), typeCallDev<sizeofCUDT>(d_type), inplace);
 }
 
 string cublasLtGemm::prepareArray() {

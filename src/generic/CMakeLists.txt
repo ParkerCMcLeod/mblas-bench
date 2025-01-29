@@ -1,6 +1,7 @@
 
 add_library(mblasgeneric STATIC
     genericGemm.cpp
+    genericSetup.cpp
     mblasDataType.cpp
     mblasComputeType.cpp
     mblasOperation.cpp
