@@ -427,10 +427,10 @@ void cublasLtGemm::fillHost() {
     // D is just output, don't need to init
   }
   if (use_scaling) {
-    typeCallHost<initHost>(a_scale_type, string("constant"), scale_host_a, (int)a_scale_size.rows, (int)a_scale_size.cols, 1, 1, 0LL, false, 2.0f, string(""));
-    typeCallHost<initHost>(b_scale_type, string("constant"), scale_host_b, (int)b_scale_size.rows, (int)b_scale_size.cols, 1, 1, 0LL, false, 0.5f, string(""));
-    typeCallHost<initHost>(c_scale_type, string("constant"), scale_host_c, (int)c_scale_size.rows, (int)c_scale_size.cols, 1, 1, 0LL, false, 1.0f, string(""));
-    typeCallHost<initHost>(d_scale_type, string("constant"), scale_host_d, (int)d_scale_size.rows, (int)d_scale_size.cols, 1, 1, 0LL, false, 1.0f, string(""));
+    typeCallHost<initHost>(a_scale_type, string("constant"), scale_host_a, a_scale_size.rows, a_scale_size.cols, 1, 1, 0LL, false, 2.0f, string(""));
+    typeCallHost<initHost>(b_scale_type, string("constant"), scale_host_b, b_scale_size.rows, b_scale_size.cols, 1, 1, 0LL, false, 0.5f, string(""));
+    typeCallHost<initHost>(c_scale_type, string("constant"), scale_host_c, c_scale_size.rows, c_scale_size.cols, 1, 1, 0LL, false, 1.0f, string(""));
+    typeCallHost<initHost>(d_scale_type, string("constant"), scale_host_d, d_scale_size.rows, d_scale_size.cols, 1, 1, 0LL, false, 1.0f, string(""));
   }
 }
 
