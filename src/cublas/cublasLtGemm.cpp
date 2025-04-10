@@ -253,8 +253,8 @@ cublasLtGemm::cublasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
 string cublasLtGemm::prepareArray() {
   alpha = convert_scalar(scalar, alpha);
   beta = convert_scalar(scalar, beta);
-  this->allocHost();
-  this->fillHost();
+  this->alloc_host();
+  this->fill_host();
 
   int num_devices;
   cudaGetDeviceCount(&num_devices);
@@ -272,10 +272,10 @@ string cublasLtGemm::prepareArray() {
     }
   }
   // for (auto &instance : matPtrs) {
-  //  this->allocDev(&instance);
+  //  this->alloc_dev(&instance);
   //  this->copyHostToDev(&instance);
   //}
-  runThreaded(&cublasLtGemm::allocDev);
+  runThreaded(&cublasLtGemm::alloc_dev);
   runThreaded(&cublasLtGemm::copyHostToDev);
   runThreaded(&cublasLtGemm::prepareMatrix);
   // Enable tuning with a parameter later
@@ -302,49 +302,67 @@ void cublasLtGemm::runThreaded(void (cublasLtGemm::*func)(cublasltgemmInst *)) {
   }
 }
 
-void cublasLtGemm::allocHost() {
-  // auto resultA = std::async(allocateHostArr, a_type, m, k, batchct);
-  // auto resultB = std::async(allocateHostArr, b_type, k, n, batchct);
-  // auto resultC = std::async(allocateHostArr, c_type, n, m, batchct);
+void cublasLtGemm::alloc_host() {
+  // auto resultA = std::async(allocateHostArr, a_type, m, k, batch_count);
+  // auto resultB = std::async(allocateHostArr, b_type, k, n, batch_count);
+  // auto resultC = std::async(allocateHostArr, c_type, n, m, batch_count);
   // hostA = resultA.get();
   // hostB = resultB.get();
   // hostC = resultC.get();
-  //hostA = allocateHostArr(a_type, rowsMemA, colsMemA, batchct);
-  //hostB = allocateHostArr(b_type, rowsMemB, colsMemB, batchct);
-  //hostC = allocateHostArr(c_type, rowsMemC, colsMemC, batchct);
+  //hostA = allocateHostArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  //hostB = allocateHostArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  //hostC = allocateHostArr(c_type, rows_mem_c, cols_mem_c, batch_count);
   // Calculate size
-  total_block_size_host = calculate_offsets( 
-    rowsMemA, colsMemA, rowsMemB, colsMemB, rowsMemC, colsMemC, rowsMemD, colsMemD,
-    a_offset_host, b_offset_host, c_offset_host, d_offset_host,
-    typeCallHost<sizeofCUDT>(a_type),
-    typeCallHost<sizeofCUDT>(b_type),
-    typeCallHost<sizeofCUDT>(c_type),
-    typeCallHost<sizeofCUDT>(d_type),
-    get_packing_count(a_type),
-    get_packing_count(b_type),
-    get_packing_count(c_type),
-    get_packing_count(d_type),
-    batchct, inplace
-   );
-  // Allocate big block of memory
-  dataHost = (void *)malloc(total_block_size_host * flush_batch_count);
+  // total_block_size_host = calculate_offsets( 
+  //   rows_mem_a, cols_mem_a, rows_mem_b, cols_mem_b, rows_mem_c, cols_mem_c, rows_mem_d, cols_mem_d,
+  //   a_offset_host, b_offset_host, c_offset_host, d_offset_host,
+  //   typeCallHost<sizeofCUDT>(a_type),
+  //   typeCallHost<sizeofCUDT>(b_type),
+  //   typeCallHost<sizeofCUDT>(c_type),
+  //   typeCallHost<sizeofCUDT>(d_type),
+  //   get_packing_count(a_type),
+  //   get_packing_count(b_type),
+  //   get_packing_count(c_type),
+  //   get_packing_count(d_type),
+  //   batch_count, inplace
+  //  );
+  // // Allocate big block of memory
+  // dataHost = (void *)malloc(total_block_size_host * flush_batch_count);
 
   // Generate pointers 
   //if (batched && !strided) {
   // Perform some pointer arithmetic to calculate the arrays we pass to the
   // gpu
   ptrHostA =
-      (void **)malloc(batchct * flush_batch_count * typeCallHost<sizeofCUDTP>(a_type));
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(a_type));
   ptrHostB =
-      (void **)malloc(batchct * flush_batch_count * typeCallHost<sizeofCUDTP>(b_type));
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(b_type));
   ptrHostC =
-      (void **)malloc(batchct * flush_batch_count * typeCallHost<sizeofCUDTP>(c_type));
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(c_type));
   ptrHostD =
-      (void **)malloc(batchct * flush_batch_count * typeCallHost<sizeofCUDTP>(d_type));
-  batchedPtrMagicGeneric(ptrHostA, dataHost + a_offset_host, batchct, rowsMemA, colsMemA, flush_batch_count, total_block_size_host, a_type);
-  batchedPtrMagicGeneric(ptrHostB, dataHost + b_offset_host, batchct, rowsMemB, colsMemB, flush_batch_count, total_block_size_host, b_type);
-  batchedPtrMagicGeneric(ptrHostC, dataHost + c_offset_host, batchct, rowsMemC, colsMemC, flush_batch_count, total_block_size_host, c_type);
-  batchedPtrMagicGeneric(ptrHostD, dataHost + d_offset_host, batchct, rowsMemD, colsMemD, flush_batch_count, total_block_size_host, d_type);
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(d_type));
+  //for (int i = 0; i < flush_batch_count; i++) {
+  //  ptrHostA[i] = allocateHostArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  //  ptrHostB[i] = allocateHostArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  //  ptrHostC[i] = allocateHostArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+  //  ptrHostD[i] = allocateHostArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+  //}
+  for (int i = 0; i < flush_batch_count; i++) {
+    ptrHostA[i] = allocateHostArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    ptrHostB[i] = allocateHostArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    ptrHostC[i] = allocateHostArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    ptrHostD[i] = allocateHostArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+  }
+  //batchedPtrMagicGeneric(ptrHostA, dataHost + a_offset_host, batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size_host, a_type);
+  //batchedPtrMagicGeneric(ptrHostB, dataHost + b_offset_host, batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size_host, b_type);
+  //batchedPtrMagicGeneric(ptrHostC, dataHost + c_offset_host, batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size_host, c_type);
+  //batchedPtrMagicGeneric(ptrHostD, dataHost + d_offset_host, batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size_host, d_type);
   if (use_scaling) {
     scale_host_a = malloc(a_scale_size.get_size()*typeCallHost<sizeofCUDT>(a_scale_type));
     scale_host_b = malloc(b_scale_size.get_size()*typeCallHost<sizeofCUDT>(b_scale_type));
@@ -354,44 +372,63 @@ void cublasLtGemm::allocHost() {
 
 }
 
-void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
+void cublasLtGemm::alloc_dev(cublasltgemmInst *mat) {
   cudaSetDevice(mat->devIDX);
 
-  // Will update offset vars
-  total_block_size_dev = calculate_offsets( 
-    rowsMemA, colsMemA, rowsMemB, colsMemB, rowsMemC, colsMemC, rowsMemD, colsMemD,
-    a_offset_dev, b_offset_dev, c_offset_dev, d_offset_dev,
-    typeCallDev<sizeofCUDT>(a_type),
-    typeCallDev<sizeofCUDT>(b_type),
-    typeCallDev<sizeofCUDT>(c_type),
-    typeCallDev<sizeofCUDT>(d_type),
-    get_packing_count(a_type),
-    get_packing_count(b_type),
-    get_packing_count(c_type),
-    get_packing_count(d_type),
-    batchct, inplace
-   );
+  //// Will update offset vars
+  //total_block_size_dev = calculate_offsets( 
+  //  rows_mem_a, cols_mem_a, rows_mem_b, cols_mem_b, rows_mem_c, cols_mem_c, rows_mem_d, cols_mem_d,
+  //  a_offset_dev, b_offset_dev, c_offset_dev, d_offset_dev,
+  //  typeCallDev<sizeofCUDT>(a_type),
+  //  typeCallDev<sizeofCUDT>(b_type),
+  //  typeCallDev<sizeofCUDT>(c_type),
+  //  typeCallDev<sizeofCUDT>(d_type),
+  //  get_packing_count(a_type),
+  //  get_packing_count(b_type),
+  //  get_packing_count(c_type),
+  //  get_packing_count(d_type),
+  //  batch_count, inplace
+  // );
 
-  // Allocate big block of memory
-  checkCuda(cudaMalloc(&mat->dataDev, total_block_size_dev * flush_batch_count));
+  //// Allocate big block of memory
+  //checkCuda(cudaMalloc(&mat->dataDev, total_block_size_dev * flush_batch_count));
   mat->ptrDevA =
-      (void **)malloc(batchct * flush_batch_count * typeCallDev<sizeofCUDTP>(a_type));
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(a_type));
   mat->ptrDevB =
-      (void **)malloc(batchct * flush_batch_count * typeCallDev<sizeofCUDTP>(b_type));
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(b_type));
   mat->ptrDevC =
-      (void **)malloc(batchct * flush_batch_count * typeCallDev<sizeofCUDTP>(c_type));
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(c_type));
   mat->ptrDevD =
-      (void **)malloc(batchct * flush_batch_count * typeCallDev<sizeofCUDTP>(d_type));
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(d_type));
 
-  batchedPtrMagicGeneric(mat->ptrDevA, mat->dataDev + a_offset_dev, batchct, rowsMemA, colsMemA, flush_batch_count, total_block_size_dev, a_type);
-  batchedPtrMagicGeneric(mat->ptrDevB, mat->dataDev + b_offset_dev, batchct, rowsMemB, colsMemB, flush_batch_count, total_block_size_dev, b_type);
-  batchedPtrMagicGeneric(mat->ptrDevC, mat->dataDev + c_offset_dev, batchct, rowsMemC, colsMemC, flush_batch_count, total_block_size_dev, c_type);
-  batchedPtrMagicGeneric(mat->ptrDevD, mat->dataDev + d_offset_dev, batchct, rowsMemD, colsMemD, flush_batch_count, total_block_size_dev, d_type);
-  // mat->devA = allocateDevArr(a_type, rowsMemA, colsMemA, batchct);
-  // mat->devB = allocateDevArr(b_type, rowsMemB, colsMemB, batchct);
-  // mat->devC = allocateDevArr(c_type, rowsMemC, colsMemC, batchct);
+  //for (int i = 0; i < flush_batch_count; i++) {
+  //  mat->ptrDevA[i] = allocateDevArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  //  mat->ptrDevB[i] = allocateDevArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  //  mat->ptrDevC[i] = allocateDevArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+  //  mat->ptrDevD[i] = allocateDevArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+  //}
+  for (int i = 0; i < flush_batch_count; i++) {
+    mat->ptrDevA[i] = allocateDevArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    mat->ptrDevB[i] = allocateDevArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    mat->ptrDevC[i] = allocateDevArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+  }
+  for (int i = 0; i < flush_batch_count; i++) {
+    mat->ptrDevD[i] = allocateDevArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+  }
+
+  //batchedPtrMagicGeneric(mat->ptrDevA, mat->dataDev + a_offset_dev, batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size_dev, a_type);
+  //batchedPtrMagicGeneric(mat->ptrDevB, mat->dataDev + b_offset_dev, batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size_dev, b_type);
+  //batchedPtrMagicGeneric(mat->ptrDevC, mat->dataDev + c_offset_dev, batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size_dev, c_type);
+  //batchedPtrMagicGeneric(mat->ptrDevD, mat->dataDev + d_offset_dev, batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size_dev, d_type);
+  // mat->devA = allocateDevArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+  // mat->devB = allocateDevArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+  // mat->devC = allocateDevArr(c_type, rows_mem_c, cols_mem_c, batch_count);
   // if (!inplace) {
-  //   mat->devD = allocateDevArr(d_type, rowsMemD, colsMemD, batchct);
+  //   mat->devD = allocateDevArr(d_type, rows_mem_d, cols_mem_d, batch_count);
   // } else {
   //   mat->devD = mat->devC;
   // }
@@ -405,28 +442,28 @@ void cublasLtGemm::allocDev(cublasltgemmInst *mat) {
   }
 }
 
-void cublasLtGemm::fillHost() {
+void cublasLtGemm::fill_host() {
   // Some random functions treat the matrix as a vectors, some require a matrix
   // vector<thread> threads;
   // threads.push_back(thread(initHostH, a_type, initialization, hostA, m, k,
   // lda,
-  //                         batchct, stride_a, 1.f, false));
+  //                         batch_count, stride_a, 1.f, false));
   // threads.push_back(thread(initHostH, b_type, initialization, hostB, k, n,
   // ldb,
-  //                         batchct, stride_b, 2.f, true));
+  //                         batch_count, stride_b, 2.f, true));
   // threads.push_back(thread(initHostH, c_type, initialization, hostC, m, n,
   // ldc,
-  //                         batchct, stride_c, 0.f, false));
+  //                         batch_count, stride_c, 0.f, false));
   // for (auto &thread : threads) {
   //  thread.join();
   //}
   for (int i = 0; i < flush_batch_count; i++){
-    typeCallHost<initHost>(a_type, initialization, ptrHostA[i], rowsA, colsA, lda,
-                           batchct, stride_a, controlA, constantA, filenameA);
-    typeCallHost<initHost>(b_type, initialization, ptrHostB[i], rowsB, colsB, ldb,
-                           batchct, stride_b, controlB, constantB, filenameB);
-    typeCallHost<initHost>(c_type, initialization, ptrHostC[i], rowsC, colsC, ldc,
-                           batchct, stride_c, controlC, constantC, filenameC);
+    typeCallHost<initHost>(a_type, initialization, ptrHostA[i], rows_a, cols_a, lda,
+                           batch_count, stride_a, controlA, constantA, filenameA);
+    typeCallHost<initHost>(b_type, initialization, ptrHostB[i], rows_b, cols_b, ldb,
+                           batch_count, stride_b, controlB, constantB, filenameB);
+    typeCallHost<initHost>(c_type, initialization, ptrHostC[i], rows_c, cols_c, ldc,
+                           batch_count, stride_c, controlC, constantC, filenameC);
     // D is just output, don't need to init
   }
   if (use_scaling) {
@@ -439,23 +476,23 @@ void cublasLtGemm::fillHost() {
 
 void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {
   cudaSetDevice(mat->devIDX);
-  for (int j = 0; j < flush_batch_count; j++) {
-    copy_and_convert(a_type, ptrHostA[j*batchct], mat->ptrDevA[j*batchct], rowsMemA, colsMemA, batchct);
-    copy_and_convert(b_type, ptrHostB[j*batchct], mat->ptrDevB[j*batchct], rowsMemB, colsMemB, batchct);
-    copy_and_convert(c_type, ptrHostC[j*batchct], mat->ptrDevC[j*batchct], rowsMemC, colsMemC, batchct);
+  for (int i = 0; i < flush_batch_count; i++) {
+    copy_and_convert(a_type, ptrHostA[i], mat->ptrDevA[i], rows_mem_a, cols_mem_a, batch_count);
+    copy_and_convert(b_type, ptrHostB[i], mat->ptrDevB[i], rows_mem_b, cols_mem_b, batch_count);
+    copy_and_convert(c_type, ptrHostC[i], mat->ptrDevC[i], rows_mem_c, cols_mem_c, batch_count);
   }
 
   ////if (batched && !strided) {
   //// Perform some pointer arithmetic to calculate the arrays we pass to the
   //// gpu
   //typeCallDev<batchedPtrCopy>(a_type, mat->ptrDevA, data + a_offset_host,
-  //                            batchct, rowsMemA, colsMemA, flush_batch_count, total_block_size);
+  //                            batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size);
   //typeCallDev<batchedPtrCopy>(b_type, mat->ptrDevB, data + b_offset_host,
-  //                            batchct, rowsMemB, colsMemB, flush_batch_count, total_block_size);
+  //                            batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size);
   //typeCallDev<batchedPtrCopy>(c_type, mat->ptrDevC, data + c_offset_host,
-  //                            batchct, rowsMemC, colsMemC, flush_batch_count, total_block_size);
+  //                            batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size);
   //typeCallDev<batchedPtrCopy>(d_type, mat->ptrDevD, data + d_offset_host,
-  //                            batchct, rowsMemD, colsMemD, flush_batch_count, total_block_size);
+  //                            batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size);
   //}
   if (use_scaling) {
     copy_and_convert(a_scale_type, scale_host_a, mat->scale_dev_a, a_scale_size.rows, a_scale_size.cols, 1);
@@ -493,16 +530,27 @@ void cublasLtGemm::prepareMatrix(cublasltgemmInst *mat) {
   }
 #endif
   checkCublas(
-      cublasLtMatrixLayoutCreate(&mat->descA, a_type, rowsA, colsA, lda));
+      cublasLtMatrixLayoutCreate(&mat->descA, a_type, rows_a, cols_a, lda));
   checkCublas(
-      cublasLtMatrixLayoutCreate(&mat->descB, b_type, rowsB, colsB, ldb));
+      cublasLtMatrixLayoutCreate(&mat->descB, b_type, rows_b, cols_b, ldb));
   checkCublas(
-      cublasLtMatrixLayoutCreate(&mat->descC, c_type, rowsC, colsC, ldc));
+      cublasLtMatrixLayoutCreate(&mat->descC, c_type, rows_c, cols_c, ldc));
   if (!inplace) {
     checkCublas(
-        cublasLtMatrixLayoutCreate(&mat->descD, d_type, rowsD, colsD, ldd));
+        cublasLtMatrixLayoutCreate(&mat->descD, d_type, rows_d, cold_d, ldd));
   } else {
     mat->descD = mat->descC;
+  }
+  if (batch_count > 1) {
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descA, CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descB, CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descC, CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descD, CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descA, CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_a, sizeof(stride_a)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descB, CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_b, sizeof(stride_b)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descC, CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_c, sizeof(stride_c)));
+    checkCublas(cublasLtMatrixLayoutSetAttribute(mat->descD, CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_d, sizeof(stride_d)));
   }
 
   checkCublas(cublasLtMatmulPreferenceCreate(&mat->pref));
@@ -592,7 +640,7 @@ std::string cublasLtGemm::getResultString() {
             << ',' << n << ',' << k << ',' << lda << ',' << ldb << ',' << ldc
             << ',';
   if (batched) {
-    ossValues << batchct << ',';
+    ossValues << batch_count << ',';
   }
   ossValues << gflop_per_second << ',';
   ossValues << gbyte_per_second << ',';
@@ -627,8 +675,8 @@ std::tuple<double, double, double> cublasLtGemm::calculateFOM(
                    static_cast<double>(k)) /
                   1e9;
 
-  double gflopPerSec = gflops * static_cast<double>(batchct) / avgTime_s;
-  double gbytePerSec = gbytes * batchct / avgTime_s;
+  double gflopPerSec = gflops * static_cast<double>(batch_count) / avgTime_s;
+  double gbytePerSec = gbytes * batch_count / avgTime_s;
 
   return std::tuple<double, double, double>(gflopPerSec, gbytePerSec,
                                             avgTime_us);
@@ -644,9 +692,9 @@ void cublasLtGemm::testMatmul(cublasltgemmInst *mat) {
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     int flush_index = rep % flush_batch_count;
-    stat = cublasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index * batchct], mat->descA,
-                          mat->ptrDevB[flush_index * batchct], mat->descB, beta, mat->ptrDevC[flush_index * batchct], mat->descC,
-                          mat->ptrDevD[flush_index * batchct], mat->descD, &mat->algo.algo, mat->devWork,
+    stat = cublasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index], mat->descA,
+                          mat->ptrDevB[flush_index], mat->descB, beta, mat->ptrDevC[flush_index], mat->descC,
+                          mat->ptrDevD[flush_index], mat->descD, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
     // Check for errors during the gemm run
     checkCublas(stat);
@@ -664,9 +712,9 @@ void cublasLtGemm::testMatmul(cublasltgemmInst *mat) {
   cudaEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
-    stat = cublasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index * batchct], mat->descA,
-                          mat->ptrDevB[flush_index * batchct], mat->descB, beta, mat->ptrDevC[flush_index * batchct], mat->descC,
-                          mat->ptrDevD[flush_index * batchct], mat->descD, &mat->algo.algo, mat->devWork,
+    stat = cublasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index], mat->descA,
+                          mat->ptrDevB[flush_index], mat->descB, beta, mat->ptrDevC[flush_index], mat->descC,
+                          mat->ptrDevD[flush_index], mat->descD, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
   }
   cudaEventRecord(stop, stream);

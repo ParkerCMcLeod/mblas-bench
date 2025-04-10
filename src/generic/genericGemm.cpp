@@ -32,20 +32,20 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
   ldd = setLd(lddS, "N", m, 0);
 
   // Set matrix dimensions
-  std::tie(rowsA, colsA) = setRowCol(tA, m, k);
-  std::tie(rowsB, colsB) = setRowCol(tB, k, n);
-  std::tie(rowsC, colsC) = setRowCol("N", m, n);
-  std::tie(rowsD, colsD) = setRowCol("N", m, n);
+  std::tie(rows_a, cols_a) = setRowCol(tA, m, k);
+  std::tie(rows_b, cols_b) = setRowCol(tB, k, n);
+  std::tie(rows_c, cols_c) = setRowCol("N", m, n);
+  std::tie(rows_d, cold_d) = setRowCol("N", m, n);
 
   // Set memory dimensions
-  rowsMemA = lda;
-  rowsMemB = ldb;
-  rowsMemC = ldc;
-  rowsMemD = ldd;
-  std::tie(std::ignore, colsMemA) = setRowCol(tA, m, k);
-  std::tie(std::ignore, colsMemB) = setRowCol(tB, k, n);
-  std::tie(std::ignore, colsMemC) = setRowCol("N", m, n);
-  std::tie(std::ignore, colsMemD) = setRowCol("N", m, n);
+  rows_mem_a = lda;
+  rows_mem_b = ldb;
+  rows_mem_c = ldc;
+  rows_mem_d = ldd;
+  std::tie(std::ignore, cols_mem_a) = setRowCol(tA, m, k);
+  std::tie(std::ignore, cols_mem_b) = setRowCol(tB, k, n);
+  std::tie(std::ignore, cols_mem_c) = setRowCol("N", m, n);
+  std::tie(std::ignore, cols_mem_d) = setRowCol("N", m, n);
 
   strided = false;
   batched = false;
@@ -53,11 +53,11 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
 
   iters = result["iters"].as<int>();
   cold_iters = result["cold_iters"].as<int>();
-  batchct = 1;
+  batch_count = 1;
   if (function.find("Batched") != string::npos || function.find("batched") != string::npos) {
     batched = true;
   }
-  batchct = result["batch_count"].as<int>();
+  batch_count = result["batch_count"].as<int>();
   if (function.find("Strided") != string::npos || function.find("strided") != string::npos) {
     strided = true;
   }
@@ -107,9 +107,9 @@ void genericGemm::set_flush_batch_count(uint64_t & a_offset, uint64_t & b_offset
                       int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing,
                       bool inplace) {
   // test
-  uint64_t single_block_size = calculate_offsets(rowsMemA, colsMemA, rowsMemB, colsMemB, rowsMemC, colsMemC, rowsMemD, colsMemD, 
+  uint64_t single_block_size = calculate_offsets(rows_mem_a, cols_mem_a, rows_mem_b, cols_mem_b, rows_mem_c, cols_mem_c, rows_mem_d, cols_mem_d, 
                     a_offset, b_offset, c_offset, d_offset, a_type_size, b_type_size, c_type_size, d_type_size,
-                    a_type_packing, b_type_packing, c_type_packing, d_type_packing, batchct, inplace);
+                    a_type_packing, b_type_packing, c_type_packing, d_type_packing, batch_count, inplace);
   uint64_t flush_memory_size_bytes = (uint64_t)flush_memory_size * 1024 * 1024;
   if (flush_memory_size == 0) {
     // Not specified, return

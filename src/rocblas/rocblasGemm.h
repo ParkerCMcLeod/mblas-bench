@@ -115,9 +115,9 @@ class rocblasGemm : public genericGemm {
                   std::string aStr, std::string bStr, std::string cStr);
   void parseDevIters(std::string);
   rocblas_operation setOp(std::string);
-  void allocHost();
-  void allocDev(rocblasgemmInst *);
-  void fillHost();
+  void alloc_host();
+  void alloc_dev(rocblasgemmInst *);
+  void fill_host();
   void copyHostToDev(rocblasgemmInst *);
   void runThreaded(void (rocblasGemm::*func)(rocblasgemmInst *));
   std::tuple<double, double, double> calculateFOM(double totalTime_ms);

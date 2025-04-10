@@ -85,9 +85,9 @@ class hipblasLtGemm : public genericGemm {
                   std::string dStr);
   void validateParameters();
   void parseDevIters(std::string);
-  void allocHost();
-  void allocDev(hipblasLtGemmInst *);
-  void fillHost();
+  void alloc_host();
+  void alloc_dev(hipblasLtGemmInst *);
+  void fill_host();
   void copyHostToDev(hipblasLtGemmInst *);
   void prepareMatrix(hipblasLtGemmInst *);
   void noTuning(hipblasLtGemmInst *);

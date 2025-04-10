@@ -39,13 +39,13 @@ int get_packing_count(mblasDataType type);
 
 //template <typename T>
 //struct batchedPtrCopy {
-//  void operator()(void **dptr, void *hArr, int batchct, int x,
+//  void operator()(void **dptr, void *hArr, int batch_count, int x,
 //                  int y, int flush_batch_count = 1, long total_block_size = 0);
 //};
 
 template <typename T>
 struct batchedPtrMagic {
-  void operator()(void **hptr, void *hArr, int batchct, int x,
+  void operator()(void **hptr, void *hArr, int batch_count, int x,
                   int y, int flush_batch_count = 1, long total_block_size = 0);
 };
 
@@ -106,16 +106,16 @@ void *allocSetScalar<T>::operator()(std::string sval1, std::string sval2) {
 
 //template <typename T>
 //void batchedPtrMagic<T>::operator()(void **hptr, void **dptr, void *dAr,
-//                                    int batchct, int x, int y) {
+//                                    int batch_count, int x, int y) {
 //  T **host = reinterpret_cast<T **>(hptr);
 //  T *device_array = static_cast<T *>(dAr);
-//  for (int i = 0; i < batchct; i++) {
+//  for (int i = 0; i < batch_count; i++) {
 //    host[i] = device_array + (i * x * y);
 //  }
-//  // checkCuda(cudaMalloc(&dptr, batchct * sizeof(T *)));
+//  // checkCuda(cudaMalloc(&dptr, batch_count * sizeof(T *)));
 //  // hptr = reinterpret_cast<void **>(host);
 //  // checkCuda(
-//  cudaMemcpy(dptr, hptr, batchct * sizeof(T *), cudaMemcpyHostToDevice);
+//  cudaMemcpy(dptr, hptr, batch_count * sizeof(T *), cudaMemcpyHostToDevice);
 //}
 
 template <typename T>
@@ -137,10 +137,10 @@ void batchedPtrMagicGeneric(void **hptr, void *dAr, int batch_count, long x, lon
 //template <typename T>
 //void batchedPtrCopy<T>::operator()(void **dptr, void *dAr,
 //                                    int batch_count, int x, int y, int flush_batch_count = 1, long total_block_size = 0) {
-//  void **hptr = (void **)malloc(batchct * flush_batch_count * sizeof(T *));
-//  checkCuda(cudaMalloc(dptr, batchct * flush_batch_count * sizeof(T *)));
+//  void **hptr = (void **)malloc(batch_count * flush_batch_count * sizeof(T *));
+//  checkCuda(cudaMalloc(dptr, batch_count * flush_batch_count * sizeof(T *)));
 //  batchedPtrMagic<T>::operator()(hptr, dAr, batch_count, x, y, flush_batch_count, total_block_size);
-//  cudaMemcpy(dptr, hptr, batchct * sizeof(T *), cudaMemcpyHostToDevice);
+//  cudaMemcpy(dptr, hptr, batch_count * sizeof(T *), cudaMemcpyHostToDevice);
 //  free(hptr);
 //}
 

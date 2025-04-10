@@ -10,23 +10,23 @@ class genericGemm {
   int n;
   int k;
 
-  int rowsA;
-  int colsA;
-  int rowsB;
-  int colsB;
-  int rowsC;
-  int colsC;
-  int rowsD;
-  int colsD;
+  int rows_a;
+  int cols_a;
+  int rows_b;
+  int cols_b;
+  int rows_c;
+  int cols_c;
+  int rows_d;
+  int cold_d;
 
-  int rowsMemA;
-  int colsMemA;
-  int rowsMemB;
-  int colsMemB;
-  int rowsMemC;
-  int colsMemC;
-  int rowsMemD;
-  int colsMemD;
+  int rows_mem_a;
+  int cols_mem_a;
+  int rows_mem_b;
+  int cols_mem_b;
+  int rows_mem_c;
+  int cols_mem_c;
+  int rows_mem_d;
+  int cols_mem_d;
 
   int lda;
   int ldb;
@@ -44,7 +44,7 @@ class genericGemm {
   int iters;
   int cold_iters;
 
-  int batchct;
+  int batch_count;
   int flush_batch_count;
   int flush_memory_size;
 
