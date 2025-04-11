@@ -140,6 +140,15 @@ hipblasLtGemm::hipblasLtGemm(cxxopts::ParseResult result) : genericGemm(result) 
   beta = typeCallHost<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
+  uint64_t a_offset, b_offset, c_offset, d_offset;
+  set_flush_batch_count(a_offset, b_offset, c_offset, d_offset, 
+      typeCallDev<sizeofCUDT>(a_type), typeCallDev<sizeofCUDT>(b_type), 
+      typeCallDev<sizeofCUDT>(c_type), typeCallDev<sizeofCUDT>(d_type), 
+      get_packing_count(a_type), 
+      get_packing_count(b_type), 
+      get_packing_count(c_type), 
+      get_packing_count(d_type), 
+      inplace);
 }
 
 string hipblasLtGemm::prepareArray() {
@@ -201,20 +210,56 @@ void hipblasLtGemm::alloc_host() {
   // hostA = resultA.get();
   // hostB = resultB.get();
   // hostC = resultC.get();
-  hostA = allocateHostArr(a_type, m, k, batch_count);
-  hostB = allocateHostArr(b_type, k, n, batch_count);
-  hostC = allocateHostArr(c_type, m, n, batch_count);
+  ptr_host_a =
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(a_type));
+  ptr_host_b =
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(b_type));
+  ptr_host_c =
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(c_type));
+  if (!inplace) {
+    ptr_host_d =
+      (void **)malloc(flush_batch_count * typeCallHost<sizeofCUDTP>(d_type));
+  } else {
+    ptr_host_d = ptr_host_c;
+  }
+
+
+  for (int i = 0; i < flush_batch_count; i++) {
+    ptr_host_a[i] = allocateHostArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+    ptr_host_b[i] = allocateHostArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+    ptr_host_c[i] = allocateHostArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+    if (!inplace) {
+      ptr_host_d[i] = allocateHostArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+    }
+  }
+  //hostA = allocateHostArr(a_type, m, k, batch_count);
+  //hostB = allocateHostArr(b_type, k, n, batch_count);
+  //hostC = allocateHostArr(c_type, m, n, batch_count);
 }
 
 void hipblasLtGemm::alloc_dev(hipblasLtGemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  mat->devA = allocateDevArr(a_type, m, k, batch_count);
-  mat->devB = allocateDevArr(b_type, k, n, batch_count);
-  mat->devC = allocateDevArr(c_type, m, n, batch_count);
+
+  mat->ptrDevA =
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(a_type));
+  mat->ptrDevB =
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(b_type));
+  mat->ptrDevC =
+      (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(c_type));
   if (!inplace) {
-    mat->devD = allocateDevArr(d_type, n, m, batch_count);
+    mat->ptrDevD =
+        (void **)malloc(batch_count * flush_batch_count * typeCallDev<sizeofCUDTP>(d_type));
   } else {
-    mat->devD = mat->devC;
+    mat->ptrDevD = mat->ptrDevC;
+  }
+
+  for (int i = 0; i < flush_batch_count; i++) {
+    mat->ptrDevA[i] = allocateDevArr(a_type, rows_mem_a, cols_mem_a, batch_count);
+    mat->ptrDevB[i] = allocateDevArr(b_type, rows_mem_b, cols_mem_b, batch_count);
+    mat->ptrDevC[i] = allocateDevArr(c_type, rows_mem_c, cols_mem_c, batch_count);
+    if (!inplace) {
+      mat->ptrDevD[i] = allocateDevArr(d_type, rows_mem_d, cols_mem_d, batch_count);
+    }
   }
   mat->wSZ = workspaceSz;
   hipMalloc(&mat->devWork, mat->wSZ);
@@ -236,19 +281,23 @@ void hipblasLtGemm::fill_host() {
   //  thread.join();
   //}
 
-  typeCallHost<initHost>(a_type, initialization, hostA, rows_a, cols_a, lda,
-                         batch_count, stride_a, controlA, constantA, filenameA);
-  typeCallHost<initHost>(b_type, initialization, hostB, rows_b, cols_b, ldb,
-                         batch_count, stride_b, controlB, constantB, filenameB);
-  typeCallHost<initHost>(c_type, initialization, hostC, rows_c, cols_c, ldc,
-                         batch_count, stride_c, controlC, constantC, filenameC);
+  for (int i = 0; i < flush_batch_count; i++){
+    typeCallHost<initHost>(a_type, initialization, ptr_host_a[i], rows_a, cols_a, lda,
+                           batch_count, stride_a, controlA, constantA, filenameA);
+    typeCallHost<initHost>(b_type, initialization, ptr_host_b[i], rows_b, cols_b, ldb,
+                           batch_count, stride_b, controlB, constantB, filenameB);
+    typeCallHost<initHost>(c_type, initialization, ptr_host_c[i], rows_c, cols_c, ldc,
+                           batch_count, stride_c, controlC, constantC, filenameC);
+  }
 }
 
 void hipblasLtGemm::copyHostToDev(hipblasLtGemmInst *mat) {
   hipSetDevice(mat->devIDX);
-  copyAndConvert(a_type, hostA, mat->devA, m, k, batch_count);
-  copyAndConvert(b_type, hostB, mat->devB, k, n, batch_count);
-  copyAndConvert(c_type, hostC, mat->devC, n, m, batch_count);
+  for (int i = 0; i < flush_batch_count; i++) {
+    copyAndConvert(a_type, ptr_host_a[i], mat->ptrDevA[i], m, k, batch_count);
+    copyAndConvert(b_type, ptr_host_b[i], mat->ptrDevB[i], k, n, batch_count);
+    copyAndConvert(c_type, ptr_host_c[i], mat->ptrDevC[i], n, m, batch_count);
+  }
 }
 
 void hipblasLtGemm::prepareMatrix(hipblasLtGemmInst *mat) {
@@ -274,17 +323,22 @@ void hipblasLtGemm::prepareMatrix(hipblasLtGemmInst *mat) {
   } else {
     mat->descD = mat->descC;
   }
+  if (batch_count > 1) {
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descA, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descB, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descC, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descD, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
+
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descA, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_a, sizeof(stride_a)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descB, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_b, sizeof(stride_b)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descC, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_c, sizeof(stride_c)));
+    checkHipblas(hipblasLtMatrixLayoutSetAttribute(mat->descD, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_d, sizeof(stride_d)));
+  }
 
   checkHipblas(hipblasLtMatmulPreferenceCreate(&mat->pref));
   checkHipblas(hipblasLtMatmulPreferenceSetAttribute(
       mat->pref, HIPBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &mat->wSZ,
       sizeof(mat->wSZ)));
-  // if (isFp8(a_type) || isFp8(b_type) || isFp8(c_type) || isFp8(d_type)) {
-  //   // Default is 0, enable for faster fp8 results
-  //   int8_t fastAccuMode = 1;
-  //   hipblasLtMatmulDescSetAttribute(mat->descOP, CUBLASLT_MATMUL_DESC_FAST_ACCUM,
-  //                                  &fastAccuMode, sizeof(fastAccuMode));
-  // }
 }
 
 void hipblasLtGemm::noTuning(hipblasLtGemmInst *mat) {
@@ -312,13 +366,14 @@ void hipblasLtGemm::autoTuning(hipblasLtGemmInst *mat) {
 void hipblasLtGemm::freeMem() {
   free(alpha);
   free(beta);
-  free(hostA);
-  free(hostB);
-  free(hostC);
+  //free(hostA);
+  //free(hostB);
+  //free(hostC);
   for (auto mat : matPtrs) {
-    hipFree(mat.devA);
-    hipFree(mat.devB);
-    hipFree(mat.devC);
+    hipFree(mat.ptrDevA);
+    hipFree(mat.ptrDevB);
+    hipFree(mat.ptrDevC);
+    hipFree(mat.ptrDevD);
   }
 }
 
@@ -409,9 +464,10 @@ void hipblasLtGemm::testMatmul(hipblasLtGemmInst *mat) {
   checkHip(hipStreamCreate(&stream));
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
-    stat = hipblasLtMatmul(handle, mat->descOP, alpha, mat->devA, mat->descA,
-                          mat->devB, mat->descB, beta, mat->devC, mat->descC,
-                          mat->devD, mat->descD, &mat->algo.algo, mat->devWork,
+    int flush_index = rep % flush_batch_count;
+    stat = hipblasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index], mat->descA,
+                          mat->ptrDevB[flush_index], mat->descB, beta, mat->ptrDevC[flush_index], mat->descC,
+                          mat->ptrDevD[flush_index], mat->descD, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
     // Check for errors during the gemm run
     checkHipblas(stat);
@@ -428,9 +484,10 @@ void hipblasLtGemm::testMatmul(hipblasLtGemmInst *mat) {
   */
   hipEventRecord(start, stream);
   for (int rep = 0; rep < iters; rep++) {
-    stat = hipblasLtMatmul(handle, mat->descOP, alpha, mat->devA, mat->descA,
-                          mat->devB, mat->descB, beta, mat->devC, mat->descC,
-                          mat->devD, mat->descD, &mat->algo.algo, mat->devWork,
+    int flush_index = rep % flush_batch_count;
+    stat = hipblasLtMatmul(handle, mat->descOP, alpha, mat->ptrDevA[flush_index], mat->descA,
+                          mat->ptrDevB[flush_index], mat->descB, beta, mat->ptrDevC[flush_index], mat->descC,
+                          mat->ptrDevD[flush_index], mat->descD, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
   }
   hipEventRecord(stop, stream);

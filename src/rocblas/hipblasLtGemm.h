@@ -34,10 +34,14 @@ struct hipblasLtGemmInst {
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
-  void *devA;
-  void *devB;
-  void *devC;
-  void *devD;
+  //void *devA;
+  //void *devB;
+  //void *devC;
+  //void *devD;
+  void **ptrDevA;
+  void **ptrDevB;
+  void **ptrDevC;
+  void **ptrDevD;
   hipblasLtMatmulDesc_t descOP;
   hipblasLtMatrixLayout_t descA;
   hipblasLtMatrixLayout_t descB;
@@ -52,9 +56,14 @@ struct hipblasLtGemmInst {
 
 class hipblasLtGemm : public genericGemm {
  private:
-  void *hostA;
-  void *hostB;
-  void *hostC;
+  // void *hostA;
+  // void *hostB;
+  // void *hostC;
+
+  void **ptr_host_a;
+  void **ptr_host_b;
+  void **ptr_host_c;
+  void **ptr_host_d;
 
   void *alpha;
   void *beta;

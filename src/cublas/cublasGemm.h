@@ -48,9 +48,9 @@ struct cublasgemmInst {
   void **ptrDevA;
   void **ptrDevB;
   void **ptrDevC;
-  void **ptrHostA;
-  void **ptrHostB;
-  void **ptrHostC;
+  void **ptr_host_a;
+  void **ptr_host_b;
+  void **ptr_host_c;
   void *devWork;
   long wSZ;
   cublasgemmInst(int devID) { devIDX = devID; }
@@ -75,9 +75,9 @@ class cublasGemm : public genericGemm {
   // void **ptrDevA;
   // void **ptrDevB;
   // void **ptrDevC;
-  // void **ptrHostA;
-  // void **ptrHostB;
-  // void **ptrHostC;
+  // void **ptr_host_a;
+  // void **ptr_host_b;
+  // void **ptr_host_c;
 
   void *alpha;
   void *beta;

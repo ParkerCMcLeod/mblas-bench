@@ -293,11 +293,11 @@ void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
   if (batched && !strided) {
     // Perform some pointer arithmetic to calculate the arrays we pass to the
     // gpu
-    mat->ptrHostA =
+    mat->ptr_host_a =
         (void **)malloc(batch_count * typeCallHost<sizeofCUDTP>(a_type));
-    mat->ptrHostB =
+    mat->ptr_host_b =
         (void **)malloc(batch_count * typeCallHost<sizeofCUDTP>(b_type));
-    mat->ptrHostC =
+    mat->ptr_host_c =
         (void **)malloc(batch_count * typeCallHost<sizeofCUDTP>(c_type));
     checkCuda(
         cudaMalloc(&mat->ptrDevA, batch_count * typeCallHost<sizeofCUDTP>(a_type)));
@@ -305,11 +305,11 @@ void cublasGemm::copyHostToDev(cublasgemmInst *mat) {
         cudaMalloc(&mat->ptrDevB, batch_count * typeCallHost<sizeofCUDTP>(b_type)));
     checkCuda(
         cudaMalloc(&mat->ptrDevC, batch_count * typeCallHost<sizeofCUDTP>(c_type)));
-    //typeCallDev<batchedPtrMagic>(a_type, mat->ptrHostA, mat->ptrDevA, mat->devA,
+    //typeCallDev<batchedPtrMagic>(a_type, mat->ptr_host_a, mat->ptrDevA, mat->devA,
     //                            batch_count, rows_mem_a, cols_mem_a);
-    //typeCallDev<batchedPtrMagic>(b_type, mat->ptrHostB, mat->ptrDevB, mat->devB,
+    //typeCallDev<batchedPtrMagic>(b_type, mat->ptr_host_b, mat->ptrDevB, mat->devB,
     //                            batch_count, rows_mem_b, cols_mem_b);
-    //typeCallDev<batchedPtrMagic>(c_type, mat->ptrHostC, mat->ptrDevC, mat->devC,
+    //typeCallDev<batchedPtrMagic>(c_type, mat->ptr_host_c, mat->ptrDevC, mat->devC,
     //                            batch_count, rows_mem_c, cols_mem_c);
   }
 }
@@ -326,9 +326,9 @@ void cublasGemm::freeMem() {
     cudaFree(mat.devC);
     cudaFree(mat.devWork);
     if (batched && !strided) {
-      free(mat.ptrHostA);
-      free(mat.ptrHostB);
-      free(mat.ptrHostC);
+      free(mat.ptr_host_a);
+      free(mat.ptr_host_b);
+      free(mat.ptr_host_c);
       cudaFree(mat.ptrDevA);
       cudaFree(mat.ptrDevB);
       cudaFree(mat.ptrDevC);

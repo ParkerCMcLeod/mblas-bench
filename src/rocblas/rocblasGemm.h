@@ -48,9 +48,9 @@ struct rocblasgemmInst {
   void ** ptrDevA;
   void ** ptrDevB;
   void ** ptrDevC;
-  void ** ptrHostA;
-  void ** ptrHostB;
-  void ** ptrHostC;
+  void ** ptr_host_a;
+  void ** ptr_host_b;
+  void ** ptr_host_c;
   void *devWork;
   long wSZ;
   rocblasgemmInst(int devID) { 
@@ -77,9 +77,9 @@ class rocblasGemm : public genericGemm {
   // void **ptrDevA;
   // void **ptrDevB;
   // void **ptrDevC;
-  // void **ptrHostA;
-  // void **ptrHostB;
-  // void **ptrHostC;
+  // void **ptr_host_a;
+  // void **ptr_host_b;
+  // void **ptr_host_c;
 
   void *alpha;
   void *beta;

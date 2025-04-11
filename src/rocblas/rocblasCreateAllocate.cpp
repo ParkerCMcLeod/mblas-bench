@@ -50,11 +50,11 @@ void *allocateHostArr(mblasDataType type, long x, long y, int batch) {
   return data;
 }
 
-void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch) {
-  int typesize = typeCallHost<sizeofCUDT>(type);
-  void *data = (void *)malloc(x * y * batch * typesize);
-  return data;
-}
+//void *allocateHostArr(hipblasDatatype_t type, long x, long y, int batch) {
+//  int typesize = typeCallHost<sizeofCUDT>(type);
+//  void *data = (void *)malloc(x * y * batch * typesize);
+//  return data;
+//}
 
 void *allocateDevArr(mblasDataType type, long x, long y, int batch) {
   int typesize = typeCallDev<sizeofCUDT>(type);
@@ -63,12 +63,12 @@ void *allocateDevArr(mblasDataType type, long x, long y, int batch) {
   return data;
 }
 
-void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch) {
-  int typesize = typeCallDev<sizeofCUDT>(type);
-  void *data;
-  checkHip(hipMalloc(&data, x * y * batch * typesize));
-  return data;
-}
+//void *allocateDevArr(hipblasDatatype_t type, long x, long y, int batch) {
+//  int typesize = typeCallDev<sizeofCUDT>(type);
+//  void *data;
+//  checkHip(hipMalloc(&data, x * y * batch * typesize));
+//  return data;
+//}
 
 void *allocateHDevArr(mblasDataType type, long x, long y, int batch) {
   int typesize = typeCallHost<sizeofCUDT>(type);
@@ -77,12 +77,24 @@ void *allocateHDevArr(mblasDataType type, long x, long y, int batch) {
   return data;
 }
 
-void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch) {
-  int typesize = typeCallHost<sizeofCUDT>(type);
-  void *data;
-  checkHip(hipMalloc(&data, x * y * batch * typesize));
-  return data;
+
+
+int get_packing_count(mblasDataType type) {
+  if (type == mblasDataType::MBLAS_R_4F_E2M1) {
+    // Two 4-bit FP4 floats per byte
+    return 2;
+  } else {
+    return 1;
+  }
+
 }
+
+//void *allocateHDevArr(hipblasDatatype_t type, long x, long y, int batch) {
+//  int typesize = typeCallHost<sizeofCUDT>(type);
+//  void *data;
+//  checkHip(hipMalloc(&data, x * y * batch * typesize));
+//  return data;
+//}
 
 // void *allocateScalar(hipDataType type) {
 //  int typesize = typeCallDev<sizeofCUDT>(type);

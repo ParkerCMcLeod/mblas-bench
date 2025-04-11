@@ -73,10 +73,10 @@ struct scale_size {
 class cublasLtGemm : public genericGemm {
  private:
   void *dataHost;
-  void **ptrHostA;
-  void **ptrHostB;
-  void **ptrHostC;
-  void **ptrHostD;
+  void **ptr_host_a;
+  void **ptr_host_b;
+  void **ptr_host_c;
+  void **ptr_host_d;
 
   void *scale_host_a;
   void *scale_host_b;
