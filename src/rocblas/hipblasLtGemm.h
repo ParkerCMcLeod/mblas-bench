@@ -29,6 +29,20 @@ struct matmulPrecType {
   }
 };
 
+struct matmulPrecTypeF8 {
+  mblasHipDataType scalar;
+  mblasHipDataType c_type;
+  mblasHipDataType d_type;
+  mblasHipDataType bias_type;
+  bool operator==(const matmulPrecTypeF8 rhs) const {
+    return rhs.scalar == scalar &&
+           rhs.c_type == c_type && rhs.d_type == d_type &&
+           // Omitting bias type is acceptable
+           (rhs.bias_type == bias_type ||
+            rhs.bias_type == mblasHipDataType(MBLAS_ANY));
+  }
+};
+
 struct hipblasLtGemmInst {
   int devIDX;
   double gflops = 0;
@@ -84,6 +98,7 @@ class hipblasLtGemm : public genericGemm {
   int workspaceSz = 64 * 1024 * 1024;
 
   static std::vector<matmulPrecType> matmulSupported;
+  static std::vector<matmulPrecTypeF8> matmulSupportedF8;
   std::vector<hipblasLtGemmInst> matPtrs;
 
  private:
