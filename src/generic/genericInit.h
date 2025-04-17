@@ -19,7 +19,8 @@ inline T randIntGen(std::uniform_int_distribution<int> &idist,
 template <typename T>
 inline std::complex<T> randIntGen(std::uniform_int_distribution<int> &idist,
                              std::mt19937 &gen, std::complex<T> &dummy) {
-  return {T(idist(gen)), T(idist(gen))};
+  //return {T(idist(gen)), T(idist(gen))};
+  return std::complex<T>(idist(gen), idist(gen));
 }
 
 template <typename T>
@@ -31,7 +32,8 @@ inline T randIntGenN(std::uniform_int_distribution<int> &idist,
 template <typename T>
 inline std::complex<T> randIntGenN(std::uniform_int_distribution<int> &idist,
                               std::mt19937 &gen, std::complex<T> &dummy) {
-  return {-T(idist(gen)), -T(idist(gen))};
+  //return {-T(idist(gen)), -T(idist(gen))};
+  return std::complex<T>(-idist(gen), -idist(gen));
 }
 
 template <typename T>
@@ -64,13 +66,13 @@ template <typename T>
 void fillRandHostRandIntAS(void *ptr, long rows_A, long cols_A, long ld, int batch,
                            long long int stride, bool alternating, int random_dev_seed) {
   T *A = (T *)ptr;
-  #pragma omp parallel shared(A)
+  #pragma omp parallel shared(A) 
   {
     std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
     std::mt19937 gen(seed);
     std::uniform_int_distribution<int> uniform_dist(1, 10);
     T dummy;
-    #pragma omp parallel for collapse(3) 
+    #pragma omp for collapse(3) 
     for (size_t i_batch = 0; i_batch < batch; i_batch++) {
       for (size_t j = 0; j < cols_A; ++j) {
         for (size_t i = 0; i < rows_A; ++i) {
@@ -79,6 +81,29 @@ void fillRandHostRandIntAS(void *ptr, long rows_A, long cols_A, long ld, int bat
           } else {
             A[i + j * ld + i_batch * stride] = randIntGenN(uniform_dist, gen, dummy);
           }
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void fillRandHostNormalFloat(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                             long long int stride) {
+  T *A = (T *)ptr;
+  std::random_device r;
+  int random_dev_seed = r();
+  #pragma omp parallel shared(A) 
+  {
+    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+    std::mt19937 gen(seed);
+    std::normal_distribution normal_dist(5.0, 2.0);
+    T dummy;
+    #pragma omp for collapse(3) 
+    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+      for (size_t j = 0; j < cols_A; ++j) {
+        for (size_t i = 0; i < rows_A; ++i) {
+          A[i + j * ld + i_batch * stride] = normalFloatGen(normal_dist, gen, dummy);
         }
       }
     }
@@ -137,24 +162,6 @@ void fillRandHostFromCSV(void *ptr, long rows_A, long cols_A, long ld, int batch
   }
 }
 
-template <typename T>
-void fillRandHostNormalFloat(void *ptr, long rows_A, long cols_A, long ld, int batch,
-                             long long int stride) {
-  std::random_device r;
-  std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
-  std::mt19937 gen(seed);
-  std::normal_distribution<double> normal_dist(5.0, 2.0);
-  T *A = (T *)ptr;
-  T dummy;
-  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-    for (size_t j = 0; j < cols_A; ++j) {
-      size_t offset = j * ld + i_batch * stride;
-      for (size_t i = 0; i < rows_A; ++i) {
-        A[i + offset] = normalFloatGen(normal_dist, gen, dummy);
-      }
-    }
-  }
-}
 
 template <typename T>
 struct initHost {
