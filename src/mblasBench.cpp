@@ -56,9 +56,9 @@ int main(int argc, char **argv) {
   opp_adder("f,function", "BLAS function to test", cxxopts::value<string>());
   opp_adder("r,precision", "Precision. Options: " + supPrec + " ",
             cxxopts::value<string>()->default_value("f32_r"));
-  opp_adder("transposeA", "transposeA",
+  opp_adder("transposeA,transA", "transposeA",
             cxxopts::value<string>()->default_value("N"));
-  opp_adder("transposeB", "transposeB",
+  opp_adder("transposeB,transB", "transposeB",
             cxxopts::value<string>()->default_value("N"));
   opp_adder("alpha", "specifies the scalar alpha  (Default value is: 1)",
             cxxopts::value<string>()->default_value("1"));
