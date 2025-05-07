@@ -84,6 +84,7 @@ class genericGemm {
 
   virtual std::string getResultString() = 0;
   virtual void freeMem() = 0;
+  void set_init_params();
 
   void set_flush_batch_count(uint64_t & a_offset, uint64_t & b_offset, uint64_t & c_offset, uint64_t & d_offset,
                         int a_type_size,  int b_type_size, int c_type_size, int d_type_size, 

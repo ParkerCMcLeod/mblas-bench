@@ -55,7 +55,7 @@ class mblasDataType {
     bool isReal() const;
     bool isFp8() const;
     bool isFp4() const;
-    void setScalar(std::string scalarstr, mblasDataType precision, mblasComputeType& compute);
+    void set_scalar(std::string scalarstr, mblasDataType precision, mblasComputeType& compute);
 };
 
 constexpr const mblasDataType mblasDataType::MBLAS_R_64F{mblasDataTypeEnum::MBLAS_R_64F},         mblasDataType::MBLAS_C_64F{mblasDataTypeEnum::MBLAS_C_64F};

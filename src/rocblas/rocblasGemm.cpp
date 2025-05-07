@@ -73,8 +73,8 @@ void rocblasGemm::parseDevIters(std::string deviceStr) {
 
 void rocblasGemm::parseMType(string computeTStr, string scalarTStr, string aStr,
                              string bStr, string cStr) {
-  compute.setCompute(computeTStr, precision);
-  scalar.setScalar(scalarTStr, precision, compute);
+  compute.set_compute(computeTStr, precision);
+  scalar.set_scalar(scalarTStr, precision, compute);
 
   if (aStr == "" || bStr == "" || cStr == "") {
     // Precision not completely specified, default to precision

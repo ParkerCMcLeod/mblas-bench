@@ -51,7 +51,7 @@ class mblasComputeType {
 
     virtual std::string toString() const { return toString("MBLAS"); }
   
-    virtual void setCompute(std::string computestr, mblasDataType& precision);
+    virtual void set_compute(std::string computestr, mblasDataType& precision);
 };
 
 constexpr const mblasComputeType mblasComputeType::MBLAS_COMPUTE_16F{mblasComputeTypeEnum::MBLAS_COMPUTE_16F};

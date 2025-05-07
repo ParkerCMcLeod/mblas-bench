@@ -103,7 +103,7 @@ std::string mblasComputeType::toString(std::string prefix) const {
   return "(Compute Type name not found)";
 }
 
-void mblasComputeType::setCompute(std::string computestr, mblasDataType & precision) {
+void mblasComputeType::set_compute(std::string computestr, mblasDataType & precision) {
   if (computestr != "") {
     // Attempt to parse the user's input with a map
     try {

@@ -28,5 +28,5 @@ class mblasRocComputeType: public mblasComputeType {
   //mblasRocComputeType(mblasComputeTypeEnum& y) : mblasComputeType(y) {}
 
   std::string toString() const override { return mblasComputeType::toString("rocblas"); }
-  void setCompute(std::string computestr, mblasDataType& precision) override;
+  void set_compute(std::string computestr, mblasDataType& precision) override;
 };

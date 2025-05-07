@@ -67,8 +67,8 @@ void hipblasLtGemm::parseDevIters(std::string deviceStr) {
 void hipblasLtGemm::parseMType(string computeTStr, string scalarTStr,
                                string aStr, string bStr, string cStr,
                                string dStr) {
-  compute.setCompute(computeTStr, precision);
-  scalar.setScalar(scalarTStr, precision, compute);
+  compute.set_compute(computeTStr, precision);
+  scalar.set_scalar(scalarTStr, precision, compute);
   bool noParse = false;
   if (aStr == "" || bStr == "" || cStr == "") {
     // Precision not completely specified, default to precision

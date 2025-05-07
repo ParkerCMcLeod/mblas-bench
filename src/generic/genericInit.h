@@ -112,7 +112,7 @@ void fillRandHostNormalFloat(void *ptr, long rows_A, long cols_A, long ld, int b
 
 template <typename T>
 void fillRandHostTrigFloat(void *ptr, long rows_A, long cols_A, long ld, int batch,
-                           long long int stride, bool isSin) {
+                           long long int stride, bool isSin, float scaling) {
   T *A = (T *)ptr;
   #pragma omp parallel for shared(A) collapse(3)
   for (size_t i_batch = 0; i_batch < batch; i_batch++) {
@@ -120,9 +120,9 @@ void fillRandHostTrigFloat(void *ptr, long rows_A, long cols_A, long ld, int bat
       // size_t offset = j * ld + i_batch * stride;
       for (size_t i = 0; i < rows_A; ++i) {
         if (isSin) {
-          A[i + j * ld + i_batch * stride] = T(sin(i + j * ld + i_batch * stride));
+          A[i + j * ld + i_batch * stride] = T(scaling * sin(i + j * ld + i_batch * stride));
         } else {
-          A[i + j * ld + i_batch * stride] = T(cos(i + j * ld + i_batch * stride));
+          A[i + j * ld + i_batch * stride] = T(scaling * cos(i + j * ld + i_batch * stride));
         }
       }
     }
@@ -181,7 +181,7 @@ void initHost<T>::operator()(std::string initialization, void *ptr, long rows_A,
     std::random_device r;
     fillRandHostRandIntAS<T>(ptr, rows_A, cols_A, ld, batch, stride, control, r());
   } else if (initialization == "trig_float") {
-    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride, control);
+    fillRandHostTrigFloat<T>(ptr, rows_A, cols_A, ld, batch, stride, control, constant);
   } else if (initialization == "normal_float") {
     fillRandHostNormalFloat<T>(ptr, rows_A, cols_A, ld, batch, stride);
   } else if (initialization == "hpl") {

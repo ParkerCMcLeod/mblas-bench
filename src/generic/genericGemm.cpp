@@ -79,6 +79,10 @@ genericGemm::genericGemm(cxxopts::ParseResult result) {
     controlB = true;
   } else if (initialization == "trig_float") {
     controlA = true;
+    constantA = 1; 
+    constantB = 1; 
+    constantC = 1; 
+    constantD = 1; 
   }
 }
 
@@ -125,3 +129,12 @@ void genericGemm::set_flush_batch_count(uint64_t & a_offset, uint64_t & b_offset
   }
   std::cout << "Using flush_batch_count = " << flush_batch_count << std::endl;
 }
+
+//void genericGemm::set_init_params(){
+//  if (initialization == "rand_int") {
+//    controlB = true;
+//  } else if (initialization == "trig_float") {
+//    controlA = true;
+//    if ()
+//  }
+//}

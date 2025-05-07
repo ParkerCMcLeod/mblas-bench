@@ -195,7 +195,7 @@ bool mblasDataType::isFp4() const {
   return false;
 }
 
-void mblasDataType::setScalar(std::string scalarstr, mblasDataType precision,
+void mblasDataType::set_scalar(std::string scalarstr, mblasDataType precision,
                             mblasComputeType& compute) {
   if (scalarstr != "") {
     set(mblasDataType(scalarstr));

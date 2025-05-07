@@ -70,7 +70,7 @@ mblasRocComputeType & mblasRocComputeType::operator = (const mblasRocComputeType
   return *this;
 }
 
-void mblasRocComputeType::setCompute(std::string computestr, mblasDataType& precision) {
-  mblasComputeType::setCompute(computestr, precision);
+void mblasRocComputeType::set_compute(std::string computestr, mblasDataType& precision) {
+  mblasComputeType::set_compute(computestr, precision);
   rocIsReal = precision.isReal();
 }
