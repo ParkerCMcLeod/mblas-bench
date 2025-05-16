@@ -491,9 +491,9 @@ void cublasLtGemm::copyHostToDev(cublasltgemmInst *mat) {
   //}
   if (use_scaling) {
     copy_and_convert(a_scale_type, scale_host_a, mat->scale_dev_a, a_scale_size.rows, a_scale_size.cols, 1);
-    copy_and_convert(b_scale_type, scale_host_b, mat->scale_dev_a, b_scale_size.rows, b_scale_size.cols, 1);
-    copy_and_convert(c_scale_type, scale_host_c, mat->scale_dev_a, c_scale_size.rows, c_scale_size.cols, 1);
-    copy_and_convert(d_scale_type, scale_host_d, mat->scale_dev_a, d_scale_size.rows, d_scale_size.cols, 1);
+    copy_and_convert(b_scale_type, scale_host_b, mat->scale_dev_b, b_scale_size.rows, b_scale_size.cols, 1);
+    copy_and_convert(c_scale_type, scale_host_c, mat->scale_dev_c, c_scale_size.rows, c_scale_size.cols, 1);
+    copy_and_convert(d_scale_type, scale_host_d, mat->scale_dev_d, d_scale_size.rows, d_scale_size.cols, 1);
   }
 }
 
