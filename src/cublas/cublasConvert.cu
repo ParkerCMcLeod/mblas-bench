@@ -52,7 +52,7 @@ cudaRoundMode
     cudaRoundMinInf
 */
 
-#if (CUDART_VERSION >= 12080)
+#if (ENABLE_CUDA_FP4)
 __global__ void float_to_fp4(float2 *input, size_t num_elements,
                            __nv_fp4x2_storage_t *output)
 {
@@ -135,7 +135,7 @@ void copy_and_convert(mblasCuDataType precision, void *host_a, void *devA, long 
   else if (precision == mblasDataType::MBLAS_R_4F_E2M1)
   {
 
-#if (CUDART_VERSION >= 12080)
+#if (ENABLE_CUDA_FP4)
     // Allocate memory in the device for host precision (float)
     void *tmpA = allocate_host_dev_array(precision, x, y, batchsz);
     check_cuda(cudaMemcpy(tmpA, host_a, batchsz * x * y * hostsz,

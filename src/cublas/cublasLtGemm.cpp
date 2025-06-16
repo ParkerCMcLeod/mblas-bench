@@ -87,7 +87,7 @@ std::vector<matmul_prec_type> cublasLtGemm::matmul_supported = {
   {mblasComputeType::MBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_16F},
   {mblasComputeType::MBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_16F,   mblasDataType::MBLAS_R_16F,       mblasDataType::MBLAS_R_16F},
   {mblasComputeType::MBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_8F_E5M2,   mblasDataType::MBLAS_R_8F_E4M3,   mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_32F,       mblasDataType::MBLAS_R_16BF},
-#if (CUDART_VERSION >= 12080)
+#if (ENABLE_CUDA_FP4)
   // FP4 Kernels
   // Compute type                   Scale Type    A Type            B Type            C Type        D Type            Bias Type
   {mblasComputeType::MBLAS_COMPUTE_32F,              mblasDataType::MBLAS_R_32F,   mblasDataType::MBLAS_R_4F_E2M1,   mblasDataType::MBLAS_R_4F_E2M1,   mblasDataType::MBLAS_R_16BF,   mblasDataType::MBLAS_R_4F_E2M1,       mblasDataType::MBLAS_R_16BF},
@@ -150,7 +150,7 @@ void cublasLtGemm::parse_problem_type(string computeTStr, string scalarTStr,
     d_type = mblasCuDataType(dStr);
   }
 
-#if (CUDART_VERSION >= 12080)
+#if (ENABLE_CUDA_FP4)
   use_scaling = a_type.isFp4() || b_type.isFp4() || c_type.isFp4() || d_type.isFp4();
   if (use_scaling)
   {
@@ -505,7 +505,7 @@ void cublasLtGemm::prepare_matrix(cublaslt_gemm_inst *mat) {
       mat->desc_op, CUBLASLT_MATMUL_DESC_TRANSA, &transACU, sizeof(transACU)));
   check_cublas(cublasLtMatmulDescSetAttribute(
       mat->desc_op, CUBLASLT_MATMUL_DESC_TRANSB, &transBCU, sizeof(transBCU)));
-#if (CUDART_VERSION >= 12080)
+#if (ENABLE_CUDA_FP4)
   if (use_scaling) {
     // set block scaling mode
     check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_op, CUBLASLT_MATMUL_DESC_A_SCALE_MODE, &a_scale_mode, sizeof(a_scale_mode)));
