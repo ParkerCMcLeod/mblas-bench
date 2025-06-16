@@ -52,9 +52,9 @@ class mblasDataType {
     bool operator<=(const mblasDataType& other) const;
     bool operator>=(const mblasDataType& other) const;
     virtual std::string to_string() const { return to_string("MBLAS"); }
-    bool isReal() const;
+    bool is_real() const;
     bool isFp8() const;
-    bool isFp4() const;
+    bool is_fp4() const;
     void set_scalar(std::string scalarstr, mblasDataType precision, mblasComputeType& compute);
 };
 

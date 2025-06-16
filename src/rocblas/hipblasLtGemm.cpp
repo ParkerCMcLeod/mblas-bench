@@ -120,23 +120,12 @@ void hipblasLtGemm::validate_parameters() {
       "Invalid GEMM specification for MatMul.  Combination of parameters "
       "not supported"
       "\nCompute type: " +
-      compute.toString() + "\nScalar type: " + scalar.toString() +
-      "\nA type: " + a_type.toString() +
-      "\nB type: " + b_type.toString() +
-      "\nC type: " + c_type.toString() +
-      "\nD type: " + d_type.toString();
+      compute.to_string() + "\nScalar type: " + scalar.to_string() +
+      "\nA type: " + a_type.to_string() +
+      "\nB type: " + b_type.to_string() +
+      "\nC type: " + c_type.to_string() +
+      "\nD type: " + d_type.to_string();
   throw std::invalid_argument(errorString);
-  // Validate that FP8 kernels will use TN format only
-  // GEMM fails if not
-  // if ((isFp8(a_type) || isFp8(b_type) || isFp8(c_type) || isFp8(d_type)) &&
-  //     (transA != CUBLAS_OP_T || transB != CUBLAS_OP_N)) {
-  //   string errorString =
-  //       "Transpose operation selection not supported"
-  //       "\nOnly TN format is supported"
-  //       "\nTransA: " +
-  //       opToString(transA) + "\nTransB: " + opToString(transB);
-  //   throw std::invalid_argument(errorString);
-  // }
 }
 
 hipblasLtGemm::hipblasLtGemm(cxxopts::ParseResult result) : genericGemm(result) {
@@ -437,7 +426,7 @@ double hipblasLtGemm::test() {
 std::string hipblasLtGemm::get_result_string() {
   std::ostringstream ossValues;
   ossValues << std::setprecision(7);
-  ossValues << transA.toStringShort() << ',' << transB.toStringShort() << ',' << m
+  ossValues << transA.to_string_short() << ',' << transB.to_string_short() << ',' << m
             << ',' << n << ',' << k << ',' << lda << ',' << ldb << ',' << ldc
             << ',';
   if (batched) {
@@ -461,7 +450,7 @@ std::tuple<double, double, double> hipblasLtGemm::calculate_figure_of_merit(
   int c_sz = type_call_dev<sizeofCUDT>(c_type);
 
   int flopPerSize = 2;
-  if (!precision.isReal()) {
+  if (!precision.is_real()) {
     int flopPerSize = 8;
   }
   double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *

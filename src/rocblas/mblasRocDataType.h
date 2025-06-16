@@ -21,5 +21,5 @@ class mblasRocDataType: public mblasDataType {
   // mblasRocDataType & operator = (const mblasDataType& mdt);
   mblasRocDataType & operator = (const mblasRocDataType& mdt);
 
-  std::string toString() const override { return mblasDataType::toString("rocblas"); }
+  std::string to_string() const override { return mblasDataType::to_string("rocblas"); }
 };

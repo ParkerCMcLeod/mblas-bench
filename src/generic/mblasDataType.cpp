@@ -171,7 +171,7 @@ std::string mblasDataType::to_string(std::string prefix) const {
   return "(DataType name not found)";
 }
 
-bool mblasDataType::isReal() const {
+bool mblasDataType::is_real() const {
   // Uses toString for maintenence reasons, not perf critical
   std::string str = to_string();
   if (str.find("_C_") != std::string::npos) {
@@ -188,7 +188,7 @@ bool mblasDataType::isFp8() const {
   return false;
 }
 
-bool mblasDataType::isFp4() const {
+bool mblasDataType::is_fp4() const {
   if (value == MBLAS_R_4F_E2M1) {
     return true;
   }
@@ -205,7 +205,7 @@ void mblasDataType::set_scalar(std::string scalarstr, mblasDataType precision,
     for (auto ele : precToCompute) {
       mblasDataType selDtype = mblasDataType(ele.first);
       mblasComputeType selCtype = mblasComputeType(ele.second);
-      if (selCtype == compute && precision.isReal() == selDtype.isReal()) {
+      if (selCtype == compute && precision.is_real() == selDtype.is_real()) {
         set(selDtype);
         return;
       }

@@ -29,7 +29,7 @@ rocblas_computetype mblasRocComputeType::convertToRocm(const mblasRocComputeType
   try {
     return compute_mappings.at(*data);
   } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to rocBLAS Compute Type " << data->toString() << std::endl;
+    std::cout << "Failed to convert to rocBLAS Compute Type " << data->to_string() << std::endl;
     throw e;
     return rocblas_compute_type_f32;
   }
@@ -42,11 +42,11 @@ mblasRocComputeType::operator rocblas_computetype() const {
 rocblas_datatype mblasRocComputeType::convertToRocmData(const mblasRocComputeType *data) {
   for (auto ele : prec_mappings) {
     mblasRocDataType rdata = mblasRocDataType(ele.second);
-    if (ele.first == *data && rdata.isReal() == data->rocIsReal) {
+    if (ele.first == *data && rdata.is_real() == data->rocIsReal) {
       return rocblas_datatype(rdata);
     }
   }
-  std::cout << "Failed to convert to rocBLAS Data Type " << data->toString() << std::endl;
+  std::cout << "Failed to convert to rocBLAS Data Type " << data->to_string() << std::endl;
   throw std::out_of_range("Value not found in list");
 }
 
@@ -72,5 +72,5 @@ mblasRocComputeType & mblasRocComputeType::operator = (const mblasRocComputeType
 
 void mblasRocComputeType::set_compute(std::string computestr, mblasDataType& precision) {
   mblasComputeType::set_compute(computestr, precision);
-  rocIsReal = precision.isReal();
+  rocIsReal = precision.is_real();
 }

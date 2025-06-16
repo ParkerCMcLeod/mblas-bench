@@ -21,5 +21,5 @@ class mblasHipDataType: public mblasDataType {
   // mblasHipDataType & operator = (const mblasDataType& mdt);
   mblasHipDataType & operator = (const mblasHipDataType& mdt);
 
-  std::string toString() const override { return mblasDataType::toString("HIP"); }
+  std::string to_string() const override { return mblasDataType::to_string("HIP"); }
 };

@@ -7,7 +7,7 @@ hipblasOperation_t mblasHipOperation::convertToHip(const mblasHipOperation *data
   try {
     return prec_mappings.at(*data);
   } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to Hip Operation " << data->toString() << std::endl;
+    std::cout << "Failed to convert to Hip Operation " << data->to_string() << std::endl;
     throw e;
   }
 }

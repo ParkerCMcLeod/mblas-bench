@@ -6,7 +6,7 @@ hipDataType mblasHipDataType::convertToHip(const mblasHipDataType *data) {
   try {
     return prec_mappings.at(*data);
   } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to Hip Datatype " << data->toString() << std::endl;
+    std::cout << "Failed to convert to Hip Datatype " << data->to_string() << std::endl;
     throw e;
     return HIP_R_32F;
   }

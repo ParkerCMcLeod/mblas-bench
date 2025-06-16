@@ -21,5 +21,5 @@ class mblasHipOperation: public mblasOperation {
   mblasHipOperation() : mblasOperation() {}
   mblasHipOperation(mblasOperationEnum y) : mblasOperation(y) {}
 
-  std::string toString() const override { return mblasOperation::toString("HIPBLAS"); }
+  std::string to_string() const override { return mblasOperation::to_string("HIPBLAS"); }
 };

@@ -20,5 +20,5 @@ class mblasHipComputeType: public mblasComputeType {
   mblasHipComputeType(mblasComputeTypeEnum y) : mblasComputeType(y) {}
   //mblasHipComputeType(mblasComputeTypeEnum& y) : mblasComputeType(y) {}
 
-  std::string toString() const override { return mblasComputeType::toString("HIPBLAS"); }
+  std::string to_string() const override { return mblasComputeType::to_string("HIPBLAS"); }
 };

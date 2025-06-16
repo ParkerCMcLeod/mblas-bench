@@ -7,7 +7,7 @@ rocblas_operation mblasRocOperation::convertToRocm(const mblasRocOperation *data
   try {
     return prec_mappings.at(*data);
   } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to rocBLAS operation" << data->toString() << std::endl;
+    std::cout << "Failed to convert to rocBLAS operation" << data->to_string() << std::endl;
     throw e;
   }
 }

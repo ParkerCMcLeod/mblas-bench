@@ -151,7 +151,7 @@ void cublasLtGemm::parse_problem_type(string computeTStr, string scalarTStr,
   }
 
 #if (ENABLE_CUDA_FP4)
-  use_scaling = a_type.isFp4() || b_type.isFp4() || c_type.isFp4() || d_type.isFp4();
+  use_scaling = a_type.is_fp4() || b_type.is_fp4() || c_type.is_fp4() || d_type.is_fp4();
   if (use_scaling)
   {
     // Determine scale types (calculated from a,b,c,d type)
@@ -170,16 +170,16 @@ void cublasLtGemm::parse_problem_type(string computeTStr, string scalarTStr,
     c_scale_size = get_scale_tensor_size(m, n, c_scale_mode);
     d_scale_size = get_scale_tensor_size(m, n, d_scale_mode);
 
-    if (a_type.isFp4()) {
+    if (a_type.is_fp4()) {
       constant_a = 3.2;
     }
-    if (b_type.isFp4()) {
+    if (b_type.is_fp4()) {
       constant_b = 3.2;
     }
-    if (c_type.isFp4()) {
+    if (c_type.is_fp4()) {
       constant_c = 3.2;
     }
-    if (d_type.isFp4()) {
+    if (d_type.is_fp4()) {
       constant_d = 3.2;
     }
   }
@@ -517,7 +517,7 @@ void cublasLtGemm::prepare_matrix(cublaslt_gemm_inst *mat) {
     check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_op, CUBLASLT_MATMUL_DESC_A_SCALE_POINTER, &mat->scale_dev_a, sizeof(mat->scale_dev_a)));
     check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_op, CUBLASLT_MATMUL_DESC_B_SCALE_POINTER, &mat->scale_dev_b, sizeof(mat->scale_dev_b)));
 
-    if (d_type.isFp4()) {
+    if (d_type.is_fp4()) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_op, CUBLASLT_MATMUL_DESC_D_OUT_SCALE_MODE, &d_scale_mode, sizeof(d_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_op, CUBLASLT_MATMUL_DESC_D_OUT_SCALE_POINTER, &mat->scale_dev_d, sizeof(mat->scale_dev_d)));
     }
@@ -655,7 +655,7 @@ std::tuple<double, double, double> cublasLtGemm::calculate_figure_of_merit(
   int c_sz = type_call_dev<sizeofCUDT>(c_type);
 
   int flopPerSize = 2;
-  if (!precision.isReal()) {
+  if (!precision.is_real()) {
     int flopPerSize = 8;
   }
   double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *

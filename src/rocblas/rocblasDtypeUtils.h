@@ -6,28 +6,6 @@
 #include <map>
 #include <string>
 
-// bool isReal(rocblas_datatype type);
-// bool isReal(hipDataType type);
-// bool isFp8(rocblas_datatype precision);
-// bool isFp8(hipDataType precision);
-// //std::string precToString(rocblas_datatype precision);
-// std::string precToString(hipDataType precision);
-// //std::string computeToString(rocblas_datatype compute);
-// std::string computeToString(hipblasComputeType_t compute);
-// //rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
-// hipDataType precisionStringToHipDType(std::string stringPrecision);
-// hipDataType selectScalar(std::string scalarstr, hipDataType precision,
-//                                 hipDataType compute);
-// hipDataType selectScalar(std::string scalarstr, hipDataType precision,
-//                               hipblasComputeType_t compute);
-// hipDataType selectComputeR(std::string computestr,
-//                                hipDataType precision);
-// hipblasComputeType_t selectCompute(std::string computestr,
-//                                hipDataType precision);
-// //rocblas_operation opStringToRocblasOp(std::string opstr);
-// hipblasOperation_t opStringToHipblasOp(std::string opstr);
-// //std::string opToString(rocblas_operation);
-// std::string opToString(hipblasOperation_t);
 
 // data
 

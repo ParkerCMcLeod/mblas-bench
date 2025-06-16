@@ -505,7 +505,7 @@ std::tuple<double, double, double> cublasGemm::calculate_figure_of_merit(
   int c_sz = type_call_dev<sizeofCUDT>(c_type);
 
   int flopPerSize = 2;
-  if (!precision.isReal()) {
+  if (!precision.is_real()) {
     int flopPerSize = 8;
   }
   double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *

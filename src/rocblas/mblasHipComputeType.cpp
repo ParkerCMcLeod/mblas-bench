@@ -21,7 +21,7 @@ hipblasComputeType_t mblasHipComputeType::convertToHip(const mblasHipComputeType
   try {
     return compute_mappings.at(*data);
   } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to Hip Compute Type " << data->toString() << std::endl;
+    std::cout << "Failed to convert to Hip Compute Type " << data->to_string() << std::endl;
     throw e;
     return HIPBLAS_COMPUTE_32F;
   }
