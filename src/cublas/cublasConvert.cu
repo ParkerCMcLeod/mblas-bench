@@ -64,17 +64,6 @@ __global__ void float_to_fp4(float2 *input, size_t num_elements,
 }
 #endif
 
-__global__ void intToInt8(__int32_t *input, size_t num_elements,
-                          __int8_t *output, __nv_fp8_interpretation_t interp)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = (__int8_t)input[idx];
-    // output[idx] = dynamic_cast<__int8_t>(input[idx]);
-  }
-}
-
 void copy_and_convert(mblasCuDataType precision, void *host_a, void *devA, long x, long y, int batchsz)
 {
 
