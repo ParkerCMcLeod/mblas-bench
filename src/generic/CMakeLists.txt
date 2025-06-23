@@ -1,10 +1,10 @@
 
 add_library(mblasgeneric STATIC
-    genericGemm.cpp
-    genericSetup.cpp
-    mblasDataType.cpp
-    mblasComputeType.cpp
-    mblasOperation.cpp
+    generic_gemm.cpp
+    generic_setup.cpp
+    mblas_data_type.cpp
+    mblas_compute_type.cpp
+    mblas_operation.cpp
 )
 find_package(OpenMP REQUIRED)
 

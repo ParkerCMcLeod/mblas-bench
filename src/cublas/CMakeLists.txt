@@ -17,17 +17,17 @@ find_package(CUDAToolkit REQUIRED)
 find_package(Threads REQUIRED) 
 
 add_library(mblascuda SHARED
-    cublasGemm.cpp
-    cublasGemmFactory.cpp
-    cublasLtGemm.cpp
-    cublasLtGemmFactory.cpp
-    cublasConvert.cu
-    cublasCreateAllocate.cpp
-    cublasDtypeUtils.cpp
-    cudaError.cpp
-    mblasCuDataType.cpp
-    mblasCuComputeType.cpp
-    mblasCuOperation.cpp
+    cublas_gemm.cpp
+    cublas_gemm_factory.cpp
+    cublaslt_gemm.cpp
+    cublaslt_gemm_factory.cpp
+    cublas_convert.cu
+    cublas_create_allocate.cpp
+    cublas_datatype_utils.cpp
+    cuda_error.cpp
+    mblas_cuda_data_type.cpp
+    mblas_cuda_compute_type.cpp
+    mblas_cuda_operation.cpp
 )
 
 set_target_properties(mblascuda PROPERTIES POSITION_INDEPENDENT_CODE ON)

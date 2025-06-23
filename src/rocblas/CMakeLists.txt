@@ -25,20 +25,20 @@ find_package(OpenMP REQUIRED)
 
 
 add_library(mblasrocm SHARED
-    rocblasGemm.cpp
-    rocblasGemmFactory.cpp
-    hipblasLtGemm.cpp
-    hipblasLtGemmFactory.cpp
-    rocblasConvert.hip
-    rocblasCreateAllocate.cpp
-    rocblasDtypeUtils.cpp
-    rocblasError.cpp
-    mblasHipDataType.cpp
-    mblasHipComputeType.cpp
-    mblasHipOperation.cpp
-    mblasRocDataType.cpp
-    mblasRocComputeType.cpp
-    mblasRocOperation.cpp
+    rocblas_gemm.cpp
+    rocblas_gemm_factory.cpp
+    hipblaslt_gemm.cpp
+    hipblaslt_gemm_factory.cpp
+    hip_convert.hip
+    hip_create_allocate.cpp
+    hip_datatype_utils.cpp
+    hip_error.cpp
+    mblas_hip_data_type.cpp
+    mblas_hipblas_compute_type.cpp
+    mblas_hipblas_operation.cpp
+    mblas_rocblas_data_type.cpp
+    mblas_rocblas_compute_type.cpp
+    mblas_rocblas_operation.cpp
 )
 target_compile_options(mblasrocm PRIVATE -Wno-unused-result)
 

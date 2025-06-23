@@ -43,7 +43,7 @@ endif()
 
 add_executable(
     mblas-bench
-    mblasBench.cpp
+    mblas_bench.cpp
 )
 
 target_include_directories(mblas-bench PUBLIC
