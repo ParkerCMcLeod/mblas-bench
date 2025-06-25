@@ -46,11 +46,11 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -g")
 
-if(CUDART_VERSION VERSION_GREATER_EQUAL 12.08.0)
-    set(ENABLE_CUDA_FP4 TRUE)
-else()
-    set(ENABLE_CUDA_FP4 FALSE)
+if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.8.0)
+    add_definitions(-DENABLE_CUDA_FP4)
 endif()
+message(ENABLE_CUDA_FP4="${ENABLE_CUDA_FP4}")
+
 target_include_directories(mblascuda PRIVATE
     .
     ../third_party
