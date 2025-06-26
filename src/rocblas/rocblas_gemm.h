@@ -35,9 +35,6 @@ struct rocblas_gemm_inst {
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
-  void * devA;
-  void * devB;
-  void * devC;
   void *alpha;
   void *beta;
   /*
@@ -48,9 +45,7 @@ struct rocblas_gemm_inst {
   void ** ptr_dev_a;
   void ** ptr_dev_b;
   void ** ptr_dev_c;
-  void ** ptr_host_a;
-  void ** ptr_host_b;
-  void ** ptr_host_c;
+  void ** ptr_dev_d;
   void *devWork;
   long wSZ;
   rocblas_gemm_inst(int devID) { 
@@ -60,9 +55,10 @@ struct rocblas_gemm_inst {
 
 class rocblas_gemm : public generic_gemm {
  private:
-  void * host_a;
-  void * host_b;
-  void * host_c;
+  void **ptr_host_a;
+  void **ptr_host_b;
+  void **ptr_host_c;
+  void **ptr_host_d;
 
   // // Device array.  These are where the memory is stored on GPU
   // void *devA;
@@ -84,6 +80,8 @@ class rocblas_gemm : public generic_gemm {
   void *alpha;
   void *beta;
 
+  bool inplace = false;
+
   mblas_rocblas_operation transA;
   mblas_rocblas_operation transB;
 
@@ -95,6 +93,7 @@ class rocblas_gemm : public generic_gemm {
   mblas_rocblas_data_type a_type;
   mblas_rocblas_data_type b_type;
   mblas_rocblas_data_type c_type;
+  mblas_rocblas_data_type d_type;
 
   int workspace_size = 128 * 1024 * 1024;
 
@@ -112,7 +111,7 @@ class rocblas_gemm : public generic_gemm {
   // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
   // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
-                  std::string aStr, std::string bStr, std::string cStr);
+                  std::string aStr, std::string bStr, std::string cStr, std::string dStr);
   void parse_dev_iters(std::string);
   rocblas_operation set_op(std::string);
   void alloc_host();

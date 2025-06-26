@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Set the GPU to compile for
 #set(GPU_TARGETS "gfx908:sramecc+:xnack-" CACHE STRING "GPU targets to compile for")
-set(GPU_TARGETS "gfx90a" CACHE STRING "GPU targets to compile for")
+set(GPU_TARGETS "gfx90a,gfx942" CACHE STRING "GPU targets to compile for")
 # Search for rocm in common locations
 list(PREPEND CMAKE_PREFIX_PATH /opt/rocm)
 set(ROCM_ROOT "/opt/rocm" CACHE PATH "Root directory of the ROCm installation")
@@ -43,8 +43,6 @@ add_library(mblasrocm SHARED
 target_compile_options(mblasrocm PRIVATE -Wno-unused-result)
 
 set_target_properties(mblasrocm PROPERTIES POSITION_INDEPENDENT_CODE ON)
-#set_target_properties(mblasrocm PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-#set_target_properties(mblasrocm PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_include_directories(mblasrocm PRIVATE
     .

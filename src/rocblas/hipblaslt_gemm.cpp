@@ -158,7 +158,7 @@ hipblaslt_gemm::hipblaslt_gemm(cxxopts::ParseResult result) : generic_gemm(resul
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
   uint64_t a_offset, b_offset, c_offset, d_offset;
-  set_flush_batch_count(a_offset, b_offset, c_offset, d_offset, 
+  set_flush_batch_count( 
       type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
       type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type), 
       get_packing_count(a_type), 
@@ -221,12 +221,6 @@ void hipblaslt_gemm::run_threaded(void (hipblaslt_gemm::*func)(hipblaslt_gemm_in
 }
 
 void hipblaslt_gemm::alloc_host() {
-  // auto resultA = std::async(allocate_host_array, a_type, m, k, batch_count);
-  // auto resultB = std::async(allocate_host_array, b_type, k, n, batch_count);
-  // auto resultC = std::async(allocate_host_array, c_type, n, m, batch_count);
-  // host_a = resultA.get();
-  // host_b = resultB.get();
-  // host_c = resultC.get();
   ptr_host_a =
       (void **)malloc(flush_batch_count * type_call_host<sizeofCUDTP>(a_type));
   ptr_host_b =
@@ -249,9 +243,6 @@ void hipblaslt_gemm::alloc_host() {
       ptr_host_d[i] = allocate_host_array(d_type, rows_mem_d, cols_mem_d, batch_count);
     }
   }
-  //host_a = allocate_host_array(a_type, m, k, batch_count);
-  //host_b = allocate_host_array(b_type, k, n, batch_count);
-  //host_c = allocate_host_array(c_type, m, n, batch_count);
 }
 
 void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
@@ -283,21 +274,6 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
 }
 
 void hipblaslt_gemm::fill_host() {
-  // Some random functions treat the matrix as a vectors, some require a matrix
-  // vector<thread> threads;
-  // threads.push_back(thread(initHostH, a_type, initialization, host_a, m, k,
-  // lda,
-  //                         batch_count, stride_a, 2.f, false));
-  // threads.push_back(thread(initHostH, b_type, initialization, host_b, k, n,
-  // ldb,
-  //                         batch_count, stride_b, 3.f, true));
-  // threads.push_back(thread(initHostH, c_type, initialization, host_c, m, n,
-  // ldc,
-  //                         batch_count, stride_c, 1.f, false));
-  // for (auto &thread : threads) {
-  //  thread.join();
-  //}
-
   for (int i = 0; i < flush_batch_count; i++){
     type_call_host<initHost>(a_type, initialization, ptr_host_a[i], rows_a, cols_a, lda,
                            batch_count, stride_a, control_a, constant_a, filename_a);
