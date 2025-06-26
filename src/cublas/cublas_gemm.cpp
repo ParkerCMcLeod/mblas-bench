@@ -184,8 +184,7 @@ cublas_gemm::cublas_gemm(cxxopts::ParseResult result) : generic_gemm(result) {
   string sbeta = result["beta"].as<string>();
   string sbetai = result["betai"].as<string>();
   beta = type_call_host<allocSetScalar>(precision, sbeta.c_str(), sbetai.c_str());
-  // std::cout << *((float *)alpha) << std::endl;
-  // std::cout << *((float *)beta) << std::endl;
+  
   set_flush_batch_count( 
       type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
       type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(c_type), 

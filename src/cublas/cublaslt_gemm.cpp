@@ -172,18 +172,6 @@ void cublaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
     c_scale_size = get_scale_tensor_size(m, n, c_scale_mode);
     d_scale_size = get_scale_tensor_size(m, n, d_scale_mode);
 
-    if (a_type.is_fp4()) {
-      constant_a = 3.2;
-    }
-    if (b_type.is_fp4()) {
-      constant_b = 3.2;
-    }
-    if (c_type.is_fp4()) {
-      constant_c = 3.2;
-    }
-    if (d_type.is_fp4()) {
-      constant_d = 3.2;
-    }
   }
 #endif
 }
@@ -230,11 +218,6 @@ cublaslt_gemm::cublaslt_gemm(cxxopts::ParseResult result) : generic_gemm(result)
   string bT = result["b_type"].as<string>();
   string cT = result["c_type"].as<string>();
   string dT = result["d_type"].as<string>();
-  string compcomputeT = result["composite_compute_type"].as<string>();
-  if (compcomputeT == "f32") {
-    // Feature from rocBLAS, set the original compute type
-    computeT = "CUBLAS_COMPUTE_32F";
-  }
   parse_problem_type(computeT, scalarT, aT, bT, cT, dT);
 
   parse_dev_iters(result["device"].as<string>());
@@ -333,10 +316,6 @@ void cublaslt_gemm::alloc_host() {
     ptr_host_d[i] = allocate_host_array(d_type, rows_mem_d, cols_mem_d, batch_count);
   }
 
-  //batched_pointer_magic_generic(ptr_host_a, dataHost + a_offset_host, batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size_host, a_type);
-  //batched_pointer_magic_generic(ptr_host_b, dataHost + b_offset_host, batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size_host, b_type);
-  //batched_pointer_magic_generic(ptr_host_c, dataHost + c_offset_host, batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size_host, c_type);
-  //batched_pointer_magic_generic(ptr_host_d, dataHost + d_offset_host, batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size_host, d_type);
   if (use_scaling) {
     scale_host_a = malloc(a_scale_size.get_size()*type_call_host<sizeofCUDT>(a_scale_type));
     scale_host_b = malloc(b_scale_size.get_size()*type_call_host<sizeofCUDT>(b_scale_type));
@@ -349,32 +328,15 @@ void cublaslt_gemm::alloc_host() {
 void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
   cudaSetDevice(mat->devIDX);
 
-  //// Will update offset vars
-  //total_block_size_dev = calculate_offsets( 
-  //  rows_mem_a, cols_mem_a, rows_mem_b, cols_mem_b, rows_mem_c, cols_mem_c, rows_mem_d, cols_mem_d,
-  //  a_offset_dev, b_offset_dev, c_offset_dev, d_offset_dev,
-  //  type_call_dev<sizeofCUDT>(a_type),
-  //  type_call_dev<sizeofCUDT>(b_type),
-  //  type_call_dev<sizeofCUDT>(c_type),
-  //  type_call_dev<sizeofCUDT>(d_type),
-  //  get_packing_count(a_type),
-  //  get_packing_count(b_type),
-  //  get_packing_count(c_type),
-  //  get_packing_count(d_type),
-  //  batch_count, inplace
-  // );
-
-  //// Allocate big block of memory
-  //check_cuda(cudaMalloc(&mat->dataDev, total_block_size_dev * flush_batch_count));
   mat->ptr_dev_a =
-      (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
+      (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
   mat->ptr_dev_b =
-      (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(b_type));
+      (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(b_type));
   mat->ptr_dev_c =
-      (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(c_type));
+      (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(c_type));
   if (!inplace) {
     mat->ptr_dev_d =
-        (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(d_type));
+        (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(d_type));
   } else {
     mat->ptr_dev_d = mat->ptr_dev_c;
   }
@@ -386,18 +348,6 @@ void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
     mat->ptr_dev_d[i] = allocate_dev_array(d_type, rows_mem_d, cols_mem_d, batch_count);
   }
 
-  //batched_pointer_magic_generic(mat->ptr_dev_a, mat->dataDev + a_offset_dev, batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size_dev, a_type);
-  //batched_pointer_magic_generic(mat->ptr_dev_b, mat->dataDev + b_offset_dev, batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size_dev, b_type);
-  //batched_pointer_magic_generic(mat->ptr_dev_c, mat->dataDev + c_offset_dev, batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size_dev, c_type);
-  //batched_pointer_magic_generic(mat->ptr_dev_d, mat->dataDev + d_offset_dev, batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size_dev, d_type);
-  // mat->devA = allocate_dev_array(a_type, rows_mem_a, cols_mem_a, batch_count);
-  // mat->devB = allocate_dev_array(b_type, rows_mem_b, cols_mem_b, batch_count);
-  // mat->devC = allocate_dev_array(c_type, rows_mem_c, cols_mem_c, batch_count);
-  // if (!inplace) {
-  //   mat->devD = allocate_dev_array(d_type, rows_mem_d, cols_mem_d, batch_count);
-  // } else {
-  //   mat->devD = mat->devC;
-  // }
   mat->wSZ = workspace_size;
   cudaMalloc(&mat->devWork, mat->wSZ);
   if (use_scaling) {
@@ -434,18 +384,6 @@ void cublaslt_gemm::copy_host_to_dev(cublaslt_gemm_inst *mat) {
     copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], rows_mem_c, cols_mem_c, batch_count);
   }
 
-  ////if (batched && !strided) {
-  //// Perform some pointer arithmetic to calculate the arrays we pass to the
-  //// gpu
-  //type_call_dev<batchedPtrCopy>(a_type, mat->ptr_dev_a, data + a_offset_host,
-  //                            batch_count, rows_mem_a, cols_mem_a, flush_batch_count, total_block_size);
-  //type_call_dev<batchedPtrCopy>(b_type, mat->ptr_dev_b, data + b_offset_host,
-  //                            batch_count, rows_mem_b, cols_mem_b, flush_batch_count, total_block_size);
-  //type_call_dev<batchedPtrCopy>(c_type, mat->ptr_dev_c, data + c_offset_host,
-  //                            batch_count, rows_mem_c, cols_mem_c, flush_batch_count, total_block_size);
-  //type_call_dev<batchedPtrCopy>(d_type, mat->ptr_dev_d, data + d_offset_host,
-  //                            batch_count, rows_mem_d, cols_mem_d, flush_batch_count, total_block_size);
-  //}
   if (use_scaling) {
     copy_and_convert(a_scale_type, scale_host_a, mat->scale_dev_a, a_scale_size.rows, a_scale_size.cols, 1);
     copy_and_convert(b_scale_type, scale_host_b, mat->scale_dev_b, b_scale_size.rows, b_scale_size.cols, 1);

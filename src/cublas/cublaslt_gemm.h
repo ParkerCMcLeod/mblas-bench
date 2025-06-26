@@ -72,7 +72,6 @@ struct scale_size {
 
 class cublaslt_gemm : public generic_gemm {
  private:
-  void *dataHost;
   void **ptr_host_a;
   void **ptr_host_b;
   void **ptr_host_c;
