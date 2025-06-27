@@ -43,7 +43,7 @@ endif()
 
 add_executable(
     mblas-bench
-    mblasBench.cpp
+    mblas_bench.cpp
 )
 
 target_include_directories(mblas-bench PUBLIC
@@ -78,11 +78,16 @@ target_link_libraries(mblas-bench PUBLIC
     -lstdc++
     -lm
     -lpthread
+    -fopenmp
 )
 
 if (WITH_ROCM)
     target_link_libraries(mblas-bench PRIVATE
     mblasrocm
+        -lstdc++
+        -lm
+        -lpthread
+        -fopenmp
     )
 endif()
 

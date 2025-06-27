@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
 #set(CMAKE_CXX_COMPILER "/usr/local/cuda/bin/nvcc")
 set(CUDAHOSTCXX g++)
-set(CMAKE_CUDA_COMPILER nvcc)
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 #unset(CMAKE_CXX_COMPILER)
 #set(CMAKE_CXX_STANDARD 17)
 unset(CMAKE_CXX_STANDARD)
@@ -17,22 +17,38 @@ find_package(CUDAToolkit REQUIRED)
 find_package(Threads REQUIRED) 
 
 add_library(mblascuda SHARED
-    cublasGemm.cpp
-    cublasGemmFactory.cpp
-    cublasLtGemm.cpp
-    cublasLtGemmFactory.cpp
-    cublasConvert.cu
-    cublasCreateAllocate.cpp
-    cublasDtypeUtils.cpp
-    cudaError.cpp
-    mblasCuDataType.cpp
-    mblasCuComputeType.cpp
-    mblasCuOperation.cpp
+    cublas_gemm.cpp
+    cublas_gemm_factory.cpp
+    cublaslt_gemm.cpp
+    cublaslt_gemm_factory.cpp
+    cublas_convert.cu
+    cublas_create_allocate.cpp
+    cublas_datatype_utils.cpp
+    cuda_error.cpp
+    mblas_cuda_data_type.cpp
+    mblas_cuda_compute_type.cpp
+    mblas_cuda_operation.cpp
 )
 
 set_target_properties(mblascuda PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(mblascuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(mblascuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+#set_target_properties(mblascuda PROPERTIES CUDA_ARCHITECTURES 80 86 89 90)
+
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_80,code=sm_80")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_80,code=sm_80")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_86,code=sm_86")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_89,code=sm_89")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_90,code=sm_90")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_90,code=compute_90")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
+if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.8.0)
+    add_definitions(-DENABLE_CUDA_FP4)
+endif()
 
 target_include_directories(mblascuda PRIVATE
     .

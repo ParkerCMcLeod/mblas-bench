@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Set the GPU to compile for
 #set(GPU_TARGETS "gfx908:sramecc+:xnack-" CACHE STRING "GPU targets to compile for")
-set(GPU_TARGETS "gfx90a" CACHE STRING "GPU targets to compile for")
+set(GPU_TARGETS "gfx90a,gfx942" CACHE STRING "GPU targets to compile for")
 # Search for rocm in common locations
 list(PREPEND CMAKE_PREFIX_PATH /opt/rocm)
 set(ROCM_ROOT "/opt/rocm" CACHE PATH "Root directory of the ROCm installation")
@@ -21,29 +21,28 @@ find_package(rocblas REQUIRED)
 find_package(hipblas REQUIRED)
 find_package(hipblaslt REQUIRED)
 find_package(Threads REQUIRED) 
+find_package(OpenMP REQUIRED)
 
 
 add_library(mblasrocm SHARED
-    rocblasGemm.cpp
-    rocblasGemmFactory.cpp
-    hipblasLtGemm.cpp
-    hipblasLtGemmFactory.cpp
-    rocblasConvert.hip
-    rocblasCreateAllocate.cpp
-    rocblasDtypeUtils.cpp
-    rocblasError.cpp
-    mblasHipDataType.cpp
-    mblasHipComputeType.cpp
-    mblasHipOperation.cpp
-    mblasRocDataType.cpp
-    mblasRocComputeType.cpp
-    mblasRocOperation.cpp
+    rocblas_gemm.cpp
+    rocblas_gemm_factory.cpp
+    hipblaslt_gemm.cpp
+    hipblaslt_gemm_factory.cpp
+    hip_convert.hip
+    hip_create_allocate.cpp
+    hip_datatype_utils.cpp
+    hip_error.cpp
+    mblas_hip_data_type.cpp
+    mblas_hipblas_compute_type.cpp
+    mblas_hipblas_operation.cpp
+    mblas_rocblas_data_type.cpp
+    mblas_rocblas_compute_type.cpp
+    mblas_rocblas_operation.cpp
 )
 target_compile_options(mblasrocm PRIVATE -Wno-unused-result)
 
 set_target_properties(mblasrocm PROPERTIES POSITION_INDEPENDENT_CODE ON)
-#set_target_properties(mblasrocm PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-#set_target_properties(mblasrocm PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_include_directories(mblasrocm PRIVATE
     .
@@ -58,5 +57,8 @@ target_link_libraries(mblasrocm PRIVATE
     roc::hipblas
     roc::hipblaslt
     Threads::Threads
+    OpenMP::OpenMP_CXX
+    -lpthread
+    -fopenmp
     mblasgeneric
 )

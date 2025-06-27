@@ -1,0 +1,194 @@
+#pragma once
+
+#include <complex>
+#include <iostream>
+#include <random>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <omp.h>
+
+// Rand int gen
+template <typename T>
+inline T rand_int_gen(std::uniform_int_distribution<int> &idist,
+                    std::mt19937 &gen, T &dummy) {
+  return T(idist(gen));
+}
+
+template <typename T>
+inline std::complex<T> rand_int_gen(std::uniform_int_distribution<int> &idist,
+                             std::mt19937 &gen, std::complex<T> &dummy) {
+  //return {T(idist(gen)), T(idist(gen))};
+  return std::complex<T>(idist(gen), idist(gen));
+}
+
+template <typename T>
+inline T rand_int_gen_negative(std::uniform_int_distribution<int> &idist,
+                     std::mt19937 &gen, T &dummy) {
+  return -T(idist(gen));
+}
+
+template <typename T>
+inline std::complex<T> rand_int_gen_negative(std::uniform_int_distribution<int> &idist,
+                              std::mt19937 &gen, std::complex<T> &dummy) {
+  //return {-T(idist(gen)), -T(idist(gen))};
+  return std::complex<T>(-idist(gen), -idist(gen));
+}
+
+template <typename T>
+inline T normal_float_gen(std::normal_distribution<double> &ndist,
+                        std::mt19937 &gen, T &dummy) {
+  return T(ndist(gen));
+}
+
+template <typename T>
+void fill_rand_host_blasgemm(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                          long long int stride) {
+  int a = 1;
+  T *A = (T *)ptr;
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
+    A[i] = (T)rand() / (T)(RAND_MAX / a);
+  }
+}
+
+template <typename T>
+void fill_rand_host_constant(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                          long long int stride, float constant) {
+  int a = 1;
+  T *A = (T *)ptr;
+  for (size_t i = 0; i < rows_A * cols_A * batch; i++) {
+    A[i] = (T)(constant);
+  }
+}
+
+template <typename T>
+void fill_rand_host_rand_int_alternating(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                           long long int stride, bool alternating, int random_dev_seed) {
+  T *A = (T *)ptr;
+  #pragma omp parallel shared(A) 
+  {
+    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<int> uniform_dist(1, 10);
+    T dummy;
+    #pragma omp for collapse(3) 
+    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+      for (size_t j = 0; j < cols_A; ++j) {
+        for (size_t i = 0; i < rows_A; ++i) {
+          if ((!alternating) || (j % 2 ^ i % 2)) {
+            A[i + j * ld + i_batch * stride] = rand_int_gen(uniform_dist, gen, dummy);
+          } else {
+            A[i + j * ld + i_batch * stride] = rand_int_gen_negative(uniform_dist, gen, dummy);
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void fill_rand_host_normal_float(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                             long long int stride) {
+  T *A = (T *)ptr;
+  std::random_device r;
+  int random_dev_seed = r();
+  #pragma omp parallel shared(A) 
+  {
+    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+    std::mt19937 gen(seed);
+    std::normal_distribution normal_dist(5.0, 2.0);
+    T dummy;
+    #pragma omp for collapse(3) 
+    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+      for (size_t j = 0; j < cols_A; ++j) {
+        for (size_t i = 0; i < rows_A; ++i) {
+          A[i + j * ld + i_batch * stride] = normal_float_gen(normal_dist, gen, dummy);
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void fill_rand_host_trig_float(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                           long long int stride, bool isSin, float scaling) {
+  T *A = (T *)ptr;
+  #pragma omp parallel for shared(A) collapse(3)
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      // size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        if (isSin) {
+          A[i + j * ld + i_batch * stride] = T(scaling * sin(i + j * ld + i_batch * stride));
+        } else {
+          A[i + j * ld + i_batch * stride] = T(scaling * cos(i + j * ld + i_batch * stride));
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void fill_rand_host_csv(void *ptr, long rows_A, long cols_A, long ld, int batch,
+                         long long int stride, std::string filename) {
+  std::ifstream file(filename);
+  std::vector<std::vector<T>> result;
+
+  for (std::string line; std::getline(file, line, '\n'); ) {
+    result.push_back(std::vector<T>());
+    std::istringstream ss(line);
+    for (std::string field; std::getline(ss, field, ','); ) {
+      result.back().push_back((T)std::stod(field));
+    }
+    if (result.back().empty()) {
+      std::cout << "warning: empty row in csv file" << std::endl;
+    }
+  }
+  if (result.empty()) {
+    std::cout << "warning: csv file is empty" << std::endl;
+  }
+
+  T *A = (T *)ptr;
+  size_t n_rows = result.size();
+  for (size_t i_batch = 0; i_batch < batch; i_batch++) {
+    for (size_t j = 0; j < cols_A; ++j) {
+      size_t offset = j * ld + i_batch * stride;
+      for (size_t i = 0; i < rows_A; ++i) {
+        size_t n_cols = result[i % n_rows].size();
+        A[i + offset] = result[i % n_rows][j % n_cols];
+      }
+    }
+  }
+}
+
+
+template <typename T>
+struct initHost {
+  void operator()(std::string initialization, void *ptr, long rows_A, long cols_A,
+                  long ld, int batch, long long int stride, bool control = false,
+                  float constant = 0.f, std::string filename = "");
+};
+
+template <typename T>
+void initHost<T>::operator()(std::string initialization, void *ptr, long rows_A,
+                             long cols_A, long ld, int batch,
+                             long long int stride, bool control,
+                             float constant, std::string filename) {
+  if (!filename.empty()) {
+    fill_rand_host_csv<T>(ptr, rows_A, cols_A, ld, batch, stride, filename);
+  } else if (initialization == "rand_int") {
+    std::random_device r;
+    fill_rand_host_rand_int_alternating<T>(ptr, rows_A, cols_A, ld, batch, stride, control, r());
+  } else if (initialization == "trig_float") {
+    fill_rand_host_trig_float<T>(ptr, rows_A, cols_A, ld, batch, stride, control, constant);
+  } else if (initialization == "normal_float") {
+    fill_rand_host_normal_float<T>(ptr, rows_A, cols_A, ld, batch, stride);
+  } else if (initialization == "hpl") {
+  } else if (initialization == "blasgemm") {
+    fill_rand_host_blasgemm<T>(ptr, rows_A, cols_A, ld, batch, stride);
+  } else if (initialization == "constant") {
+    fill_rand_host_constant<T>(ptr, rows_A, cols_A, ld, batch, stride, constant);
+  }
+}
+
