@@ -7,7 +7,6 @@
 #include <cuda_runtime.h>
 #include <omp.h>
 
-#include <cuda/std/complex>
 #include <iostream>
 #include <random>
 #include <sstream>
