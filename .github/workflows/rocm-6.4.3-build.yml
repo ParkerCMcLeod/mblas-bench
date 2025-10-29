@@ -1,0 +1,40 @@
+name: ROCm 6.4.3 Build Test
+
+on:
+  #push:
+  #  branches:
+  #    - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: rocm/dev-ubuntu-22.04:6.4.3
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake build-essential git rocblas-dev hipblas-dev hipblaslt-dev
+      
+      - name: Configure CMake
+        run: |
+          cmake -S src -B build \
+            -DWITH_ROCM=true \
+            -DWITH_CUDA=false \
+            -DGPU_TARGETS="gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+      
+      - name: Build
+        run: cmake --build build
+      
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "ROCm 6.4.3 build complete: ${{ job.status }}"
+
