@@ -14,8 +14,15 @@ cmake --build build
 
 ### Building for ROCm only
 ```
-cmake -S src -B build -DWITH_CUDA=false  
+cmake -S src -B build -DWITH_ROCM=true -DWITH_CUDA=false  
 cmake --build build  
+```
+
+#### Conditional ROCm backends
+ROCm builds include both hipBLASLt and rocBLAS backends in a single `mblaship` library. Disable backends individually if needed:
+```
+cmake -S src -B build -DWITH_CUDA=false -DWITH_HIPBLASLT=true -DWITH_ROCBLAS=false  # hipBLASLt only
+cmake -S src -B build -DWITH_CUDA=false -DWITH_HIPBLASLT=false -DWITH_ROCBLAS=true  # rocBLAS only
 ```
 
 ### Building for CUDA only
@@ -38,6 +45,9 @@ Use the below commands to run "4k" gemms on ROCm or CUDA. You'll need to add the
 | FP8       | build/mblas-bench -m 4096 -n 4096 -k 4096 --alpha 1 --beta 0 --transposeA T --transposeB N --initialization trig_float --iters 250000 --cold_iters 50000 --a_type f8_r --b_type f8_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --rotating 512       |
 | INT8      | build/mblas-bench -m 4096 -n 4096 -k 4096 --alpha 1 --beta 0 --transposeA T --transposeB N --initialization rand_int --iters 25000 --cold_iters 50000 --a_type i8_r --b_type i8_r --c_type i32_r --d_type i32_r --compute_type i32_r --function matmul --rotating 512          |
 #### ROCm backends
-Use the hipblaslt backend with the flag `--driver hipblaslt`
+- hipBLASLt: `--driver hipblaslt`
+- rocBLAS: `--driver rocblas`
+
 #### CUDA backends
-Use the cublaslt backend with the flag `--driver cublaslt`
+- cuBLAS: `--driver cublas`
+- cuBLASLt: `--driver cublaslt`

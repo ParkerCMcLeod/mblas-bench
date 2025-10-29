@@ -20,6 +20,9 @@ void *allocate_host_array(mblas_data_type type, long x, long y, int batch = 1);
 void *allocate_dev_array(mblas_data_type type, long x, long y, int batch = 1);
 void *allocate_host_dev_array(mblas_data_type type, long x, long y, int batch = 1);
 
+long get_malloc_size_host(mblas_data_type type, long x, long y, int batch);
+long get_malloc_size_dev(mblas_data_type type, long x, long y, int batch);
+
 // void initHostH(mblas_data_type precision, std::string initialization, void *ptr,
 //                int rows_A, int cols_A, int ld, int batch, long long int stride,
 //                float constant = 0.f, bool alternating = false);
@@ -45,6 +48,11 @@ struct allocSetScalar {
   void *operator()(std::string, std::string);
 };
 
+template <typename T>
+struct set_scalar {
+  void operator()(void *ptr, std::string, std::string);
+};
+
 template <template <typename> class tFunc, class... Args>
 auto type_call_host(mblas_data_type type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
@@ -52,6 +60,34 @@ auto type_call_host(mblas_data_type type, Args... args) ->
 template <template <typename> class tFunc, class... Args>
 auto type_call_dev(mblas_data_type type, Args... args) ->
     typename std::result_of<tFunc<double>(Args...)>::type;
+
+long get_malloc_size_scalar(mblas_data_type type);
+
+template <typename T>
+void set_scalar_val(void *ptr, std::string sval, std::string sval2, T dummy) {
+  // Only for real numbers, no need to worry about contents from sval2
+  //void *ptr = (void *)malloc(sizeof(T));
+  T *data = (T *)ptr;
+  std::istringstream iss(sval.c_str());
+  iss >> *data;
+  //return ptr;
+}
+
+template <typename T>
+void set_scalar_val(void *ptr, std::string sval, std::string sval2,
+                         std::complex<T> dummy) {
+  // Complex numbers, do something about sval2
+  //void *ptr = (void *)malloc(sizeof(std::complex<T>));
+  std::complex<T> *data = (std::complex<T> *)ptr;
+  T val;
+  std::istringstream iss(sval.c_str());
+  iss >> val;
+  data->real(val);
+  std::istringstream iss2(sval2.c_str());
+  iss2 >> val;
+  data->imag(val);
+  //return ptr;
+}
 
 template <typename T>
 void *alloc_set_scalar_val(std::string sval, std::string sval2, T dummy) {
@@ -93,6 +129,12 @@ template <typename T>
 void *allocSetScalar<T>::operator()(std::string sval1, std::string sval2) {
   T dummy;
   return alloc_set_scalar_val(sval1, sval2, std::forward<T>(dummy));
+}
+
+template <typename T>
+void set_scalar<T>::operator()(void *ptr, std::string sval1, std::string sval2) {
+  T dummy;
+  return set_scalar_val(ptr, sval1, sval2, std::forward<T>(dummy));
 }
 
 template <typename T>
