@@ -11,15 +11,16 @@ on:
 jobs:
   build:
     strategy:
-        matrix:
-          rocm_version: [6.4.3, 7.0.2, 7.1]
-          include:
-            - rocm_version: 6.4.3
-              gpu_targets: "gfx1100,gfx1030,gfx942,gfx90a,gfx908"
-            - rocm_version: 7.0.2
-              gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
-            - rocm_version: 7.1
-              gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+      matrix:
+        rocm_version: [6.4.3, 7.0.2, 7.1]
+        include:
+          - rocm_version: 6.4.3
+            gpu_targets: "gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+          - rocm_version: 7.0.2
+            gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+          - rocm_version: 7.1
+            gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+      fail-fast: false
     runs-on: ubuntu-latest
     container:
       image: rocm/dev-ubuntu-22.04:${{ matrix.rocm_version }}
