@@ -53,7 +53,7 @@ jobs:
             -DGPU_TARGETS=${{ matrix.gpu_targets }}
       
       - name: Build mblas-bench
-        run: /opt/cmake/bin/cmake --build build
+        run: /opt/cmake/bin/cmake --build build -j
 
       - name: Build Summary
         if: always()
