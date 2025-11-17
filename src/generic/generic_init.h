@@ -79,12 +79,12 @@ void fill_rand_host_rand_int_alternating(void **ptr_array, long rows_A, long col
     std::mt19937 gen(seed);
     std::uniform_int_distribution<int> uniform_dist(1, 10);
     T dummy;
+    #pragma omp for collapse(4) 
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      T *A = (T *)ptr_array[flush_idx];
-      #pragma omp for collapse(3) 
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
           for (size_t i = 0; i < rows_A; ++i) {
+            T *A = (T *)ptr_array[flush_idx];
             if ((!alternating) || (j % 2 ^ i % 2)) {
               A[i + j * ld + i_batch * stride] = rand_int_gen(uniform_dist, gen, dummy);
             } else {
@@ -107,12 +107,12 @@ void fill_rand_host_normal_float(void **ptr_array, long rows_A, long cols_A, lon
     std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
     std::mt19937 gen(seed);
     std::normal_distribution<T> normal_dist(mean, std_dev);
+    #pragma omp for collapse(4) 
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      T *A = (T *)ptr_array[flush_idx];
-      #pragma omp for collapse(3) 
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
           for (size_t i = 0; i < rows_A; ++i) {
+            T *A = (T *)ptr_array[flush_idx];
             A[i + j * ld + i_batch * stride] = normal_dist(gen);
           }
         }
@@ -131,12 +131,12 @@ void fill_rand_host_uniform(void **ptr_array, long rows_A, long cols_A, long ld,
     std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
     std::mt19937 gen(seed);
     std::uniform_real_distribution<T> uniform_dist(min_val, max_val);
+    #pragma omp for collapse(4) 
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      T *A = (T *)ptr_array[flush_idx];
-      #pragma omp for collapse(3) 
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
           for (size_t i = 0; i < rows_A; ++i) {
+            T *A = (T *)ptr_array[flush_idx];
             A[i + j * ld + i_batch * stride] = uniform_dist(gen);
           }
         }
@@ -155,12 +155,12 @@ void fill_rand_host_pow2_binomial(void **ptr_array, long rows_A, long cols_A, lo
     std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
     std::mt19937 gen(seed);
     std::binomial_distribution<int> binomial_dist(2 * n + 1, 0.5);
+    #pragma omp for collapse(4) 
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      T *A = (T *)ptr_array[flush_idx];
-      #pragma omp for collapse(3) 
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
           for (size_t i = 0; i < rows_A; ++i) {
+            T *A = (T *)ptr_array[flush_idx];
             int binomial_value = binomial_dist(gen);
             int offset_value = binomial_value - (n + 1);
             A[i + j * ld + i_batch * stride] = T(std::ldexp(T(1), offset_value));
@@ -174,17 +174,18 @@ void fill_rand_host_pow2_binomial(void **ptr_array, long rows_A, long cols_A, lo
 template <typename T>
 void fill_rand_host_trig_float(void **ptr_array, long rows_A, long cols_A, long ld, int batch,
                            long long int stride, int flush_batch_count, bool isSin, float scaling) {
+  const long long int matrix_size = rows_A * cols_A * batch;
   #pragma omp parallel
   {
+    #pragma omp for collapse(4)
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      T *A = (T *)ptr_array[flush_idx];
-      // Add offset based on flush_idx to ensure different matrices for each rotating tensor
-      long long int flush_offset = flush_idx * (rows_A * cols_A * batch);
-      #pragma omp for collapse(3)
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
           // size_t offset = j * ld + i_batch * stride;
           for (size_t i = 0; i < rows_A; ++i) {
+            T *A = (T *)ptr_array[flush_idx];
+            // Add offset based on flush_idx to ensure different matrices for each rotating tensor
+            long long int flush_offset = flush_idx * matrix_size;
             if (isSin) {
               A[i + j * ld + i_batch * stride] = T(scaling * sin(flush_offset + i + j * ld + i_batch * stride));
             } else {
