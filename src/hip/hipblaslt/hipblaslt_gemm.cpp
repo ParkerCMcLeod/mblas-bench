@@ -393,7 +393,7 @@ void hipblaslt_gemm::no_tuning(hipblaslt_gemm_inst *mat) {
     check_hipblas(HIPBLAS_STATUS_NOT_SUPPORTED);
   }
   mat->algo = heuristicResult;
-  hipblasLtDestroy(handle);
+  check_hipblas(hipblasLtDestroy(handle));
 }
 void hipblaslt_gemm::auto_tuning(hipblaslt_gemm_inst *mat) {
   // Not currently implemented, using simple method
@@ -574,8 +574,9 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
         calculate_figure_of_merit(total_gpu_ms, iters_completed);
 
     // Cleanup
-    check_hip(hipStreamDestroy(stream));
+    check_hip(hipStreamSynchronize(stream));
     check_hipblas(hipblasLtDestroy(handle));
+    check_hip(hipStreamDestroy(stream));
     return;
   }
 
@@ -590,7 +591,7 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
     check_hipblas(stat);
     check_hip(hipGetLastError());
   }
-  hipStreamSynchronize(stream);
+  check_hip(hipStreamSynchronize(stream));
 
   hipEvent_t start, stop;
   check_hip(hipEventCreate(&start));
@@ -623,6 +624,7 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
   // Cleanup
   check_hip(hipEventDestroy(start));
   check_hip(hipEventDestroy(stop));
-  check_hip(hipStreamDestroy(stream));
+  check_hip(hipStreamSynchronize(stream));
   check_hipblas(hipblasLtDestroy(handle));
+  check_hip(hipStreamDestroy(stream));
 }
