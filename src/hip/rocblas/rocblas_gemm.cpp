@@ -4,6 +4,7 @@
 #include <hip/hip_runtime.h>
 
 #include <bitset>
+#include <chrono>
 #include <future>
 #include <iomanip>
 #include <numeric>
@@ -26,6 +27,48 @@ using std::move;
 using std::string;
 using std::thread;
 using std::vector;
+
+namespace {
+template <typename Fn>
+int run_timed(hipStream_t stream, int time_ms, Fn fn,
+              double *total_gpu_ms = nullptr) {
+  hipEvent_t start, stop;
+  check_hip(hipEventCreate(&start));
+  check_hip(hipEventCreate(&stop));
+
+  auto t0 = std::chrono::steady_clock::now();
+  int completed = 0;
+  double total_ms = 0.0;
+
+  while (true) {
+    check_hip(hipEventRecord(start, stream));
+    fn(completed);
+    check_hip(hipEventRecord(stop, stream));
+    check_hip(hipEventSynchronize(stop));
+
+    float iter_ms = 0.0f;
+    check_hip(hipEventElapsedTime(&iter_ms, start, stop));
+
+    auto wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - t0)
+                       .count();
+    if (wall_ms > time_ms) {
+      break;
+    }
+
+    total_ms += static_cast<double>(iter_ms);
+    completed++;
+  }
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+
+  if (total_gpu_ms) {
+    *total_gpu_ms = total_ms;
+  }
+  return completed;
+}
+} // namespace
 
 // clang-format off
 std::vector<gemmPrecTypeAMD> rocblas_gemm::gemm_ex_supported = {
@@ -465,8 +508,11 @@ std::string rocblas_gemm::get_result_string() {
 }
 
 std::tuple<double, double, double> rocblas_gemm::calculate_figure_of_merit(
-    double totalTime_ms) {
-  double avgTime_ms = totalTime_ms / iters;
+    double totalTime_ms, int iters_completed) {
+  if (iters_completed <= 0) {
+    return std::tuple<double, double, double>(0.0, 0.0, 0.0);
+  }
+  double avgTime_ms = totalTime_ms / iters_completed;
   double avgTime_s = avgTime_ms / 1000.0f;
   double avgTime_us = avgTime_ms * 1000.0f;
 
@@ -475,8 +521,8 @@ std::tuple<double, double, double> rocblas_gemm::calculate_figure_of_merit(
   int c_sz = type_call_dev<sizeofCUDT>(c_type);
 
   int flopPerSize = 2;
-  if (precision.is_real()) {
-    int flopPerSize = 8;
+  if (!precision.is_real()) {
+    flopPerSize = 8;
   }
   double gbytes = ((static_cast<double>(a_sz) * static_cast<double>(m) *
                     static_cast<double>(k)) +
@@ -507,6 +553,44 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   check_hip(hipStreamCreate(&stream));
   check_rocblas(rocblas_set_stream(handle, stream));
   // check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
+
+  if (iters_time_ms > 0) {
+    // Time-budgeted warmup
+    if (cold_iters_time_ms > 0) {
+      run_timed(stream, cold_iters_time_ms, [&](int rep) {
+        int flush_index = rep % flush_batch_count;
+        // clang-format off
+        stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+                   (T *) mat->ptr_dev_a[flush_index], lda, 
+                   (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta, 
+                   (T *) mat->ptr_dev_c[flush_index], ldc);
+        // clang-format on
+        check_rocblas(stat);
+        check_hip(hipGetLastError());
+      });
+    }
+
+    // Time-budgeted measurement (counts only fully-completed iters in budget)
+    double total_gpu_ms = 0.0;
+    int iters_completed = run_timed(
+        stream, iters_time_ms,
+        [&](int rep) {
+          int flush_index = rep % flush_batch_count;
+          // clang-format off
+          stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+                     (T *) mat->ptr_dev_a[flush_index], lda, 
+                     (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta, 
+                     (T *) mat->ptr_dev_c[flush_index], ldc);
+          // clang-format on
+          check_rocblas(stat);
+          check_hip(hipGetLastError());
+        },
+        &total_gpu_ms);
+
+    std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+        calculate_figure_of_merit(total_gpu_ms, iters_completed);
+    return;
+  }
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
@@ -551,7 +635,7 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   float elapsedTime_ms;
   hipEventElapsedTime(&elapsedTime_ms, start, stop);
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters);
 }
 
 // Disabled due to batched & rotating tensors not being implemented at the same time
@@ -622,6 +706,44 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   check_rocblas(rocblas_set_stream(handle, stream));
   // check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
 
+  if (iters_time_ms > 0) {
+    // Time-budgeted warmup
+    if (cold_iters_time_ms > 0) {
+      run_timed(stream, cold_iters_time_ms, [&](int rep) {
+        int flush_index = rep % flush_batch_count;
+        // clang-format off
+        stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+                    (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
+                    (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta, 
+                    (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
+        // clang-format on
+        check_rocblas(stat);
+        check_hip(hipGetLastError());
+      });
+    }
+
+    // Time-budgeted measurement (counts only fully-completed iters in budget)
+    double total_gpu_ms = 0.0;
+    int iters_completed = run_timed(
+        stream, iters_time_ms,
+        [&](int rep) {
+          int flush_index = rep % flush_batch_count;
+          // clang-format off
+          stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+                      (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
+                      (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta, 
+                      (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
+          // clang-format on
+          check_rocblas(stat);
+          check_hip(hipGetLastError());
+        },
+        &total_gpu_ms);
+
+    std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+        calculate_figure_of_merit(total_gpu_ms, iters_completed);
+    return;
+  }
+
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     // clang-format off
@@ -665,7 +787,7 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   float elapsedTime_ms;
   hipEventElapsedTime(&elapsedTime_ms, start, stop);
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters);
 }
 
 void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
@@ -677,6 +799,48 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   check_hip(hipStreamCreate(&stream));
   check_rocblas(rocblas_set_stream(handle, stream));
   check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
+
+  if (iters_time_ms > 0) {
+    // Time-budgeted warmup
+    if (cold_iters_time_ms > 0) {
+      run_timed(stream, cold_iters_time_ms, [&](int rep) {
+        int flush_index = rep % flush_batch_count;
+        // clang-format off
+        stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha, 
+                               mat->ptr_dev_a[flush_index], a_type, lda, 
+                               mat->ptr_dev_b[flush_index], b_type, ldb, beta, 
+                               mat->ptr_dev_c[flush_index], c_type, ldc, 
+                               mat->ptr_dev_d[flush_index], d_type, ldd, compute,
+                               rocblas_gemm_algo_standard, 0, 0);
+        // clang-format on
+        check_rocblas(stat);
+        check_hip(hipGetLastError());
+      });
+    }
+
+    // Time-budgeted measurement (counts only fully-completed iters in budget)
+    double total_gpu_ms = 0.0;
+    int iters_completed = run_timed(
+        stream, iters_time_ms,
+        [&](int rep) {
+          int flush_index = rep % flush_batch_count;
+          // clang-format off
+          stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha, 
+                                 mat->ptr_dev_a[flush_index], a_type, lda, 
+                                 mat->ptr_dev_b[flush_index], b_type, ldb, beta, 
+                                 mat->ptr_dev_c[flush_index], c_type, ldc, 
+                                 mat->ptr_dev_d[flush_index], d_type, ldd, compute,
+                                 rocblas_gemm_algo_standard, 0, 0);
+          // clang-format on
+          check_rocblas(stat);
+          check_hip(hipGetLastError());
+        },
+        &total_gpu_ms);
+
+    std::tie(mat->gflops, mat->gbytes, mat->time_us) =
+        calculate_figure_of_merit(total_gpu_ms, iters_completed);
+    return;
+  }
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
@@ -725,7 +889,5 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   float elapsedTime_ms;
   hipEventElapsedTime(&elapsedTime_ms, start, stop);
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters);
 }
-
-
