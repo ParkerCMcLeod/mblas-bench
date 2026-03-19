@@ -1,4 +1,8 @@
 build/
+build_check_*/
+build_hiplt_only/
+.cline_storage/
+
 .vscode
 *.o
 *.d
