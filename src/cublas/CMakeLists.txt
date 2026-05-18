@@ -38,9 +38,7 @@ endif()
 
 add_library(mblascuda SHARED
     cublas_gemm.cpp
-    cublas_gemm_factory.cpp
     cublaslt_gemm.cpp
-    cublaslt_gemm_factory.cpp
     cublas_convert.cu
     cublas_create_allocate.cpp
     cublas_datatype_utils.cpp

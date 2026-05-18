@@ -4,6 +4,7 @@
 #include <cxxabi.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "generic_gemm.h"
@@ -144,3 +145,7 @@ class cublas_gemm : public generic_gemm {
   std::string get_result_string();
   virtual void free_mem();
 };
+
+inline std::unique_ptr<generic_gemm> make_cublas_gemm(cxxopts::ParseResult result) {
+  return std::make_unique<cublas_gemm>(std::move(result));
+}

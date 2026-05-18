@@ -3,6 +3,7 @@
 #include <cxxabi.h>
 
 #include <iostream>
+#include <memory>
 #include <vector>
 #include <string>
 
@@ -123,3 +124,7 @@ class rocblas_gemm : public generic_gemm {
   virtual void free_mem();
 
 };
+
+inline std::unique_ptr<generic_gemm> make_rocblas_gemm(cxxopts::ParseResult result) {
+  return std::make_unique<rocblas_gemm>(std::move(result));
+}

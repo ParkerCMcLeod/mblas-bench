@@ -8,6 +8,7 @@
 #include <barrier.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -175,3 +176,7 @@ class cublaslt_gemm : public generic_gemm {
   std::string get_result_string();
   virtual void free_mem();
 };
+
+inline std::unique_ptr<generic_gemm> make_cublaslt_gemm(cxxopts::ParseResult result) {
+  return std::make_unique<cublaslt_gemm>(std::move(result));
+}

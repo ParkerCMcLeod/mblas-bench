@@ -110,6 +110,7 @@ class generic_gemm {
  public:
   virtual ~generic_gemm() = default;
   generic_gemm(cxxopts::ParseResult);
+  virtual ~generic_gemm() = default;
 
   int set_ld(std::string ld, std::string OP, int x, int y);
   std::pair<int, int> set_row_col(std::string OP, int d1, int d2);
