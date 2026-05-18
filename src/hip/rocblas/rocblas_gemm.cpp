@@ -564,6 +564,11 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 // Disabled due to batched & rotating tensors not being implemented at the same time
@@ -678,6 +683,11 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
@@ -738,6 +748,11 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 

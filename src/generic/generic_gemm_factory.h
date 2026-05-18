@@ -5,7 +5,7 @@
 
 class generic_gemm_factory {
  public:
-  virtual ~generic_gemm_factory(){};
+  virtual ~generic_gemm_factory(){ delete gemm; };
   virtual void create_gemm(cxxopts::ParseResult) = 0;
   /**
    * Also note that, despite its name, the Creator's primary responsibility is

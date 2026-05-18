@@ -604,6 +604,11 @@ void cublas_gemm::test_Tgemm(
   check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasDestroy(handle));
 }
 
 // Disabled due to batched & rotating tensors not being implemented at the same time
@@ -721,6 +726,11 @@ void cublas_gemm::testTgemmStridedBatched(
   check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasDestroy(handle));
 }
 
 template <typename T>
@@ -777,6 +787,11 @@ void cublas_gemm::testTGemmEx(
   check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasDestroy(handle));
 }
 
 void cublas_gemm::testGemmEx(cublasgemmInst *mat) {
@@ -828,4 +843,9 @@ void cublas_gemm::testGemmEx(cublasgemmInst *mat) {
   check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasDestroy(handle));
 }

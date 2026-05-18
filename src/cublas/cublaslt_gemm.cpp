@@ -702,6 +702,7 @@ void cublaslt_gemm::no_tuning(cublaslt_gemm_inst *mat) {
         &_size_written));
   }
 #endif
+  check_cublas(cublasLtDestroy(handle));
 }
 void cublaslt_gemm::auto_tuning(cublaslt_gemm_inst *mat) {
   // Not currently implemented, using simple method
@@ -776,17 +777,17 @@ void cublaslt_gemm::free_mem() {
     }
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
     if (use_f64_emulation) {
-      cublasLtEmulationDescDestroy(mat.emulation_desc);
+      check_cublas(cublasLtEmulationDescDestroy(mat.emulation_desc));
     }
 #endif
-    for (auto &d : mat.desc_ops) cublasLtMatmulDescDestroy(d);
-    cublasLtMatrixLayoutDestroy(mat.desc_a);
-    cublasLtMatrixLayoutDestroy(mat.desc_b);
-    cublasLtMatrixLayoutDestroy(mat.desc_c);
+    for (auto &d : mat.desc_ops) check_cublas(cublasLtMatmulDescDestroy(d));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_a));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_b));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_c));
     if (!inplace) {
-      cublasLtMatrixLayoutDestroy(mat.desc_d);
+      check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_d));
     }
-    cublasLtMatmulPreferenceDestroy(mat.pref);
+    check_cublas(cublasLtMatmulPreferenceDestroy(mat.pref));
   }
 }
 
@@ -985,4 +986,8 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
     med_memclk_mhz = freq_monitor.get_med_memclk_mhz();
   }
 
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasLtDestroy(handle));
 }
