@@ -1,0 +1,63 @@
+# Exhaustive FP8 GEMM combinations - type pairs, output types, and transpose layouts
+# f8_r = E4M3 (FP8), bf8_r = E5M2 (BF8)
+# Note: TN layout is required on Ada (SM 8.9) and Hopper (SM 9.0)
+
+# === E4M3 x E4M3 output variations ===
+
+# E4M3 x E4M3 -> BF16 (most common LLM inference combo)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# E4M3 x E4M3 -> FP16
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# E4M3 x E4M3 -> FP32
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type f32_r --d_type f32_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: f32_r, d_type: f32_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === E5M2 x E4M3 output variations ===
+# Note: E5M2 x E5M2 is not a supported configuration.
+# Supported mixed pairs with E5M2 as A-type: E5M2 x E4M3 only.
+
+# E5M2 x E4M3 -> BF16
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type bf8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: bf8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# E5M2 x E4M3 -> FP16
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type bf8_r --b_type f8_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: bf8_r, b_type: f8_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === Mixed FP8 type combinations ===
+
+# E4M3 x E5M2 -> BF16 (forward/backward pass pattern)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type bf8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: bf8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# E5M2 x E4M3 -> BF16 (reversed mixed)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type bf8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: bf8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === FP8 output (requires scaling) ===
+
+# E4M3 x E4M3 -> E4M3 output with BF16 accumulator (FP8 D-type requires BF16 or FP16 C-type)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type f8_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --scale_mode_d 1 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: f8_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2, scale_mode_d: 1}
+
+# === All transpose combinations for E4M3 x E4M3 -> BF16 ===
+
+# TN (standard for Ada/Hopper)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# NN (requires architecture support)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# NT (requires architecture support)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# TT (requires architecture support)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}

@@ -1,0 +1,43 @@
+# Compute mode variations - accuracy vs performance spectrum
+
+# === FP32 input with different compute modes ===
+
+# Default FP32 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type MBLAS_COMPUTE_32F --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: MBLAS_COMPUTE_32F, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Pedantic FP32 (strict IEEE compliance)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type MBLAS_COMPUTE_32F_PEDANTIC --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: MBLAS_COMPUTE_32F_PEDANTIC, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Fast FP32 with FP16 accumulation (fastest, least accurate)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type MBLAS_COMPUTE_32F_FAST_16F --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: MBLAS_COMPUTE_32F_FAST_16F, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Fast FP32 with BF16 accumulation
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type MBLAS_COMPUTE_32F_FAST_16BF --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: MBLAS_COMPUTE_32F_FAST_16BF, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# TF32 Tensor Core compute (good accuracy/performance tradeoff)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type MBLAS_COMPUTE_32F_FAST_TF32 --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: MBLAS_COMPUTE_32F_FAST_TF32, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === FP16 input compute modes ===
+
+# FP16 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type MBLAS_COMPUTE_16F --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: MBLAS_COMPUTE_16F, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Pedantic FP16 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type MBLAS_COMPUTE_16F_PEDANTIC --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: MBLAS_COMPUTE_16F_PEDANTIC, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === FP64 input compute modes ===
+
+# FP64 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision d --compute_type MBLAS_COMPUTE_64F --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: d, compute_type: MBLAS_COMPUTE_64F, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Pedantic FP64 compute (strict IEEE)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision d --compute_type MBLAS_COMPUTE_64F_PEDANTIC --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: d, compute_type: MBLAS_COMPUTE_64F_PEDANTIC, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}

@@ -1,0 +1,26 @@
+# FP8 scaling mode examples - scalar, vector, block, and mixed scaling
+# All entries: E4M3 x E4M3 -> BF16 at 2048x2048x2048
+
+# Scalar scaling (scale_mode=1)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 1 --scale_mode_b 1 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 1, scale_mode_b: 1}
+
+# Scalar scaling with custom scale factors
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 1 --scale_mode_b 1 --scale_factor_a 0.5 --scale_factor_b 2.0 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 1, scale_mode_b: 1, scale_factor_a: 0.5, scale_factor_b: 2.0}
+
+# Vector scaling (scale_mode=2) - requires CUDA >= 12.9
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 2 --scale_mode_b 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 2, scale_mode_b: 2}
+
+# Block scaling (scale_mode=3)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 3 --scale_mode_b 3 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 3, scale_mode_b: 3}
+
+# Mixed scaling (A=block, B=scalar)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 3 --scale_mode_b 1 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 3, scale_mode_b: 1}
+
+# D-output scaling (scale output matrix)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --scale_mode_a 1 --scale_mode_b 1 --scale_mode_d 1 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2, scale_mode_a: 1, scale_mode_b: 1, scale_mode_d: 1}

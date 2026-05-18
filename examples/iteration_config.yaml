@@ -1,0 +1,26 @@
+# Iteration count and cache-flushing examples
+# All entries: FP32 at 2048x2048x2048
+
+# Default iteration count (iters=10, cold_iters=2)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 10, cold_iters: 2}
+
+# Higher iteration count for more stable measurements
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10}
+
+# Very high iteration count for publication-quality measurements
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 1000 --cold_iters 50 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 1000, cold_iters: 50}
+
+# Cache-flushing with rotating tensors (512 MiB - prevents L2 cache hits between iterations)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --rotating 512 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10, rotating: 512}
+
+# Cache-flushing with smaller rotating buffer (256 MiB)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --rotating 256 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10, rotating: 256}
+
+# Minimal warmup (cold_iters=1) - useful when benchmarking many configurations
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 50 --cold_iters 1 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 50, cold_iters: 1}

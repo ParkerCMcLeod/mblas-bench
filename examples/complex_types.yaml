@@ -1,0 +1,18 @@
+# Complex data type GEMM examples
+# Use --driver with any supported backend for typed functions, or matmul for the Lt interface
+
+# Complex FP32 (Cgemm) with FP32 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f32_c --function gemm --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: f32_c, function: gemm, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP64 (Zgemm) with FP64 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f64_c --function gemm --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: f64_c, function: gemm, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP32 with FAST_TF32 compute via matmul
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f32_c --compute_type MBLAS_COMPUTE_32F_FAST_TF32 --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: f32_c, compute_type: MBLAS_COMPUTE_32F_FAST_TF32, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP64 3m algorithm (Zgemm3m)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f64_c --function gemm3m --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: f64_c, function: gemm3m, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
