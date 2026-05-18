@@ -491,33 +491,27 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
   check_hip(hipSetDevice(mat->devIDX));
   check_hipblas(hipblasLtCreate(&handle));
   check_hip(hipStreamCreate(&stream));
-
-  auto kernel = [&](int rep) {
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
-    stat = hipblasLtMatmul(handle, mat->desc_op, alpha,
-                           mat->ptr_dev_a[flush_index], mat->desc_a,
-                           mat->ptr_dev_b[flush_index], mat->desc_b, beta,
-                           mat->ptr_dev_c[flush_index], mat->desc_c,
-                           mat->ptr_dev_d[flush_index], mat->desc_d,
-                           &mat->algo.algo, mat->devWork, mat->wSZ, stream);
+    stat = hipblasLtMatmul(handle, mat->desc_op, alpha, mat->ptr_dev_a[flush_index], mat->desc_a,
+                          mat->ptr_dev_b[flush_index], mat->desc_b, beta, mat->ptr_dev_c[flush_index], mat->desc_c,
+                          mat->ptr_dev_d[flush_index], mat->desc_d, &mat->algo.algo, mat->devWork,
+                          mat->wSZ, stream);
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
     check_hipblas(stat);
     check_hip(hipGetLastError());
   };
 
-  auto run = (timing == timing_mode::serialized) ? run_serialized : run_pipelined;
-
-  if (cold_iters > 0 || cold_iters_time_ms > 0)
-    run(stream, cold_iters, cold_iters_time_ms, kernel);
-
-  auto result = run(stream, iters, iters_time_ms, kernel);
+  float elapsedTime_ms = gpu_timed_run<HipTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
+  check_hipblas(stat);
+  check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
-          type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
-          type_call_dev<sizeofCUDT>(d_type),
-          a_type.get_packing_count(), b_type.get_packing_count(),
-          d_type.get_packing_count(), precision.is_real());
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 
-  check_hip(hipStreamSynchronize(stream));
+  // Cleanup
+  check_hip(hipStreamDestroy(stream));
   check_hipblas(hipblasLtDestroy(handle));
   check_hip(hipStreamDestroy(stream));
 }

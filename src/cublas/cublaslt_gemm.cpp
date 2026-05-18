@@ -222,9 +222,6 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     // Dependent on if this is the A or B matrix
     // Use the columns for B, rows for everything else (A,C,D)
     scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F;
-    //long scaling_vec_len = (matrix_id == "B") ? desc.cols : desc.rows;
-    //long scaling_vec_len = (matrix_id == "A") ? desc.cols : desc.rows;
-    //std::cout << ((matrix_id == "B") ? n : m) << std::endl;
     long scaling_vec_len = (matrix_id == "B") ? n : m;
     scale_size = std::make_pair<size_t, size_t>(1, scaling_vec_len);
     scale_type = MBLAS_R_32F;
@@ -373,8 +370,6 @@ cublaslt_gemm::cublaslt_gemm(cxxopts::ParseResult result) : generic_gemm(result)
   string sbetai = result["betai"].as<string>();
   beta = malloc(get_malloc_size_scalar(precision));
   type_call_host<set_scalar>(precision, beta, sbeta, sbetai);
-  // std::cout << *((float *)alpha) << std::endl;
-  // std::cout << *((float *)beta) << std::endl;
   set_flush_batch_count( 
       type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
       type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type), 
@@ -407,23 +402,13 @@ string cublaslt_gemm::prepare_array() {
     }
     validate_gpu_capability(instance.devIDX, a_type, b_type, c_type, d_type, compute);
   }
-  // for (auto &instance : mat_ptrs) {
-  //  this->alloc_dev(&instance);
-  //  this->copy_host_to_dev(&instance);
-  //}
   run_threaded(&cublaslt_gemm::alloc_dev);
   run_threaded(&cublaslt_gemm::copy_host_to_dev);
   run_threaded(&cublaslt_gemm::prepare_matrix);
-  // Enable tuning with a parameter later
-  if (false) {
-  } else {
-    run_threaded(&cublaslt_gemm::no_tuning);
-  }
+  run_threaded(&cublaslt_gemm::no_tuning);
   std::ostringstream ossHeader;
   ossHeader << "transA_option,transB_option,M,N,K,lda,ldb,ldc,ldd,";
-  // if (batched) {
-    ossHeader << "batch_count,";
-  // }
+  ossHeader << "batch_count,";
   ossHeader << "alpha,beta,";
   ossHeader << "a_type,b_type,c_type,d_type,compute_type,scalar_type,";
   ossHeader << "a_scale_type,b_scale_type,c_scale_type,d_scale_type,bias_type,";
@@ -870,9 +855,7 @@ std::string cublaslt_gemm::get_result_string() {
   ossValues << transA.to_string_short() << ',' << transB.to_string_short() << ',' << m
             << ',' << n << ',' << k << ',' << lda << ',' << ldb << ',' << ldc
             << ',' << ldd << ',';
-  // if (batched) {
-    ossValues << batch_count << ',';
-  // }
+  ossValues << batch_count << ',';
   if (scalar == mblas_data_type::MBLAS_R_64F) {
     ossValues << *((double *)alpha) << ',';
     ossValues << *((double *)beta)  << ',';
@@ -937,8 +920,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
   check_cuda(cudaSetDevice(mat->devIDX));
   check_cublas(cublasLtCreate(&handle));
   check_cuda(cudaStreamCreate(&stream));
-
-  auto kernel = [&](int rep) {
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
     stat = cublasLtMatmul(handle, mat->desc_ops[flush_index], alpha,
                           mat->ptr_dev_a[flush_index], mat->desc_a,
@@ -946,20 +928,14 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
                           mat->ptr_dev_c[flush_index], mat->desc_c,
                           mat->ptr_dev_d[flush_index], mat->desc_d,
                           &mat->algo.algo, mat->devWork, mat->wSZ, stream);
-    check_cublas(stat);
-    check_cuda(cudaGetLastError());
-  };
-
-  auto run = (timing == timing_mode::serialized) ? run_serialized : run_pipelined;
-
-  if (cold_iters > 0 || cold_iters_time_ms > 0)
-    run(stream, cold_iters, cold_iters_time_ms, kernel);
-
   auto freq_monitor = cuda_monitor::monitor();
   freq_monitor.set_device_id(mat->devIDX);
+
   freq_monitor.start();
-  auto result = run(stream, iters, iters_time_ms, kernel);
+  float elapsedTime_ms = gpu_timed_run<CudaTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
   freq_monitor.stop();
+  check_cublas(stat);
+  check_cuda(cudaGetLastError());
 
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(result.gpu_ms, result.iters,

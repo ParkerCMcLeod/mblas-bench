@@ -69,9 +69,6 @@ void rocblas_gemm::parse_problem_type(string computeTStr, string scalarTStr, str
 
   if (aStr == "" || bStr == "" || cStr == "") {
     // Precision not completely specified, default to precision
-    // cerr << "Precision incorrectly specified, setting precision to "
-    //         "-r/--precision"
-    //      << endl;
     a_type = precision;
     b_type = precision;
     c_type = precision;
@@ -129,8 +126,6 @@ void rocblas_gemm::parse_problem_type(string computeTStr, string scalarTStr, str
 }
 
 rocblas_gemm::rocblas_gemm(cxxopts::ParseResult result) : generic_gemm(result) {
-  // rocblas_create_handle(&handle);
-  // check_rocblas(rocblas_create_handle(&handle));
   init_prec_map();
   // Grab precision from command line
   precision = mblas_rocblas_data_type(result["precision"].as<string>());
@@ -191,11 +186,6 @@ string rocblas_gemm::prepare_array() {
       throw std::invalid_argument(errorString);
     }
   }
-  // for (auto &instance : mat_ptrs) {
-  //  this->alloc_dev(&instance);
-  //  this->copy_host_to_dev(&instance);
-  //}
-
   run_threaded(&rocblas_gemm::alloc_dev);
   run_threaded(&rocblas_gemm::copy_host_to_dev);
   std::ostringstream ossHeader;
@@ -322,14 +312,6 @@ void rocblas_gemm::free_mem() {
       free(mat.ptr_dev_d);
     }
     check_hip(hipFree(mat.devWork));
-    // if (batched && !strided) {
-    //   free(mat.ptr_host_a);
-    //   free(mat.ptr_host_b);
-    //   free(mat.ptr_host_c);
-    //   hipFree(mat.ptr_dev_a);
-    //   hipFree(mat.ptr_dev_b);
-    //   hipFree(mat.ptr_dev_c);
-    // }
   }
 }
 
@@ -364,34 +346,6 @@ double rocblas_gemm::test() {
       threads.push_back(
           thread(&rocblas_gemm::test_Tgemm<rocblas_complex_num<float>>, this, cgemm_var, &mat));
     }
-    // TgemmBatched
-    // Disabled due to batched & rotating tensors not being implemented at the same time
-    // else if (function == "rocblas_dgemm_batched" && precision == rocblas_datatype_f64_r) {
-    //   std::function<decltype(rocblas_dgemm_batched)> dgemm_var =
-    //       rocblas_dgemm_batched;
-    //   threads.push_back(
-    //       thread(&rocblas_gemm::test_Tgemm_batched<double>, this, dgemm_var, &mat));
-    // } else if (function == "rocblas_sgemm_batched" && precision == rocblas_datatype_f32_r) {
-    //   std::function<decltype(rocblas_sgemm_batched)> sgemm_var =
-    //       rocblas_sgemm_batched;
-    //   threads.push_back(
-    //       thread(&rocblas_gemm::test_Tgemm_batched<float>, this, sgemm_var, &mat));
-    // } else if (function == "rocblas_hgemm_batched" && precision == rocblas_datatype_f16_r) {
-    //   std::function<decltype(rocblas_hgemm_batched)> hgemm_var =
-    //       rocblas_hgemm_batched;
-    //   threads.push_back(
-    //       thread(&rocblas_gemm::test_Tgemm_batched<rocblas_half>, this, hgemm_var, &mat));
-    // } else if (function == "rocblas_zgemm_batched" && precision == rocblas_datatype_f64_c) {
-    //   std::function<decltype(rocblas_zgemm_batched)> zgemm_var =
-    //       rocblas_zgemm_batched;
-    //   threads.push_back(thread(&rocblas_gemm::test_Tgemm_batched<rocblas_complex_num<double>>,
-    //                            this, zgemm_var, &mat));
-    // } else if (function == "rocblas_cgemm_batched" && precision == rocblas_datatype_f32_c) {
-    //   std::function<decltype(rocblas_cgemm_batched)> cgemm_var =
-    //       rocblas_cgemm_batched;
-    //   threads.push_back(thread(&rocblas_gemm::test_Tgemm_batched<rocblas_complex_num<float>>, this,
-    //                            cgemm_var, &mat));
-    // }
     // TgemmStridedBatched
     else if (function == "rocblas_dgemm_strided_batched" &&
              precision == rocblas_datatype_f64_r) {
@@ -427,7 +381,6 @@ double rocblas_gemm::test() {
     }
     
     // gemmEx
-    // else if (strided && function == "rocblas_gemm_strided_batched_ex") {
     else if (strided && function == "rocblas_gemm_strided_batched_ex") {
       throw std::runtime_error("rocblas_gemm_strided_batched_ex is not yet implemented");
     } else if (batched && function == "rocblas_gemm_batched_ex") {
@@ -486,22 +439,24 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   check_rocblas(rocblas_set_stream(handle, stream));
   // check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
 
-  auto kernel = [&](int rep) {
+  // clang-format off
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(),
-                m, n, k, (T *)alpha, (T *)mat->ptr_dev_a[flush_index], lda,
-                (T *)mat->ptr_dev_b[flush_index], ldb, (T *)beta,
-                (T *)mat->ptr_dev_c[flush_index], ldc);
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
+               (T *) mat->ptr_dev_a[flush_index], lda,
+               (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta,
+               (T *) mat->ptr_dev_c[flush_index], ldc);
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
     check_rocblas(stat);
     check_hip(hipGetLastError());
   };
+  // clang-format on
 
-  auto run = (timing == timing_mode::serialized) ? run_serialized : run_pipelined;
-
-  if (cold_iters > 0 || cold_iters_time_ms > 0)
-    run(stream, cold_iters, cold_iters_time_ms, kernel);
-
-  auto result = run(stream, iters, iters_time_ms, kernel);
+  float elapsedTime_ms = gpu_timed_run<HipTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
+  check_rocblas(stat);
+  check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(result.gpu_ms, result.iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
@@ -512,61 +467,6 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   check_hip(hipStreamDestroy(stream));
   rocblas_destroy_handle(handle);
 }
-
-// Disabled due to batched & rotating tensors not being implemented at the same time
-// template <typename T>
-// void rocblas_gemm::test_Tgemm_batched(std::function<rocblas_status_(_rocblas_handle*, rocblas_operation_, rocblas_operation_, int, int, int, T const*, T const* const*, int, T const* const*, int, T const*, T* const*, int, int)> func, rocblas_gemm_inst *mat) {
-//   rocblas_status stat;
-//   rocblas_handle handle;
-//   hipStream_t stream;
-//   check_hip(hipSetDevice(mat->devIDX));
-//   check_rocblas(rocblas_create_handle(&handle));
-//   check_hip(hipStreamCreate(&stream));
-//   check_rocblas(rocblas_set_stream(handle, stream));
-//   // check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
-// 
-//   T *alphaP = static_cast<T *>(alpha);
-//   T *betaP = static_cast<T *>(beta);
-//   T **devAP = reinterpret_cast<T **>(mat->ptr_dev_a);
-//   T **devBP = reinterpret_cast<T **>(mat->ptr_dev_b);
-//   T **devCP = reinterpret_cast<T **>(mat->ptr_dev_c);
-// 
-//   // Cold iters
-//   for (int rep = 0; rep < cold_iters; rep++) {
-//     stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alphaP, devAP, lda, devBP, ldb,
-//                 betaP, devCP, ldc, batch_count);
-// 
-//     // Check for errors during the gemm run
-//     check_rocblas(stat);
-//     check_hip(hipGetLastError());
-//   }
-//   hipStreamSynchronize(stream);
-// 
-//   hipEvent_t start, stop;
-//   hipEventCreate(&start);
-//   hipEventCreate(&stop);
-// 
-//   /*
-//     Run and time the performance test
-//   */
-//   hipEventRecord(start, stream);
-//   for (int rep = 0; rep < iters; rep++) {
-//     stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alphaP, devAP, lda, devBP, ldb,
-//                 betaP, devCP, ldc, batch_count);
-//   }
-//   hipEventRecord(stop, stream);
-//   hipEventSynchronize(stop);
-// 
-//   // Check for errors during the performance test
-//   check_rocblas(stat);
-//   check_hip(hipGetLastError());
-// 
-//   // Calculate and report GFlops
-//   float elapsedTime_ms;
-//   hipEventElapsedTime(&elapsedTime_ms, start, stop);
-//   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-//       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
-// }
 
 template <typename T>
 void rocblas_gemm::test_Tgemm_strided_batched(
@@ -581,23 +481,24 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   check_rocblas(rocblas_set_stream(handle, stream));
   // check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
 
-  auto kernel = [&](int rep) {
+  // clang-format off
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(),
-                m, n, k, (T *)alpha, (T *)mat->ptr_dev_a[flush_index], lda,
-                stride_a, (T *)mat->ptr_dev_b[flush_index], ldb, stride_b,
-                (T *)beta, (T *)mat->ptr_dev_c[flush_index], ldc, stride_c,
-                batch_count);
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
+                (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
+                (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta,
+                (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
     check_rocblas(stat);
     check_hip(hipGetLastError());
   };
+  // clang-format on
 
-  auto run = (timing == timing_mode::serialized) ? run_serialized : run_pipelined;
-
-  if (cold_iters > 0 || cold_iters_time_ms > 0)
-    run(stream, cold_iters, cold_iters_time_ms, kernel);
-
-  auto result = run(stream, iters, iters_time_ms, kernel);
+  float elapsedTime_ms = gpu_timed_run<HipTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
+  check_rocblas(stat);
+  check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(result.gpu_ms, result.iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
@@ -619,25 +520,26 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   check_rocblas(rocblas_set_stream(handle, stream));
   check_rocblas(rocblas_set_workspace(handle, mat->devWork, mat->wSZ));
 
-  auto kernel = [&](int rep) {
+  // clang-format off
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
-    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(),
-                           transB.convert_to_rocm(), m, n, k, alpha,
+    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha,
                            mat->ptr_dev_a[flush_index], a_type, lda,
                            mat->ptr_dev_b[flush_index], b_type, ldb, beta,
                            mat->ptr_dev_c[flush_index], c_type, ldc,
                            mat->ptr_dev_d[flush_index], d_type, ldd, compute,
                            rocblas_gemm_algo_standard, 0, 0);
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
     check_rocblas(stat);
     check_hip(hipGetLastError());
   };
+  // clang-format on
 
-  auto run = (timing == timing_mode::serialized) ? run_serialized : run_pipelined;
-
-  if (cold_iters > 0 || cold_iters_time_ms > 0)
-    run(stream, cold_iters, cold_iters_time_ms, kernel);
-
-  auto result = run(stream, iters, iters_time_ms, kernel);
+  float elapsedTime_ms = gpu_timed_run<HipTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
+  check_rocblas(stat);
+  check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(result.gpu_ms, result.iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
