@@ -28,6 +28,38 @@ using std::string;
 using std::thread;
 using std::vector;
 
+namespace {
+
+void validate_gpu_capability(int device_id,
+                              const mblas_data_type& a_type,
+                              const mblas_data_type& b_type,
+                              const mblas_compute_type& compute) {
+  cudaDeviceProp prop{};
+  check_cuda(cudaGetDeviceProperties(&prop, device_id));
+
+  auto requires_sm = [&](int req_major, int req_minor,
+                          const char* feature, const char* arch_name) {
+    if (prop.major > req_major ||
+        (prop.major == req_major && prop.minor >= req_minor))
+      return;
+    throw std::runtime_error(
+      std::string(feature) + " requires SM " + std::to_string(req_major) + "." +
+      std::to_string(req_minor) + "+ (" + arch_name + "), but device " +
+      std::to_string(device_id) + " (" + prop.name + ") is SM " +
+      std::to_string(prop.major) + "." + std::to_string(prop.minor));
+  };
+
+  if (a_type == mblas_data_type::MBLAS_R_8I || b_type == mblas_data_type::MBLAS_R_8I)
+    if (compute == mblas_compute_type::MBLAS_COMPUTE_32I ||
+        compute == mblas_compute_type::MBLAS_COMPUTE_32I_PEDANTIC)
+      requires_sm(7, 2, "INT8 IMMA", "Volta");
+
+  if (compute == mblas_compute_type::MBLAS_COMPUTE_32F_FAST_TF32)
+    requires_sm(8, 0, "TF32 compute", "Ampere");
+}
+
+}  // namespace
+
 // clang-format off
 std::vector<gemmPrecType> cublas_gemm::gemm_ex_supported = {
     // Compute type                 Scale Type    A/B Type      C Type
@@ -219,6 +251,7 @@ string cublas_gemm::prepare_array() {
           "\nDevice selection:           " + std::to_string(instance.devIDX);
       throw std::invalid_argument(errorString);
     }
+    validate_gpu_capability(instance.devIDX, a_type, b_type, compute);
   }
   // for (auto &instance : mat_ptrs) {
   //  this->alloc_dev(&instance);

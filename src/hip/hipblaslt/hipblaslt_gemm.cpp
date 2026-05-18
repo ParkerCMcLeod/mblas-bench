@@ -3,6 +3,7 @@
 #include <hipblaslt/hipblaslt.h>
 #include <hip/hip_runtime.h>
 
+#include <cstdio>
 #include <future>
 #include <iomanip>
 #include <numeric>
@@ -24,6 +25,38 @@ using std::move;
 using std::string;
 using std::thread;
 using std::vector;
+
+namespace {
+
+void validate_gpu_capability(int device_id,
+                              const mblas_data_type& a_type,
+                              const mblas_data_type& b_type) {
+  hipDeviceProp_t prop{};
+  check_hip(hipGetDeviceProperties(&prop, device_id));
+
+  int gfx = 0;
+  std::sscanf(prop.gcnArchName, "gfx%d", &gfx);
+
+  auto requires_gfx = [&](int req_gfx, const char* feature, const char* arch_name) {
+    if (gfx >= req_gfx) return;
+    throw std::runtime_error(
+      std::string(feature) + " requires gfx" + std::to_string(req_gfx) +
+      "+ (" + arch_name + "), but device " + std::to_string(device_id) +
+      " (" + prop.name + ") is " + prop.gcnArchName);
+  };
+
+  for (const auto* type : {&a_type, &b_type}) {
+    if (type->is_fp8())
+      requires_gfx(942, "FP8", "MI300");
+    if (type->is_fp4())
+      requires_gfx(950, "FP4", "MI350");
+    if (*type == mblas_data_type::MBLAS_R_6F_E2M3 ||
+        *type == mblas_data_type::MBLAS_R_6F_E3M2)
+      requires_gfx(950, "FP6", "MI350");
+  }
+}
+
+}  // namespace
 
 // clang-format off
 std::vector<matmul_prec_type> hipblaslt_gemm::matmul_supported = {
@@ -191,6 +224,7 @@ string hipblaslt_gemm::prepare_array() {
           "\nDevice selection:           " + std::to_string(instance.devIDX);
       throw std::invalid_argument(errorString);
     }
+    validate_gpu_capability(instance.devIDX, a_type, b_type);
   }
   // for (auto &instance : mat_ptrs) {
   //  this->alloc_dev(&instance);

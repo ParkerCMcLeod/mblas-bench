@@ -57,6 +57,43 @@ bool any_selected_device_requires_fp8_tn(const std::vector<cublaslt_gemm_inst>& 
   return false;
 }
 
+void validate_gpu_capability(int device_id,
+                              const mblas_data_type& a_type,
+                              const mblas_data_type& b_type,
+                              const mblas_data_type& c_type,
+                              const mblas_data_type& d_type,
+                              const mblas_compute_type& compute) {
+  cudaDeviceProp prop{};
+  check_cuda(cudaGetDeviceProperties(&prop, device_id));
+
+  auto requires_sm = [&](int req_major, int req_minor,
+                          const char* feature, const char* arch_name) {
+    if (prop.major > req_major ||
+        (prop.major == req_major && prop.minor >= req_minor))
+      return;
+    throw std::runtime_error(
+      std::string(feature) + " requires SM " + std::to_string(req_major) + "." +
+      std::to_string(req_minor) + "+ (" + arch_name + "), but device " +
+      std::to_string(device_id) + " (" + prop.name + ") is SM " +
+      std::to_string(prop.major) + "." + std::to_string(prop.minor));
+  };
+
+  for (const auto* type : {&a_type, &b_type, &c_type, &d_type}) {
+    if (type->is_fp8())
+      requires_sm(8, 9, "FP8", "Ada Lovelace");
+    if (type->is_fp4())
+      requires_sm(10, 0, "FP4", "Blackwell");
+    if (*type == mblas_data_type::MBLAS_R_6F_E2M3 ||
+        *type == mblas_data_type::MBLAS_R_6F_E3M2)
+      requires_sm(10, 0, "FP6", "Blackwell");
+    if (*type == mblas_data_type::MBLAS_R_8F_UE8M0)
+      requires_sm(10, 0, "UE8M0", "Blackwell");
+  }
+
+  if (compute == mblas_compute_type::MBLAS_COMPUTE_32F_FAST_TF32)
+    requires_sm(8, 0, "TF32 compute", "Ampere");
+}
+
 }  // namespace
 
 // clang-format off
@@ -155,6 +192,7 @@ void cublaslt_gemm::parse_dev_iters(std::string deviceStr) {
   }
 }
 
+#if (ENABLE_CUDA_BLOCK_SCALE)
 std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublaslt_gemm::configure_scaling(matrix_desc desc, mblas_cuda_data_type type, string matrix_id) {
   mblas_cuda_data_type scale_type;
   cublasLtMatmulMatrixScale_t scale_mode;
@@ -205,6 +243,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
 
   return std::make_tuple(scale_type, scale_mode, scale_size);
 }
+#endif
 
 void cublaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
                               string aStr, string bStr, string cStr,
@@ -239,7 +278,7 @@ void cublaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
     d_type = mblas_cuda_data_type(dStr);
   }
 
-#if (ENABLE_CUDA_FP4)
+#if (ENABLE_CUDA_BLOCK_SCALE)
   use_scaling = a_type.is_fp4() || b_type.is_fp4() || c_type.is_fp4() || d_type.is_fp4();
   std::tie(a_scale_type, a_scale_mode, a_scale_size) = configure_scaling(a_props, a_type, "A");
   std::tie(b_scale_type, b_scale_mode, b_scale_size) = configure_scaling(b_props, b_type, "B");
@@ -362,6 +401,7 @@ string cublaslt_gemm::prepare_array() {
           "\nDevice selection:           " + std::to_string(instance.devIDX);
       throw std::invalid_argument(errorString);
     }
+    validate_gpu_capability(instance.devIDX, a_type, b_type, c_type, d_type, compute);
   }
   // for (auto &instance : mat_ptrs) {
   //  this->alloc_dev(&instance);
@@ -607,6 +647,7 @@ void cublaslt_gemm::prepare_matrix(cublaslt_gemm_inst *mat) {
         mat->desc_ops[i], CUBLASLT_MATMUL_DESC_TRANSA, &transACU, sizeof(transACU)));
     check_cublas(cublasLtMatmulDescSetAttribute(
         mat->desc_ops[i], CUBLASLT_MATMUL_DESC_TRANSB, &transBCU, sizeof(transBCU)));
+#if (ENABLE_CUDA_BLOCK_SCALE)
     if (a_props.scale_mode != scaling_type::None) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_A_SCALE_MODE, &a_scale_mode, sizeof(a_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_A_SCALE_POINTER, &mat->scale_dev_a[i], sizeof(void*)));
@@ -619,7 +660,6 @@ void cublaslt_gemm::prepare_matrix(cublaslt_gemm_inst *mat) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_C_SCALE_MODE, &c_scale_mode, sizeof(c_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_C_SCALE_POINTER, &mat->scale_dev_c[i], sizeof(void*)));
     }
-#if (ENABLE_CUDA_FP4)
     if (d_props.scale_mode != scaling_type::None) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_D_OUT_SCALE_MODE, &d_scale_mode, sizeof(d_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_D_OUT_SCALE_POINTER, &mat->scale_dev_d[i], sizeof(void*)));
@@ -744,11 +784,11 @@ void cublaslt_gemm::free_mem() {
   }
   for (auto mat : mat_ptrs) {
     for (int i = 0; i < flush_batch_count; i++) {
-      cudaFree(mat.ptr_dev_a[i]);
-      cudaFree(mat.ptr_dev_b[i]);
-      cudaFree(mat.ptr_dev_c[i]);
+      check_cuda(cudaFree(mat.ptr_dev_a[i]));
+      check_cuda(cudaFree(mat.ptr_dev_b[i]));
+      check_cuda(cudaFree(mat.ptr_dev_c[i]));
       if (!inplace) {
-        cudaFree(mat.ptr_dev_d[i]);
+        check_cuda(cudaFree(mat.ptr_dev_d[i]));
       }
     }
     // ptr_dev_* outer arrays are host-allocated (malloc), not device memory.
@@ -758,21 +798,21 @@ void cublaslt_gemm::free_mem() {
     if (!inplace) {
       free(mat.ptr_dev_d);
     }
-    cudaFree(mat.devWork);
+    check_cuda(cudaFree(mat.devWork));
     if (mat.scale_dev_a) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_a[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_a[i]));
       free(mat.scale_dev_a);
     }
     if (mat.scale_dev_b) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_b[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_b[i]));
       free(mat.scale_dev_b);
     }
     if (mat.scale_dev_c) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_c[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_c[i]));
       free(mat.scale_dev_c);
     }
     if (mat.scale_dev_d) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_d[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_d[i]));
       free(mat.scale_dev_d);
     }
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
