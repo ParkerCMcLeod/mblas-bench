@@ -12,14 +12,6 @@ cudaDataType mblas_cuda_data_type::convert_to_cuda(const mblas_cuda_data_type *d
   }
 }
 
-// void mblas_cuda_data_type::operator = (const cudaDataType cudt) {
-//   for (auto ele : prec_mappings) {
-//     if (ele.second == cudt) {
-//       set(ele.first);
-//     }
-//   }
-// }
-
 mblas_cuda_data_type & mblas_cuda_data_type::operator = (const mblas_cuda_data_type& mdt) {
   if (this == &mdt)
     return *this;
@@ -27,15 +19,6 @@ mblas_cuda_data_type & mblas_cuda_data_type::operator = (const mblas_cuda_data_t
   set(mdt);
   return *this;
 }
-// 
-// mblas_cuda_data_type & mblas_cuda_data_type::operator = (const mblas_data_type& mdt) {
-//   if (this == &mdt)
-//     return *this;
-//   // Use parent class default = operator
-//   mblas_data_type * dest = dynamic_cast<mblas_data_type*>(this);
-//   *dest = mdt;
-//   return *this;
-// }
 
 mblas_cuda_data_type::operator cudaDataType() const {
   return convert_to_cuda(this);

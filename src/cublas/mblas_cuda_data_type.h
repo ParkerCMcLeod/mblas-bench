@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cuda_runtime.h>
-//#include <cublas.h>
 #include <cublasLt.h>
 #include "mblas_data_type.h"
 
@@ -11,11 +10,7 @@ class mblas_cuda_data_type: public mblas_data_type {
  public:
   static cudaDataType convert_to_cuda(mblas_cuda_data_type data);
   static cudaDataType convert_to_cuda(const mblas_cuda_data_type *data);
-  //void operator = (const cudaDataType cudt);
-  //mblas_cuda_data_type& operator = (const mblas_cuda_data_type mdt);
-  //mblas_cuda_data_type & operator = (const mblas_cuda_data_type mdt);
   mblas_cuda_data_type & operator = (const mblas_cuda_data_type& mdt);
-  // mblas_cuda_data_type & operator = (const mblas_data_type& mdt);
   operator cudaDataType() const;
   mblas_cuda_data_type(const std::string & instr) : mblas_data_type(instr) {}
   mblas_cuda_data_type() : mblas_data_type() {}

@@ -39,11 +39,6 @@ struct cublaslt_gemm_inst {
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
-  //void *dataDev;
-  //void **devA;
-  //void **devB;
-  //void **devC;
-  //void **devD;
   void **ptr_dev_a;
   void **ptr_dev_b;
   void **ptr_dev_c;
@@ -154,8 +149,6 @@ class cublaslt_gemm : public generic_gemm {
   std::vector<cublaslt_gemm_inst> mat_ptrs;
 
  private:
-  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);

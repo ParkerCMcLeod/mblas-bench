@@ -58,29 +58,9 @@ struct cublasgemmInst {
 
 class cublas_gemm : public generic_gemm {
  private:
-  //void *host_a;
-  //void *host_b;
-  //void *host_c;
   void **ptr_host_a;
   void **ptr_host_b;
   void **ptr_host_c;
-
-  // // Device array.  These are where the memory is stored on GPU
-  // void *devA;
-  // void *devB;
-  // void *devC;
-
-  // /*
-  //   Double pointers
-  //   Only used for Batched variant of gemms
-  //   Unused for others
-  // */
-  // void **ptr_dev_a;
-  // void **ptr_dev_b;
-  // void **ptr_dev_c;
-  // void **ptr_host_a;
-  // void **ptr_host_b;
-  // void **ptr_host_c;
 
   void *alpha;
   void *beta;
@@ -88,8 +68,6 @@ class cublas_gemm : public generic_gemm {
   mblas_cuda_operation transA;
   mblas_cuda_operation transB;
 
-  // cublasStatus_t stat;
-  // cublasHandle_t handle;
   mblas_cuda_data_type precision;
   mblas_cuda_compute_type compute;
   mblas_cuda_data_type scalar;
@@ -106,8 +84,6 @@ class cublas_gemm : public generic_gemm {
 
  private:
   void init_prec_map();
-  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
   void parse_dev_iters(std::string);

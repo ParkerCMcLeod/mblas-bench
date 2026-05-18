@@ -33,14 +33,6 @@ cublasComputeType_t mblas_cuda_compute_type::convert_to_cuda(const mblas_cuda_co
   }
 }
 
-// void mblas_cuda_compute_type::operator = (const cublasComputeType_t cudt) {
-//   for (auto ele : compute_mappings) {
-//     if (ele.second == cudt) {
-//       set(ele.first);
-//     }
-//   }
-// }
-
 mblas_cuda_compute_type & mblas_cuda_compute_type::operator = (const mblas_cuda_compute_type& mdt) {
   if (this == &mdt)
     return *this;

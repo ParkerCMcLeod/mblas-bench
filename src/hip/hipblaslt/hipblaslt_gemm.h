@@ -1,6 +1,5 @@
 #pragma once
 #include <hipblaslt/hipblaslt.h>
-// #include <hip/hip_runtime.h>
 #include <cxxabi.h>
 
 #include <iostream>
@@ -48,10 +47,6 @@ struct hipblaslt_gemm_inst {
   double gflops = 0;
   double gbytes = 0;
   double time_us = 0;
-  //void *devA;
-  //void *devB;
-  //void *devC;
-  //void *devD;
   void **ptr_dev_a;
   void **ptr_dev_b;
   void **ptr_dev_c;
@@ -70,10 +65,6 @@ struct hipblaslt_gemm_inst {
 
 class hipblaslt_gemm : public generic_gemm {
  private:
-  // void *host_a;
-  // void *host_b;
-  // void *host_c;
-
   void **ptr_host_a;
   void **ptr_host_b;
   void **ptr_host_c;
@@ -102,8 +93,6 @@ class hipblaslt_gemm : public generic_gemm {
   std::vector<hipblaslt_gemm_inst> mat_ptrs;
 
  private:
-  // mblas_hip_data_type precisionStringToHipblasDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);

@@ -1,7 +1,6 @@
 #include "hip_convert.h"
 
 #include <bitset>
-// #include <cuda_fp8.h>
 #include <hip/hip_bfloat16.h>
 #include <hip/hip_fp16.h>
 #include <hip/hip_runtime.h>
@@ -36,17 +35,6 @@ __global__ void float_to_fp8(float *input, size_t num_elements,
     output[idx] = __hip_cvt_float_to_fp8(input[idx], __HIP_SATFINITE, interp);
   }
 }
-
-// __global__ void intToInt8(__int32_t *input, size_t num_elements,
-//                           __int8_t *output, __nv_fp8_interpretation_t interp)
-// {
-//   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//   if (idx < num_elements)
-//   {
-//     output[idx] = (__int8_t)input[idx];
-//     // output[idx] = dynamic_cast<__int8_t>(input[idx]);
-//   }
-// }
 
 void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x, long y,
                       int batchsz, long long stride)

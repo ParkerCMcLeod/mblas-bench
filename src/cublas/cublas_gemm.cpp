@@ -184,11 +184,8 @@ void cublas_gemm::parse_problem_type(string computeTStr, string scalarTStr, stri
 }
 
 cublas_gemm::cublas_gemm(cxxopts::ParseResult result) : generic_gemm(result) {
-  // cublasCreate(&handle);
-  // check_cublas(cublasCreate(&handle));
   init_prec_map();
   // Grab precision from command line
-  //precision = mblas_cuda_data_type(result["precision"].as<string>());
   precision = mblas_cuda_data_type(result["precision"].as<string>());
   // Grab compute type from command line
   string computeT = result["compute_type"].as<string>();
@@ -253,11 +250,6 @@ string cublas_gemm::prepare_array() {
     }
     validate_gpu_capability(instance.devIDX, a_type, b_type, compute);
   }
-  // for (auto &instance : mat_ptrs) {
-  //  this->alloc_dev(&instance);
-  //  this->copy_host_to_dev(&instance);
-  //}
-
   run_threaded(&cublas_gemm::alloc_dev);
   run_threaded(&cublas_gemm::copy_host_to_dev);
   std::ostringstream ossHeader;
@@ -333,28 +325,6 @@ void cublas_gemm::copy_host_to_dev(cublasgemmInst *mat) {
     copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], rows_mem_c, cols_mem_c, batch_count, stride_c);
   }
 
-  //if (batched && !strided) {
-  //  // Perform some pointer arithmetic to calculate the arrays we pass to the
-  //  // gpu
-  //  mat->ptr_host_a =
-  //      (void **)malloc(batch_count * type_call_host<sizeofCUDTP>(a_type));
-  //  mat->ptr_host_b =
-  //      (void **)malloc(batch_count * type_call_host<sizeofCUDTP>(b_type));
-  //  mat->ptr_host_c =
-  //      (void **)malloc(batch_count * type_call_host<sizeofCUDTP>(c_type));
-  //  check_cuda(
-  //      cudaMalloc(&mat->ptr_dev_a, batch_count * type_call_host<sizeofCUDTP>(a_type)));
-  //  check_cuda(
-  //      cudaMalloc(&mat->ptr_dev_b, batch_count * type_call_host<sizeofCUDTP>(b_type)));
-  //  check_cuda(
-  //      cudaMalloc(&mat->ptr_dev_c, batch_count * type_call_host<sizeofCUDTP>(c_type)));
-  //  //type_call_dev<batchedPtrMagic>(a_type, mat->ptr_host_a, mat->ptr_dev_a, mat->devA,
-  //  //                            batch_count, rows_mem_a, cols_mem_a);
-  //  //type_call_dev<batchedPtrMagic>(b_type, mat->ptr_host_b, mat->ptr_dev_b, mat->devB,
-  //  //                            batch_count, rows_mem_b, cols_mem_b);
-  //  //type_call_dev<batchedPtrMagic>(c_type, mat->ptr_host_c, mat->ptr_dev_c, mat->devC,
-  //  //                            batch_count, rows_mem_c, cols_mem_c);
-  //}
 }
 
 void cublas_gemm::free_mem() {
@@ -378,14 +348,6 @@ void cublas_gemm::free_mem() {
     free(mat.ptr_dev_b);
     free(mat.ptr_dev_c);
     check_cuda(cudaFree(mat.devWork));
-    //if (batched && !strided) {
-    //  free(mat.ptr_host_a);
-    //  free(mat.ptr_host_b);
-    //  free(mat.ptr_host_c);
-    //  cudaFree(mat.ptr_dev_a);
-    //  cudaFree(mat.ptr_dev_b);
-    //  cudaFree(mat.ptr_dev_c);
-    //}
   }
 }
 
@@ -423,34 +385,6 @@ double cublas_gemm::test() {
       threads.push_back(
           thread(&cublas_gemm::test_Tgemm<cuComplex>, this, cgemm3m_var, &mat));
     }
-    // TgemmBatched
-    // Disabled due to batched & rotating tensors not being implemented at the same time
-    // else if (function == "cublasDgemmBatched" && precision == mblas_data_type::MBLAS_R_64F) {
-    //   std::function<decltype(cublasDgemmBatched)> dgemm_var =
-    //       cublasDgemmBatched;
-    //   threads.push_back(
-    //       thread(&cublas_gemm::testTgemmBatched<double>, this, dgemm_var, &mat));
-    // } else if (function == "cublasSgemmBatched" && precision == mblas_data_type::MBLAS_R_32F) {
-    //   std::function<decltype(cublasSgemmBatched)> sgemm_var =
-    //       cublasSgemmBatched;
-    //   threads.push_back(
-    //       thread(&cublas_gemm::testTgemmBatched<float>, this, sgemm_var, &mat));
-    // } else if (function == "cublasHgemmBatched" && precision == mblas_data_type::MBLAS_R_16F) {
-    //   std::function<decltype(cublasHgemmBatched)> hgemm_var =
-    //       cublasHgemmBatched;
-    //   threads.push_back(
-    //       thread(&cublas_gemm::testTgemmBatched<__half>, this, hgemm_var, &mat));
-    // } else if (function == "cublasZgemmBatched" && precision == mblas_data_type::MBLAS_C_64F) {
-    //   std::function<decltype(cublasZgemmBatched)> zgemm_var =
-    //       cublasZgemmBatched;
-    //   threads.push_back(thread(&cublas_gemm::testTgemmBatched<cuDoubleComplex>,
-    //                            this, zgemm_var, &mat));
-    // } else if (function == "cublasCgemmBatched" && precision == mblas_data_type::MBLAS_C_32F) {
-    //   std::function<decltype(cublasCgemmBatched)> cgemm_var =
-    //       cublasCgemmBatched;
-    //   threads.push_back(thread(&cublas_gemm::testTgemmBatched<cuComplex>, this,
-    //                            cgemm_var, &mat));
-    // }
     // TgemmStridedBatched
     else if (function == "cublasDgemmStridedBatched" &&
              precision == mblas_data_type::MBLAS_R_64F) {
@@ -503,9 +437,7 @@ double cublas_gemm::test() {
     // gemmEx
     else if (strided && function == "cublasGemmExStridedBatched") {
       // Call the Gemm strided batched deployment script
-    } /* else if (batched && function == "cublasGemmExBatched") {
-      // Call the Gemm batched code
-    } */ else if (function == "cublasGemmEx" || function == "gemm_ex" || function == "gemm_ex3") {
+    } else if (function == "cublasGemmEx" || function == "gemm_ex" || function == "gemm_ex3") {
       threads.push_back(thread(&cublas_gemm::testGemmEx, this, &mat));
     }
   }
@@ -598,8 +530,6 @@ void cublas_gemm::test_Tgemm(
   check_cublas(cublasCreate(&handle));
   check_cuda(cudaStreamCreate(&stream));
   check_cublas(cublasSetStream(handle, stream));
-  // check_cublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
-
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
     int flush_index = rep % flush_batch_count;
@@ -644,67 +574,6 @@ void cublas_gemm::test_Tgemm(
   check_cublas(cublasDestroy(handle));
 }
 
-// Disabled due to batched & rotating tensors not being implemented at the same time
-// template <typename T>
-// void cublas_gemm::testTgemmBatched(
-//     std::function<cublasStatus_t(cublasContext *, cublasOperation_t,
-//                                  cublasOperation_t, int, int, int, T const *,
-//                                  T const *const *, int, T const *const *, int,
-//                                  T const *, T *const *, int, int)>
-//         func,
-//     cublasgemmInst *mat) {
-//   cublasStatus_t stat;
-//   cublasHandle_t handle;
-//   cudaStream_t stream;
-//   check_cuda(cudaSetDevice(mat->devIDX));
-//   check_cublas(cublasCreate(&handle));
-//   check_cuda(cudaStreamCreate(&stream));
-//   check_cublas(cublasSetStream(handle, stream));
-//   // check_cublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
-// 
-//   T *alphaP = static_cast<T *>(alpha);
-//   T *betaP = static_cast<T *>(beta);
-//   T **devAP = reinterpret_cast<T **>(mat->ptr_dev_a);
-//   T **devBP = reinterpret_cast<T **>(mat->ptr_dev_b);
-//   T **devCP = reinterpret_cast<T **>(mat->ptr_dev_c);
-// 
-//   // Cold iters
-//   for (int rep = 0; rep < cold_iters; rep++) {
-//     stat = func(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
-//                 betaP, devCP, ldc, batch_count);
-// 
-//     // Check for errors during the gemm run
-//     check_cublas(stat);
-//     check_cuda(cudaGetLastError());
-//   }
-//   cudaStreamSynchronize(stream);
-// 
-//   cudaEvent_t start, stop;
-//   cudaEventCreate(&start);
-//   cudaEventCreate(&stop);
-// 
-//   /*
-//     Run and time the performance test
-//   */
-//   cudaEventRecord(start, stream);
-//   for (int rep = 0; rep < iters; rep++) {
-//     stat = func(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, alphaP, devAP, lda, devBP, ldb,
-//                 betaP, devCP, ldc, batch_count);
-//   }
-//   cudaEventRecord(stop, stream);
-//   cudaEventSynchronize(stop);
-// 
-//   // Check for errors during the performance test
-//   check_cublas(stat);
-//   check_cuda(cudaGetLastError());
-// 
-//   // Calculate and report GFlops
-//   float elapsedTime_ms;
-//   cudaEventElapsedTime(&elapsedTime_ms, start, stop);
-//   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-//       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
-// }
-
 template <typename T>
 void cublas_gemm::testTgemmStridedBatched(
     std::function<cublasStatus_t(
@@ -720,7 +589,6 @@ void cublas_gemm::testTgemmStridedBatched(
   check_cublas(cublasCreate(&handle));
   check_cuda(cudaStreamCreate(&stream));
   check_cublas(cublasSetStream(handle, stream));
-  // check_cublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {
@@ -781,7 +649,6 @@ void cublas_gemm::testTGemmEx(
   check_cublas(cublasCreate(&handle));
   check_cuda(cudaStreamCreate(&stream));
   check_cublas(cublasSetStream(handle, stream));
-  // check_cublas(cublasSetWorkspace(handle, mat->devWork, mat->wSZ));
 
   // Cold iters
   for (int rep = 0; rep < cold_iters; rep++) {

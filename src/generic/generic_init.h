@@ -19,7 +19,6 @@ inline T rand_int_gen(std::uniform_int_distribution<int> &idist,
 template <typename T>
 inline std::complex<T> rand_int_gen(std::uniform_int_distribution<int> &idist,
                              std::mt19937 &gen, std::complex<T> &dummy) {
-  //return {T(idist(gen)), T(idist(gen))};
   return std::complex<T>(idist(gen), idist(gen));
 }
 
@@ -32,7 +31,6 @@ inline T rand_int_gen_negative(std::uniform_int_distribution<int> &idist,
 template <typename T>
 inline std::complex<T> rand_int_gen_negative(std::uniform_int_distribution<int> &idist,
                               std::mt19937 &gen, std::complex<T> &dummy) {
-  //return {-T(idist(gen)), -T(idist(gen))};
   return std::complex<T>(-idist(gen), -idist(gen));
 }
 
@@ -181,7 +179,6 @@ void fill_rand_host_trig_float(void **ptr_array, long rows_A, long cols_A, long 
     for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
       for (size_t i_batch = 0; i_batch < batch; i_batch++) {
         for (size_t j = 0; j < cols_A; ++j) {
-          // size_t offset = j * ld + i_batch * stride;
           for (size_t i = 0; i < rows_A; ++i) {
             T *A = (T *)ptr_array[flush_idx];
             // Add offset based on flush_idx to ensure different matrices for each rotating tensor
@@ -272,7 +269,6 @@ void initHost<T>::operator()(std::string initialization, void **ptr_array, long 
             {"normal_float", "norm_float", "norm_dist"}, mean, std_dev)) {
     // Can be "normal_float", "norm_float", or "norm_dist"
     if constexpr (std::is_floating_point_v<T>) {
-      //std::cout << "mean: " << mean << " std_dev: " << std_dev << std::endl;
       fill_rand_host_normal_float<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count, mean, std_dev);
     } else {
       std::string error_string = "Error: normal distribution not supported for non-floating-point types";
@@ -282,7 +278,6 @@ void initHost<T>::operator()(std::string initialization, void **ptr_array, long 
             {"uniform_dist", "uniform"}, min_val, max_val)) {
     // Can be "uniform_dist" or "uniform"
     if constexpr (std::is_floating_point_v<T>) {
-      //std::cout << "min_val: " << min_val << " max_val: " << max_val << std::endl;
       fill_rand_host_uniform<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count, min_val, max_val);
     } else {
       std::string error_string = "Error: uniform distribution not supported for non-floating-point types";

@@ -65,10 +65,6 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
     batched = true;
     pure_batched = false;
   }
-  //stride_a = result["stride_a"].as<long long int>();
-  //stride_b = result["stride_b"].as<long long int>();
-  //stride_c = result["stride_c"].as<long long int>();
-  //stride_d = result["stride_d"].as<long long int>();
   if (strided) {
     stride_a = fix_stride(result["stride_a"].as<long long int>(), rows_mem_a, cols_mem_a, "A");
     stride_b = fix_stride(result["stride_b"].as<long long int>(), rows_mem_b, cols_mem_b, "B");
@@ -198,8 +194,6 @@ scaling_type generic_gemm::set_scale_mode(string value) {
     }
   } else {
     string lower_val = value;
-    //std::transform(value.begin(), value.end(), lower_val.begin(),
-    //[](unsigned char c){ return std::tolower(c); });
     std::transform(lower_val.begin(), lower_val.end(), lower_val.begin(), ::tolower);
     if (lower_val == "none") {
       out = scaling_type::None;
@@ -224,14 +218,6 @@ std::string generic_gemm::set_init(matrix_desc desc, std::string init, std::stri
   return mx_init;
 
 }
-//void generic_gemm::set_init_params(){
-//  if (initialization == "rand_int") {
-//    control_b = true;
-//  } else if (initialization == "trig_float") {
-//    control_a = true;
-//    if ()
-//  }
-//}
 
 std::string scaling_string(scaling_type input){
   if (input == scaling_type::None) {

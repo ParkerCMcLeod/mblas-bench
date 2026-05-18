@@ -35,21 +35,3 @@ const char *hipblas_get_error_string(hipblasStatus_t status) {
   }
   return "unknown error";
 }
-
-// // Convenience function for checking CUDA runtime API results
-// // can be wrapped around any runtime API call. No-op in release builds.
-// inline cudaError_t check_cuda(cudaError_t result) {
-//   if (result != cudaSuccess) {
-//     fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(result));
-//     assert(result == cudaSuccess);
-//   }
-//   return result;
-// }
-
-// inline cublasStatus_t check_cublas(cublasStatus_t result) {
-//   if (result != CUBLAS_STATUS_SUCCESS) {
-//     fprintf(stderr, "CUDA Runtime Error: %s\n",
-//     cublas_get_error_string(result)); assert(result == CUBLAS_STATUS_SUCCESS);
-//   }
-//   return result;
-// }

@@ -17,14 +17,6 @@ mblas_rocblas_data_type::operator rocblas_datatype() const {
   return convert_to_hip(this);
 }
 
-// void mblas_rocblas_data_type::operator = (const hipDataType cudt) {
-//   for (auto ele : prec_mappings) {
-//     if (ele.second == cudt) {
-//       set(ele.first);
-//     }
-//   }
-// }
-
 mblas_rocblas_data_type & mblas_rocblas_data_type::operator = (const mblas_rocblas_data_type& mdt) {
   if (this == &mdt)
     return *this;
@@ -32,15 +24,6 @@ mblas_rocblas_data_type & mblas_rocblas_data_type::operator = (const mblas_rocbl
   set(mdt);
   return *this;
 }
-// 
-// mblas_rocblas_data_type & mblas_rocblas_data_type::operator = (const mblas_data_type& mdt) {
-//   if (this == &mdt)
-//     return *this;
-//   // Use parent class default = operator
-//   mblas_data_type * dest = dynamic_cast<mblas_data_type*>(this);
-//   *dest = mdt;
-//   return *this;
-// }
 
 const std::map<mblas_data_type, rocblas_datatype> mblas_rocblas_data_type::prec_mappings = {
     {MBLAS_R_16F,  rocblas_datatype_f16_r},

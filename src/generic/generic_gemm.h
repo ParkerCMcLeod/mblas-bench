@@ -111,8 +111,6 @@ class generic_gemm {
   virtual ~generic_gemm() = default;
   generic_gemm(cxxopts::ParseResult);
 
-  // virtual void setSize();
-  // virtual void setTypes();
   int set_ld(std::string ld, std::string OP, int x, int y);
   std::pair<int, int> set_row_col(std::string OP, int d1, int d2);
 
@@ -124,7 +122,6 @@ class generic_gemm {
   virtual void free_mem() = 0;
 
   static long long int fix_stride(long long int stride, long rows_a, long cols_a, std::string matrix_id);
-  void set_init_params();
   static scaling_type set_scale_mode(std::string input);
   static std::string set_init(matrix_desc desc, std::string init, std::string mx_init);
 
