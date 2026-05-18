@@ -1,22 +1,26 @@
 #pragma once
 
 #include <cuda_runtime.h>
+//#include <cublas.h>
 #include <cublasLt.h>
 #include "mblas_data_type.h"
+#include "mblas_backend_type.h"
 
-class mblas_cuda_data_type: public mblas_data_type {
- private:
-  static const std::map<mblas_data_type, cudaDataType> prec_mappings;
+class mblas_cuda_data_type: public mblas_backend_type<mblas_cuda_data_type, mblas_data_type, cudaDataType> {
+  using Base = mblas_backend_type<mblas_cuda_data_type, mblas_data_type, cudaDataType>;
  public:
-  static cudaDataType convert_to_cuda(mblas_cuda_data_type data);
-  static cudaDataType convert_to_cuda(const mblas_cuda_data_type *data);
-  mblas_cuda_data_type & operator = (const mblas_cuda_data_type& mdt);
-  operator cudaDataType() const;
-  mblas_cuda_data_type(const std::string & instr) : mblas_data_type(instr) {}
-  mblas_cuda_data_type() : mblas_data_type() {}
-  mblas_cuda_data_type(mblas_data_type_enum y) : mblas_data_type(y) {}
+  using Base::Base;
+  using Base::operator=;
+
+  static const std::map<mblas_data_type, cudaDataType>& get_mappings();
+
+  // Legacy API compatibility
+  static cudaDataType convert_to_cuda(mblas_cuda_data_type data) { return data.convert(); }
+  static cudaDataType convert_to_cuda(const mblas_cuda_data_type *data) { return data->convert(); }
 
   std::string to_string() const override { return mblas_data_type::to_string("CUDA"); }
+
+  // CUDA-specific methods
   mblas_cuda_data_type get_scale_type();
 
 #if (ENABLE_CUDA_FP4)

@@ -1,50 +1,29 @@
 #include "mblas_rocblas_data_type.h"
-#include <iostream>
 
-rocblas_datatype mblas_rocblas_data_type::convert_to_hip(mblas_rocblas_data_type data)  { return convert_to_hip(&data); }
-
-rocblas_datatype mblas_rocblas_data_type::convert_to_hip(const mblas_rocblas_data_type *data) {
-  try {
-    return prec_mappings.at(*data);
-  } catch (std::out_of_range &e) {
-    std::cout << "Failed to convert to Rocblas Datatype " << data->to_string() << std::endl;
-    throw e;
-    return rocblas_datatype_f32_r;
-  }
-}
-
-mblas_rocblas_data_type::operator rocblas_datatype() const {
-  return convert_to_hip(this);
-}
-
-mblas_rocblas_data_type & mblas_rocblas_data_type::operator = (const mblas_rocblas_data_type& mdt) {
-  if (this == &mdt)
-    return *this;
-  // Use parent class default = operator
-  set(mdt);
-  return *this;
-}
-
-const std::map<mblas_data_type, rocblas_datatype> mblas_rocblas_data_type::prec_mappings = {
-    {MBLAS_R_16F,  rocblas_datatype_f16_r},
-    {MBLAS_C_16F,  rocblas_datatype_f16_c},
-    {MBLAS_R_16BF, rocblas_datatype_bf16_r},
-    {MBLAS_C_16BF, rocblas_datatype_bf16_c},
-    {MBLAS_R_32F,  rocblas_datatype_f32_r},
-    {MBLAS_C_32F,  rocblas_datatype_f32_c},
-    {MBLAS_R_64F,  rocblas_datatype_f64_r},
-    {MBLAS_C_64F,  rocblas_datatype_f64_c},
-    {MBLAS_R_8I,   rocblas_datatype_i8_r},
-    {MBLAS_C_8I,   rocblas_datatype_i8_c},
-    {MBLAS_R_8U,   rocblas_datatype_u8_r},
-    {MBLAS_C_8U,   rocblas_datatype_u8_c},
-    {MBLAS_R_32I,  rocblas_datatype_i32_r},
-    {MBLAS_C_32I,  rocblas_datatype_i32_c},
-    {MBLAS_R_32U,  rocblas_datatype_u32_r},
-    {MBLAS_C_32U,  rocblas_datatype_u32_c},
+static const std::map<mblas_data_type, rocblas_datatype> rocblas_data_type_mappings = {
+    {mblas_data_type::MBLAS_R_16F,  rocblas_datatype_f16_r},
+    {mblas_data_type::MBLAS_C_16F,  rocblas_datatype_f16_c},
+    {mblas_data_type::MBLAS_R_16BF, rocblas_datatype_bf16_r},
+    {mblas_data_type::MBLAS_C_16BF, rocblas_datatype_bf16_c},
+    {mblas_data_type::MBLAS_R_32F,  rocblas_datatype_f32_r},
+    {mblas_data_type::MBLAS_C_32F,  rocblas_datatype_f32_c},
+    {mblas_data_type::MBLAS_R_64F,  rocblas_datatype_f64_r},
+    {mblas_data_type::MBLAS_C_64F,  rocblas_datatype_f64_c},
+    {mblas_data_type::MBLAS_R_8I,   rocblas_datatype_i8_r},
+    {mblas_data_type::MBLAS_C_8I,   rocblas_datatype_i8_c},
+    {mblas_data_type::MBLAS_R_8U,   rocblas_datatype_u8_r},
+    {mblas_data_type::MBLAS_C_8U,   rocblas_datatype_u8_c},
+    {mblas_data_type::MBLAS_R_32I,  rocblas_datatype_i32_r},
+    {mblas_data_type::MBLAS_C_32I,  rocblas_datatype_i32_c},
+    {mblas_data_type::MBLAS_R_32U,  rocblas_datatype_u32_r},
+    {mblas_data_type::MBLAS_C_32U,  rocblas_datatype_u32_c},
 #if (HIP_VERSION < 70000000)
     // Undocumented rocblas fp8 support, removed in rocm 7.0.0
-    {MBLAS_R_8F_E4M3, rocblas_datatype_f8_r},
-    {MBLAS_R_8F_E5M2, rocblas_datatype_bf8_r},
+    {mblas_data_type::MBLAS_R_8F_E4M3, rocblas_datatype_f8_r},
+    {mblas_data_type::MBLAS_R_8F_E5M2, rocblas_datatype_bf8_r},
 #endif
 };
+
+const std::map<mblas_data_type, rocblas_datatype>& mblas_rocblas_data_type::get_mappings() {
+    return rocblas_data_type_mappings;
+}
