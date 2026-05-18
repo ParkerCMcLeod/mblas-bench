@@ -69,7 +69,7 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_fp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
     check_hip(hipGetLastError());
-    hipFree(tmpA);
+    check_hip(hipFree(tmpA));
   }
   else if (precision == mblas_data_type(MBLAS_C_16BF) || precision == mblas_data_type(MBLAS_R_16BF))
   {
@@ -82,7 +82,7 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_bf16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (hip_bfloat16 *)devA);
     check_hip(hipGetLastError());
-    hipFree(tmpA);
+    check_hip(hipFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_R_8F_E4M3 ||
            precision == mblas_data_type::MBLAS_R_8F_E5M2)
@@ -105,7 +105,7 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
     }
     float_to_fp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__hip_fp8_storage_t *)devA, interp);
     check_hip(hipGetLastError());
-    hipFree(tmpA);
+    check_hip(hipFree(tmpA));
   }
   else
   {
@@ -131,9 +131,16 @@ void *convert_scalar(mblas_data_type precision, void *scalar)
     std::complex<float> *cFloat = static_cast<std::complex<float> *>(scalar);
     float realVal = cFloat->real();
     float imagVal = cFloat->imag();
-    
+
     std::complex<__half> *cHalf = (std::complex<__half> *)scalar;
     *cHalf = std::complex<__half>(__float2half(realVal), __float2half(imagVal));
+    return scalar;
+  }
+  else if (precision == mblas_data_type(MBLAS_R_16BF))
+  {
+    float scalarVal = *static_cast<float *>(scalar);
+    hip_bfloat16 *bfscalar = (hip_bfloat16 *)scalar;
+    *bfscalar = hip_bfloat16(scalarVal);
     return scalar;
   }
   else

@@ -197,6 +197,8 @@ auto type_call_host(mblas_data_type type, Args... args)
       return tFunc<std::complex<float>>()(args...);
     case MBLAS_R_16BF:
       return tFunc<float>()(args...);
+    case MBLAS_C_16BF:
+      return tFunc<std::complex<float>>()(args...);
     case MBLAS_R_16F:
       return tFunc<float>()(args...);
     case mblas_data_type::MBLAS_R_8F_E4M3:
@@ -261,8 +263,8 @@ auto type_call_dev(mblas_data_type type, Args... args)
       return tFunc<std::complex<float>>()(args...);
     case MBLAS_R_16BF:
       return tFunc<hip_bfloat16>()(args...);
-    // case hipDataType_bf16_c:
-    //   return tFunc<hipComplex>()(args...);
+    case MBLAS_C_16BF:
+      return tFunc<std::complex<hip_bfloat16>>()(args...);
     case MBLAS_R_16F:
       return tFunc<__half>()(args...);
     // case hipDataType_f16_c:

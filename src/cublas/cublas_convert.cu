@@ -101,7 +101,7 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_fp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
     check_cuda(cudaGetLastError());
-    cudaFree(tmpA);
+    check_cuda(cudaFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_C_16BF || precision == mblas_data_type::MBLAS_R_16BF)
   {
@@ -114,7 +114,7 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_bf16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA);
     check_cuda(cudaGetLastError());
-    cudaFree(tmpA);
+    check_cuda(cudaFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_R_8F_E4M3 ||
            precision == mblas_data_type::MBLAS_R_8F_E5M2 ||
@@ -142,7 +142,7 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     }
     float_to_fp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, interp);
     check_cuda(cudaGetLastError());
-    cudaFree(tmpA);
+    check_cuda(cudaFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_R_8F_UE8M0)
   {
@@ -156,7 +156,7 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_e8m0<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA);
     check_cuda(cudaGetLastError());
-    cudaFree(tmpA);
+    check_cuda(cudaFree(tmpA));
 #endif
   }
   else if (precision == mblas_data_type::MBLAS_R_4F_E2M1)
@@ -171,7 +171,7 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     long long num_blocks = (num_elements + block_size - 1) / block_size;
     float_to_fp4<<<num_blocks, block_size>>>((float2 *)tmpA, num_elements, (__nv_fp4x2_storage_t *)devA);
     check_cuda(cudaGetLastError());
-    cudaFree(tmpA);
+    check_cuda(cudaFree(tmpA));
 #endif
   }
   // else if (precision == mblas_data_type::MBLAS_C_8I || precision == mblas_data_type::MBLAS_R_8I)

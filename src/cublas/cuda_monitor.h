@@ -42,7 +42,7 @@ private:
 
     // Device information
     nvmlDevice_t nvml_device;
-    int cuda_device_id;
+    int physical_device_id;
 
     // Frequency data storage
     std::vector<uint64_t> gpu_frequencies;  // in Hz
@@ -69,9 +69,8 @@ public:
     }
 
     void set_device_id(int device_id) {
-        /* Device ID here is physical device ID, not CUDA_VISIBLE_DEVICES index */ 
-        cuda_device_id = device_id;
-        check_nvml(nvmlDeviceGetHandleByIndex(cuda_device_id, &nvml_device));
+        physical_device_id = device_id;
+        check_nvml(nvmlDeviceGetHandleByIndex(physical_device_id, &nvml_device));
     }
 
     static bool enabled() {

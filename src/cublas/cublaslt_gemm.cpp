@@ -10,6 +10,7 @@
 #include <limits>
 #include <numeric>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -31,8 +32,8 @@ using std::vector;
 
 namespace {
 
-// cuBLASLt doc: FP8 matmul expects TN (transA=T, transB=N) on Ada (8.9), Hopper (9.0),
-// and Blackwell GeForce (12.x). CC is from the runtime device; "GeForce" is inferred from name
+// cuBLASLt doc: FP8 matmul expects TN (transA=T, transB=N) on Ada (SM 8.9),
+// Hopper (SM 9.0), and consumer Blackwell (SM 12.x).
 // https://docs.nvidia.com/cuda/cublas/index.html#cublasltmatmul
 bool device_requires_fp8_tn_layout(const cudaDeviceProp& prop) {
   const int major = prop.major;
@@ -41,7 +42,7 @@ bool device_requires_fp8_tn_layout(const cudaDeviceProp& prop) {
     return true;
   if (major == 9 && minor == 0)
     return true;
-  if (major == 12 && std::strstr(prop.name, "GeForce") != nullptr)
+  if (major == 12)
     return true;
   return false;
 }
@@ -54,6 +55,43 @@ bool any_selected_device_requires_fp8_tn(const std::vector<cublaslt_gemm_inst>& 
       return true;
   }
   return false;
+}
+
+void validate_gpu_capability(int device_id,
+                              const mblas_data_type& a_type,
+                              const mblas_data_type& b_type,
+                              const mblas_data_type& c_type,
+                              const mblas_data_type& d_type,
+                              const mblas_compute_type& compute) {
+  cudaDeviceProp prop{};
+  check_cuda(cudaGetDeviceProperties(&prop, device_id));
+
+  auto requires_sm = [&](int req_major, int req_minor,
+                          const char* feature, const char* arch_name) {
+    if (prop.major > req_major ||
+        (prop.major == req_major && prop.minor >= req_minor))
+      return;
+    throw std::runtime_error(
+      std::string(feature) + " requires SM " + std::to_string(req_major) + "." +
+      std::to_string(req_minor) + "+ (" + arch_name + "), but device " +
+      std::to_string(device_id) + " (" + prop.name + ") is SM " +
+      std::to_string(prop.major) + "." + std::to_string(prop.minor));
+  };
+
+  for (const auto* type : {&a_type, &b_type, &c_type, &d_type}) {
+    if (type->is_fp8())
+      requires_sm(8, 9, "FP8", "Ada Lovelace");
+    if (type->is_fp4())
+      requires_sm(10, 0, "FP4", "Blackwell");
+    if (*type == mblas_data_type::MBLAS_R_6F_E2M3 ||
+        *type == mblas_data_type::MBLAS_R_6F_E3M2)
+      requires_sm(10, 0, "FP6", "Blackwell");
+    if (*type == mblas_data_type::MBLAS_R_8F_UE8M0)
+      requires_sm(10, 0, "UE8M0", "Blackwell");
+  }
+
+  if (compute == mblas_compute_type::MBLAS_COMPUTE_32F_FAST_TF32)
+    requires_sm(8, 0, "TF32 compute", "Ampere");
 }
 
 }  // namespace
@@ -154,6 +192,7 @@ void cublaslt_gemm::parse_dev_iters(std::string deviceStr) {
   }
 }
 
+#if (ENABLE_CUDA_BLOCK_SCALE)
 std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublaslt_gemm::configure_scaling(matrix_desc desc, mblas_cuda_data_type type, string matrix_id) {
   mblas_cuda_data_type scale_type;
   cublasLtMatmulMatrixScale_t scale_mode;
@@ -169,7 +208,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     scale_size = get_scale_tensor_size(desc.rows_mem, desc.cols_mem, scale_mode);
   } else if (type.is_fp4()) {
     string errorString =
-        "Non-block scaled fp4 is not supported in cublaslt"
+        "Non-block scaled fp4 is not supported in cublaslt. "
         "Matrix: " + matrix_id +
         "\nType: " + type.to_string();
     std::cerr << scaling_string(desc.scale_mode) << std::endl;
@@ -178,7 +217,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
 #if (CUDART_VERSION >= 12090)
     // Dependent on if this is the A or B matrix
     // Use the columns for B, rows for everything else (A,C,D)
-    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F; 
+    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F;
     //long scaling_vec_len = (matrix_id == "B") ? desc.cols : desc.rows;
     //long scaling_vec_len = (matrix_id == "A") ? desc.cols : desc.rows;
     //std::cout << ((matrix_id == "B") ? n : m) << std::endl;
@@ -187,7 +226,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     scale_type = MBLAS_R_32F;
 #else
     string errorString =
-        "Vector scaling mode requires CUDA 12.9.0 or later. "
+        "Vector scaling mode requires CUDA 12.9.0 or later.\n"
         "Matrix: " + matrix_id +
         "\nType: " + type.to_string();
     std::cerr << scaling_string(desc.scale_mode) << std::endl;
@@ -195,15 +234,16 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
 #endif
   } else if (desc.scale_mode == scaling_type::Scalar) {
     scale_size = std::make_pair<size_t, size_t>(1, 1);
-    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F; 
+    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F;
     scale_type = MBLAS_R_32F;
   } else {
     scale_size.rows = 0;
     scale_size.cols = 0;
   }
-    
+
   return std::make_tuple(scale_type, scale_mode, scale_size);
 }
+#endif
 
 void cublaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
                               string aStr, string bStr, string cStr,
@@ -238,7 +278,7 @@ void cublaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
     d_type = mblas_cuda_data_type(dStr);
   }
 
-#if (ENABLE_CUDA_FP4)
+#if (ENABLE_CUDA_BLOCK_SCALE)
   use_scaling = a_type.is_fp4() || b_type.is_fp4() || c_type.is_fp4() || d_type.is_fp4();
   std::tie(a_scale_type, a_scale_mode, a_scale_size) = configure_scaling(a_props, a_type, "A");
   std::tie(b_scale_type, b_scale_mode, b_scale_size) = configure_scaling(b_props, b_type, "B");
@@ -348,7 +388,7 @@ string cublaslt_gemm::prepare_array() {
   this->fill_host();
 
   int num_devices;
-  cudaGetDeviceCount(&num_devices);
+  check_cuda(cudaGetDeviceCount(&num_devices));
   // Check range of devices here
   // This implementation may not work if
   // CUDA_VISIBLE_DEVICES is set to something weird
@@ -361,6 +401,7 @@ string cublaslt_gemm::prepare_array() {
           "\nDevice selection:           " + std::to_string(instance.devIDX);
       throw std::invalid_argument(errorString);
     }
+    validate_gpu_capability(instance.devIDX, a_type, b_type, c_type, d_type, compute);
   }
   // for (auto &instance : mat_ptrs) {
   //  this->alloc_dev(&instance);
@@ -451,7 +492,7 @@ void cublaslt_gemm::alloc_host() {
 }
 
 void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
 
   mat->ptr_dev_a =
       (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
@@ -467,39 +508,39 @@ void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    check_cuda(cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
     if (!inplace) {
-      cudaMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      check_cuda(cudaMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
     }
   }
 
   mat->wSZ = workspace_size;
-  cudaMalloc(&mat->devWork, mat->wSZ);
+  check_cuda(cudaMalloc(&mat->devWork, mat->wSZ));
   if (a_props.scale_mode != scaling_type::None) {
     mat->scale_dev_a = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_a[i], a_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(a_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_a[i], a_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(a_scale_type)));
   }
   if (b_props.scale_mode != scaling_type::None) {
     mat->scale_dev_b = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_b[i], b_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(b_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_b[i], b_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(b_scale_type)));
   }
   if (c_props.scale_mode != scaling_type::None) {
     mat->scale_dev_c = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_c[i], c_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(c_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_c[i], c_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(c_scale_type)));
   }
   if (d_props.scale_mode != scaling_type::None) {
     mat->scale_dev_d = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_d[i], d_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(d_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_d[i], d_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(d_scale_type)));
   }
 }
 
@@ -538,7 +579,7 @@ void cublaslt_gemm::fill_host() {
 }
 
 void cublaslt_gemm::copy_host_to_dev(cublaslt_gemm_inst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
     copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
     copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
@@ -606,6 +647,7 @@ void cublaslt_gemm::prepare_matrix(cublaslt_gemm_inst *mat) {
         mat->desc_ops[i], CUBLASLT_MATMUL_DESC_TRANSA, &transACU, sizeof(transACU)));
     check_cublas(cublasLtMatmulDescSetAttribute(
         mat->desc_ops[i], CUBLASLT_MATMUL_DESC_TRANSB, &transBCU, sizeof(transBCU)));
+#if (ENABLE_CUDA_BLOCK_SCALE)
     if (a_props.scale_mode != scaling_type::None) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_A_SCALE_MODE, &a_scale_mode, sizeof(a_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_A_SCALE_POINTER, &mat->scale_dev_a[i], sizeof(void*)));
@@ -618,7 +660,6 @@ void cublaslt_gemm::prepare_matrix(cublaslt_gemm_inst *mat) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_C_SCALE_MODE, &c_scale_mode, sizeof(c_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_C_SCALE_POINTER, &mat->scale_dev_c[i], sizeof(void*)));
     }
-#if (ENABLE_CUDA_FP4)
     if (d_props.scale_mode != scaling_type::None) {
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_D_OUT_SCALE_MODE, &d_scale_mode, sizeof(d_scale_mode)));
       check_cublas(cublasLtMatmulDescSetAttribute(mat->desc_ops[i], CUBLASLT_MATMUL_DESC_D_OUT_SCALE_POINTER, &mat->scale_dev_d[i], sizeof(void*)));
@@ -688,7 +729,7 @@ void cublaslt_gemm::no_tuning(cublaslt_gemm_inst *mat) {
       mat->pref, 1, &heuristicResult, &retResults));
 
   if (retResults == 0) {
-    check_cublas(CUBLAS_STATUS_NOT_SUPPORTED);
+    throw std::runtime_error("cublasLtMatmulAlgoGetHeuristic returned 0 results: no supported algorithm for this configuration");
   }
   mat->algo = heuristicResult;
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
@@ -701,6 +742,7 @@ void cublaslt_gemm::no_tuning(cublaslt_gemm_inst *mat) {
         &_size_written));
   }
 #endif
+  check_cublas(cublasLtDestroy(handle));
 }
 void cublaslt_gemm::auto_tuning(cublaslt_gemm_inst *mat) {
   // Not currently implemented, using simple method
@@ -742,11 +784,11 @@ void cublaslt_gemm::free_mem() {
   }
   for (auto mat : mat_ptrs) {
     for (int i = 0; i < flush_batch_count; i++) {
-      cudaFree(mat.ptr_dev_a[i]);
-      cudaFree(mat.ptr_dev_b[i]);
-      cudaFree(mat.ptr_dev_c[i]);
+      check_cuda(cudaFree(mat.ptr_dev_a[i]));
+      check_cuda(cudaFree(mat.ptr_dev_b[i]));
+      check_cuda(cudaFree(mat.ptr_dev_c[i]));
       if (!inplace) {
-        cudaFree(mat.ptr_dev_d[i]);
+        check_cuda(cudaFree(mat.ptr_dev_d[i]));
       }
     }
     // ptr_dev_* outer arrays are host-allocated (malloc), not device memory.
@@ -756,36 +798,36 @@ void cublaslt_gemm::free_mem() {
     if (!inplace) {
       free(mat.ptr_dev_d);
     }
-    cudaFree(mat.devWork);
+    check_cuda(cudaFree(mat.devWork));
     if (mat.scale_dev_a) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_a[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_a[i]));
       free(mat.scale_dev_a);
     }
     if (mat.scale_dev_b) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_b[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_b[i]));
       free(mat.scale_dev_b);
     }
     if (mat.scale_dev_c) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_c[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_c[i]));
       free(mat.scale_dev_c);
     }
     if (mat.scale_dev_d) {
-      for (int i = 0; i < flush_batch_count; i++) cudaFree(mat.scale_dev_d[i]);
+      for (int i = 0; i < flush_batch_count; i++) check_cuda(cudaFree(mat.scale_dev_d[i]));
       free(mat.scale_dev_d);
     }
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
     if (use_f64_emulation) {
-      cublasLtEmulationDescDestroy(mat.emulation_desc);
+      check_cublas(cublasLtEmulationDescDestroy(mat.emulation_desc));
     }
 #endif
-    for (auto &d : mat.desc_ops) cublasLtMatmulDescDestroy(d);
-    cublasLtMatrixLayoutDestroy(mat.desc_a);
-    cublasLtMatrixLayoutDestroy(mat.desc_b);
-    cublasLtMatrixLayoutDestroy(mat.desc_c);
+    for (auto &d : mat.desc_ops) check_cublas(cublasLtMatmulDescDestroy(d));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_a));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_b));
+    check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_c));
     if (!inplace) {
-      cublasLtMatrixLayoutDestroy(mat.desc_d);
+      check_cublas(cublasLtMatrixLayoutDestroy(mat.desc_d));
     }
-    cublasLtMatmulPreferenceDestroy(mat.pref);
+    check_cublas(cublasLtMatmulPreferenceDestroy(mat.pref));
   }
 }
 
@@ -827,8 +869,23 @@ std::string cublaslt_gemm::get_result_string() {
   // if (batched) {
     ossValues << batch_count << ',';
   // }
-  ossValues << *((float *)alpha) << ',';
-  ossValues << *((float *)beta)   << ',';
+  if (scalar == mblas_data_type::MBLAS_R_64F) {
+    ossValues << *((double *)alpha) << ',';
+    ossValues << *((double *)beta)  << ',';
+  } else if (scalar == mblas_data_type::MBLAS_C_64F) {
+    auto *a = (std::complex<double> *)alpha;
+    auto *b = (std::complex<double> *)beta;
+    ossValues << "(" << a->real() << "," << a->imag() << "),";
+    ossValues << "(" << b->real() << "," << b->imag() << "),";
+  } else if (scalar == mblas_data_type::MBLAS_C_32F) {
+    auto *a = (std::complex<float> *)alpha;
+    auto *b = (std::complex<float> *)beta;
+    ossValues << "(" << a->real() << "," << a->imag() << "),";
+    ossValues << "(" << b->real() << "," << b->imag() << "),";
+  } else {
+    ossValues << *((float *)alpha) << ',';
+    ossValues << *((float *)beta)  << ',';
+  }
   ossValues << a_type.to_string() << ',';
   ossValues << b_type.to_string() << ',';
   ossValues << c_type.to_string() << ',';
@@ -938,7 +995,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
   freq_monitor.set_device_id(mat->devIDX);
   
   freq_monitor.start();
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = cublasLtMatmul(handle, mat->desc_ops[flush_index], alpha,
@@ -948,8 +1005,8 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
                           mat->ptr_dev_d[flush_index], mat->desc_d,
                           &mat->algo.algo, mat->devWork, mat->wSZ, stream);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
   freq_monitor.stop();
 
   // Check for errors during the performance test
@@ -958,7 +1015,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 
@@ -969,4 +1026,8 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
     med_memclk_mhz = freq_monitor.get_med_memclk_mhz();
   }
 
+  check_cuda(cudaEventDestroy(start));
+  check_cuda(cudaEventDestroy(stop));
+  check_cuda(cudaStreamDestroy(stream));
+  check_cublas(cublasLtDestroy(handle));
 }

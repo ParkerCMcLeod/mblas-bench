@@ -108,6 +108,7 @@ class generic_gemm {
   std::string scale_init;
 
  public:
+  virtual ~generic_gemm() = default;
   generic_gemm(cxxopts::ParseResult);
 
   // virtual void setSize();

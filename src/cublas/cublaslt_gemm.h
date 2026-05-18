@@ -119,7 +119,7 @@ class cublaslt_gemm : public generic_gemm {
   scale_size c_scale_size;
   scale_size d_scale_size;
 
-#if (ENABLE_CUDA_FP4)
+#if (ENABLE_CUDA_BLOCK_SCALE)
   cublasLtMatmulMatrixScale_t a_scale_mode;
   cublasLtMatmulMatrixScale_t b_scale_mode;
   cublasLtMatmulMatrixScale_t c_scale_mode;
@@ -171,8 +171,9 @@ class cublaslt_gemm : public generic_gemm {
   void run_threaded(void (cublaslt_gemm::*func)(cublaslt_gemm_inst *));
   std::tuple<double, double, double> calculate_figure_of_merit(double total_time_ms);
   void test_matmul(cublaslt_gemm_inst *mat);
+#if (ENABLE_CUDA_BLOCK_SCALE)
   std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> configure_scaling(matrix_desc desc, mblas_cuda_data_type type, std::string matrix_id);
-  //static std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> configure_scaling(matrix_desc desc, mblas_cuda_data_type type, std::string matrix_id);
+#endif
 
  public:
   cublaslt_gemm(cxxopts::ParseResult result);

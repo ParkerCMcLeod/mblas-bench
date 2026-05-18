@@ -71,6 +71,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -g")
 
 if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.8.0)
     add_definitions(-DENABLE_CUDA_FP4)
+    add_definitions(-DENABLE_CUDA_BLOCK_SCALE)
 endif()
 
 target_include_directories(mblascuda PRIVATE

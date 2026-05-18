@@ -175,10 +175,10 @@ string rocblas_gemm::prepare_array() {
   this->fill_host();
 
   int num_devices;
-  hipGetDeviceCount(&num_devices);
+  check_hip(hipGetDeviceCount(&num_devices));
   // Check range of devices here
   // This implementation may not work if
-  // CUDA_VISIBLE_DEVICES is set to something weird
+  // HIP_VISIBLE_DEVICES / ROCR_VISIBLE_DEVICES is set to something weird
   for (auto &instance : mat_ptrs) {
     if (instance.devIDX >= num_devices) {
       string errorString =
@@ -240,7 +240,7 @@ void rocblas_gemm::alloc_host() {
 }
 
 void rocblas_gemm::alloc_dev(rocblas_gemm_inst *mat) {
-  hipSetDevice(mat->devIDX);
+  check_hip(hipSetDevice(mat->devIDX));
 
   mat->ptr_dev_a =
       (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
@@ -256,16 +256,16 @@ void rocblas_gemm::alloc_dev(rocblas_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    check_hip(hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
+    check_hip(hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
+    check_hip(hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
     if (!inplace) {
-      hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      check_hip(hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
     }
   }
 
   mat->wSZ = workspace_size;
-  hipMalloc(&mat->devWork, mat->wSZ);
+  check_hip(hipMalloc(&mat->devWork, mat->wSZ));
 }
 
 void rocblas_gemm::fill_host() {
@@ -279,7 +279,7 @@ void rocblas_gemm::fill_host() {
 }
 
 void rocblas_gemm::copy_host_to_dev(rocblas_gemm_inst *mat) {
-  hipSetDevice(mat->devIDX);
+  check_hip(hipSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
     copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
     copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
@@ -306,11 +306,11 @@ void rocblas_gemm::free_mem() {
   }
   for (auto mat : mat_ptrs) {
     for (int i = 0; i < flush_batch_count; i++) {
-      hipFree(mat.ptr_dev_a[i]);
-      hipFree(mat.ptr_dev_b[i]);
-      hipFree(mat.ptr_dev_c[i]);
+      check_hip(hipFree(mat.ptr_dev_a[i]));
+      check_hip(hipFree(mat.ptr_dev_b[i]));
+      check_hip(hipFree(mat.ptr_dev_c[i]));
       if (!inplace) {
-        hipFree(mat.ptr_dev_d[i]);
+        check_hip(hipFree(mat.ptr_dev_d[i]));
       }
     }
     free(mat.ptr_dev_a);
@@ -319,7 +319,7 @@ void rocblas_gemm::free_mem() {
     if (!inplace) {
       free(mat.ptr_dev_d);
     }
-    hipFree(mat.devWork);
+    check_hip(hipFree(mat.devWork));
     // if (batched && !strided) {
     //   free(mat.ptr_host_a);
     //   free(mat.ptr_host_b);
@@ -427,9 +427,9 @@ double rocblas_gemm::test() {
     // gemmEx
     // else if (strided && function == "rocblas_gemm_strided_batched_ex") {
     else if (strided && function == "rocblas_gemm_strided_batched_ex") {
-      // Call the Gemm strided batched deployment script
+      throw std::runtime_error("rocblas_gemm_strided_batched_ex is not yet implemented");
     } else if (batched && function == "rocblas_gemm_batched_ex") {
-      // Call the Gemm batched code
+      throw std::runtime_error("rocblas_gemm_batched_ex is not yet implemented");
     } else if (function == "rocblas_gemm_ex" || function == "gemm_ex") {
       threads.push_back(thread(&rocblas_gemm::test_gemm_ex, this, &mat));
     }
@@ -524,36 +524,36 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   for (int rep = 0; rep < cold_iters; rep++) {
     // clang-format off
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
-               (T *) mat->ptr_dev_a[flush_index], lda, 
-               (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta, 
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
+               (T *) mat->ptr_dev_a[flush_index], lda,
+               (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta,
                (T *) mat->ptr_dev_c[flush_index], ldc);
     // clang-format on
     // Check for errors during the gemm run
     check_rocblas(stat);
     check_hip(hipGetLastError());
   }
-  hipStreamSynchronize(stream);
+  check_hip(hipStreamSynchronize(stream));
 
   hipEvent_t start, stop;
-  hipEventCreate(&start);
-  hipEventCreate(&stop);
+  check_hip(hipEventCreate(&start));
+  check_hip(hipEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  hipEventRecord(start, stream);
+  check_hip(hipEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     // clang-format off
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
-               (T *) mat->ptr_dev_a[flush_index], lda, 
-               (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta, 
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
+               (T *) mat->ptr_dev_a[flush_index], lda,
+               (T *) mat->ptr_dev_b[flush_index], ldb, (T *) beta,
                (T *) mat->ptr_dev_c[flush_index], ldc);
     // clang-format on
   }
-  hipEventRecord(stop, stream);
-  hipEventSynchronize(stop);
+  check_hip(hipEventRecord(stop, stream));
+  check_hip(hipEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_rocblas(stat);
@@ -561,9 +561,14 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  hipEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 // Disabled due to batched & rotating tensors not being implemented at the same time
@@ -638,36 +643,36 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   for (int rep = 0; rep < cold_iters; rep++) {
     // clang-format off
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
                 (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
-                (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta, 
+                (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta,
                 (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
     // clang-format on
     // Check for errors during the gemm run
     check_rocblas(stat);
     check_hip(hipGetLastError());
   }
-  hipStreamSynchronize(stream);
+  check_hip(hipStreamSynchronize(stream));
 
   hipEvent_t start, stop;
-  hipEventCreate(&start);
-  hipEventCreate(&stop);
+  check_hip(hipEventCreate(&start));
+  check_hip(hipEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  hipEventRecord(start, stream);
+  check_hip(hipEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     // clang-format off
     int flush_index = rep % flush_batch_count;
-    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha, 
+    stat = func(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, (T *) alpha,
                 (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
-                (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta, 
+                (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta,
                 (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
     // clang-format on
   }
-  hipEventRecord(stop, stream);
-  hipEventSynchronize(stop);
+  check_hip(hipEventRecord(stop, stream));
+  check_hip(hipEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_rocblas(stat);
@@ -675,9 +680,14 @@ void rocblas_gemm::test_Tgemm_strided_batched(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  hipEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
@@ -694,10 +704,10 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   for (int rep = 0; rep < cold_iters; rep++) {
     int flush_index = rep % flush_batch_count;
     // clang-format off
-    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha, 
-                           mat->ptr_dev_a[flush_index], a_type, lda, 
-                           mat->ptr_dev_b[flush_index], b_type, ldb, beta, 
-                           mat->ptr_dev_c[flush_index], c_type, ldc, 
+    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha,
+                           mat->ptr_dev_a[flush_index], a_type, lda,
+                           mat->ptr_dev_b[flush_index], b_type, ldb, beta,
+                           mat->ptr_dev_c[flush_index], c_type, ldc,
                            mat->ptr_dev_d[flush_index], d_type, ldd, compute,
                            rocblas_gemm_algo_standard, 0, 0);
     // clang-format on
@@ -705,29 +715,29 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
     check_rocblas(stat);
     check_hip(hipGetLastError());
   }
-  hipStreamSynchronize(stream);
+  check_hip(hipStreamSynchronize(stream));
 
   hipEvent_t start, stop;
-  hipEventCreate(&start);
-  hipEventCreate(&stop);
+  check_hip(hipEventCreate(&start));
+  check_hip(hipEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  hipEventRecord(start, stream);
+  check_hip(hipEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     // clang-format off
-    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha, 
-                           mat->ptr_dev_a[flush_index], a_type, lda, 
-                           mat->ptr_dev_b[flush_index], b_type, ldb, beta, 
-                           mat->ptr_dev_c[flush_index], c_type, ldc, 
+    stat = rocblas_gemm_ex(handle, transA.convert_to_rocm(), transB.convert_to_rocm(), m, n, k, alpha,
+                           mat->ptr_dev_a[flush_index], a_type, lda,
+                           mat->ptr_dev_b[flush_index], b_type, ldb, beta,
+                           mat->ptr_dev_c[flush_index], c_type, ldc,
                            mat->ptr_dev_d[flush_index], d_type, ldd, compute,
                            rocblas_gemm_algo_standard, 0, 0);
     // clang-format on
-  }  
-  hipEventRecord(stop, stream);
-  hipEventSynchronize(stop);
+  }
+  check_hip(hipEventRecord(stop, stream));
+  check_hip(hipEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_rocblas(stat);
@@ -735,9 +745,14 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  hipEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
+
+  check_hip(hipEventDestroy(start));
+  check_hip(hipEventDestroy(stop));
+  check_hip(hipStreamDestroy(stream));
+  check_rocblas(rocblas_destroy_handle(handle));
 }
 
 
