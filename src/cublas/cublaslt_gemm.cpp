@@ -827,8 +827,23 @@ std::string cublaslt_gemm::get_result_string() {
   // if (batched) {
     ossValues << batch_count << ',';
   // }
-  ossValues << *((float *)alpha) << ',';
-  ossValues << *((float *)beta)   << ',';
+  if (scalar == mblas_data_type::MBLAS_R_64F) {
+    ossValues << *((double *)alpha) << ',';
+    ossValues << *((double *)beta)  << ',';
+  } else if (scalar == mblas_data_type::MBLAS_C_64F) {
+    auto *a = (std::complex<double> *)alpha;
+    auto *b = (std::complex<double> *)beta;
+    ossValues << "(" << a->real() << "," << a->imag() << "),";
+    ossValues << "(" << b->real() << "," << b->imag() << "),";
+  } else if (scalar == mblas_data_type::MBLAS_C_32F) {
+    auto *a = (std::complex<float> *)alpha;
+    auto *b = (std::complex<float> *)beta;
+    ossValues << "(" << a->real() << "," << a->imag() << "),";
+    ossValues << "(" << b->real() << "," << b->imag() << "),";
+  } else {
+    ossValues << *((float *)alpha) << ',';
+    ossValues << *((float *)beta)  << ',';
+  }
   ossValues << a_type.to_string() << ',';
   ossValues << b_type.to_string() << ',';
   ossValues << c_type.to_string() << ',';
