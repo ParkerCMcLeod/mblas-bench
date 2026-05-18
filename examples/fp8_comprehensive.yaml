@@ -17,7 +17,7 @@
 - {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: f32_r, d_type: f32_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
 
 # === E5M2 x E4M3 output variations ===
-# Note: E5M2 x E5M2 is not in the cuBLASLt supported configuration table.
+# Note: E5M2 x E5M2 is not a supported configuration.
 # Supported mixed pairs with E5M2 as A-type: E5M2 x E4M3 only.
 
 # E5M2 x E4M3 -> BF16
@@ -50,14 +50,14 @@
 # CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
 - {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
 
-# NN (Blackwell+ only)
+# NN (requires architecture support)
 # CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
 - {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}
 
-# NT (Blackwell+ only)
+# NT (requires architecture support)
 # CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
 - {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
 
-# TT (Blackwell+ only)
+# TT (requires architecture support)
 # CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
 - {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}

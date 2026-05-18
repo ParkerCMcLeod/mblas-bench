@@ -1,5 +1,5 @@
 # FP8 E4M3 GEMM benchmarks - all four transpose combinations
-# Note: TN layout is required on Ada (SM 8.9) and Hopper (SM 9.0); other combos may work on Blackwell
+# Note: TN layout is required on some architectures
 
 # NN
 # CLI: mblas-bench -m 4096 -n 4096 -k 4096 --alpha 1 --beta 0 --transA N --transB N --initialization trig_float --iters 10 --cold_iters 2 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --rotating 512 --driver ${DRIVER}
