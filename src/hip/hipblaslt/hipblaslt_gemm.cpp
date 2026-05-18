@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <future>
 #include <iomanip>
-#include <numeric>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -16,6 +15,7 @@
 #include "hip_create_allocate.h"
 #include "hip_datatype_utils.h"
 #include "hip_error.h"
+#include "hip_timing.h"
 #include "cxxopts.hpp"
 
 using std::cerr;
@@ -25,6 +25,7 @@ using std::move;
 using std::string;
 using std::thread;
 using std::vector;
+using namespace mblas_timing;
 
 namespace {
 
@@ -86,17 +87,7 @@ std::vector<matmul_prec_type_f8> hipblaslt_gemm::matmulSupportedF8 = {
 };
 // clang-format on
 
-void hipblaslt_gemm::parse_dev_iters(std::string deviceStr) {
-  // Parse device
-  std::stringstream ss(deviceStr);
-  while (ss.good()) {
-    string deviceSStr;
-    getline(ss, deviceSStr, ',');
-    int devInt = stoi(deviceSStr);
-    hipblaslt_gemm_inst val = hipblaslt_gemm_inst(devInt);
-    mat_ptrs.push_back(val);
-  }
-}
+// parse_dev_iters: now inlined in header via parse_dev_iters_impl
 
 void hipblaslt_gemm::parse_problem_type(string computeTStr, string scalarTStr,
                                string aStr, string bStr, string cStr,
@@ -193,14 +184,11 @@ hipblaslt_gemm::hipblaslt_gemm(cxxopts::ParseResult result) : generic_gemm(resul
   type_call_host<set_scalar>(precision, beta, sbeta, sbetai);
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-  uint64_t a_offset, b_offset, c_offset, d_offset;
-  set_flush_batch_count( 
-      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
-      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type), 
-      a_type.get_packing_count(), 
-      b_type.get_packing_count(), 
-      c_type.get_packing_count(), 
-      d_type.get_packing_count(), 
+  set_flush_batch_count(
+      {(uint64_t)a_props.rows_mem, (uint64_t)a_props.cols_mem, type_call_dev<sizeofCUDT>(a_type), a_type.get_packing_count()},
+      {(uint64_t)b_props.rows_mem, (uint64_t)b_props.cols_mem, type_call_dev<sizeofCUDT>(b_type), b_type.get_packing_count()},
+      {(uint64_t)c_props.rows_mem, (uint64_t)c_props.cols_mem, type_call_dev<sizeofCUDT>(c_type), c_type.get_packing_count()},
+      {(uint64_t)d_props.rows_mem, (uint64_t)d_props.cols_mem, type_call_dev<sizeofCUDT>(d_type), d_type.get_packing_count()},
       inplace);
 }
 
@@ -247,15 +235,7 @@ string hipblaslt_gemm::prepare_array() {
   return ossHeader.str();
 }
 
-void hipblaslt_gemm::run_threaded(void (hipblaslt_gemm::*func)(hipblaslt_gemm_inst *)) {
-  vector<thread> threads;
-  for (auto &instance : mat_ptrs) {
-    threads.push_back(thread(func, this, &instance));
-  }
-  for (auto &thread : threads) {
-    thread.join();
-  }
-}
+// run_threaded: now inlined in header via run_threaded_impl
 
 void hipblaslt_gemm::alloc_host() {
   ptr_host_a =
@@ -273,11 +253,11 @@ void hipblaslt_gemm::alloc_host() {
 
 
   for (int i = 0; i < flush_batch_count; i++) {
-    ptr_host_a[i] = malloc(get_malloc_size_host(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    ptr_host_b[i] = malloc(get_malloc_size_host(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    ptr_host_c[i] = malloc(get_malloc_size_host(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    ptr_host_a[i] = malloc(get_malloc_size_host(a_type, a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride));
+    ptr_host_b[i] = malloc(get_malloc_size_host(b_type, b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride));
+    ptr_host_c[i] = malloc(get_malloc_size_host(c_type, c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride));
     if (!inplace) {
-      ptr_host_d[i] = malloc(get_malloc_size_host(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      ptr_host_d[i] = malloc(get_malloc_size_host(d_type, d_props.rows_mem, d_props.cols_mem, batch_count, d_props.stride));
     }
   }
 }
@@ -299,11 +279,11 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    check_hip(hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
-    check_hip(hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
-    check_hip(hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
+    hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride));
+    hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride));
+    hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride));
     if (!inplace) {
-      check_hip(hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
+      hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, d_props.rows_mem, d_props.cols_mem, batch_count, d_props.stride));
     }
   }
   mat->wSZ = workspace_size;
@@ -311,20 +291,20 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
 }
 
 void hipblaslt_gemm::fill_host() {
-  type_call_host<initHost>(a_type, initialization, ptr_host_a, rows_a, cols_a, lda,
-                         batch_count, stride_a, flush_batch_count, control_a, constant_a, filename_a);
-  type_call_host<initHost>(b_type, initialization, ptr_host_b, rows_b, cols_b, ldb,
-                         batch_count, stride_b, flush_batch_count, control_b, constant_b, filename_b);
-  type_call_host<initHost>(c_type, initialization, ptr_host_c, rows_c, cols_c, ldc,
-                         batch_count, stride_c, flush_batch_count, control_c, constant_c, filename_c);
+  type_call_host<initHost>(a_type, initialization, ptr_host_a, a_props.rows, a_props.cols, lda,
+                         batch_count, a_props.stride, flush_batch_count, a_props.control, a_props.constant, filename_a);
+  type_call_host<initHost>(b_type, initialization, ptr_host_b, b_props.rows, b_props.cols, ldb,
+                         batch_count, b_props.stride, flush_batch_count, b_props.control, b_props.constant, filename_b);
+  type_call_host<initHost>(c_type, initialization, ptr_host_c, c_props.rows, c_props.cols, ldc,
+                         batch_count, c_props.stride, flush_batch_count, c_props.control, c_props.constant, filename_c);
 }
 
 void hipblaslt_gemm::copy_host_to_dev(hipblaslt_gemm_inst *mat) {
   check_hip(hipSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
-    copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
-    copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
-    copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], rows_mem_c, cols_mem_c, batch_count, stride_c);
+    copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride);
+    copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride);
+    copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride);
   }
 }
 
@@ -340,14 +320,14 @@ void hipblaslt_gemm::prepare_matrix(hipblaslt_gemm_inst *mat) {
       mat->desc_op, HIPBLASLT_MATMUL_DESC_TRANSB, &transB_local, sizeof(transB_local)));
 
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_a, a_type, rows_a, cols_a, lda));
+      hipblasLtMatrixLayoutCreate(&mat->desc_a, a_type, a_props.rows, a_props.cols, lda));
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_b, b_type, rows_b, cols_b, ldb));
+      hipblasLtMatrixLayoutCreate(&mat->desc_b, b_type, b_props.rows, b_props.cols, ldb));
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_c, c_type, rows_c, cols_c, ldc));
+      hipblasLtMatrixLayoutCreate(&mat->desc_c, c_type, c_props.rows, c_props.cols, ldc));
   if (!inplace) {
     check_hipblas(
-        hipblasLtMatrixLayoutCreate(&mat->desc_d, d_type, rows_d, cols_d, ldd));
+        hipblasLtMatrixLayoutCreate(&mat->desc_d, d_type, d_props.rows, d_props.cols, ldd));
   } else {
     mat->desc_d = mat->desc_c;
   }
@@ -357,10 +337,10 @@ void hipblaslt_gemm::prepare_matrix(hipblaslt_gemm_inst *mat) {
     check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
     check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
 
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_a, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_a, sizeof(stride_a)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_b, sizeof(stride_b)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_c, sizeof(stride_c)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_d, sizeof(stride_d)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_a, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &a_props.stride, sizeof(a_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &b_props.stride, sizeof(b_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &c_props.stride, sizeof(c_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &d_props.stride, sizeof(d_props.stride)));
   }
 
   check_hipblas(hipblasLtMatmulPreferenceCreate(&mat->pref));
@@ -448,20 +428,8 @@ double hipblaslt_gemm::test() {
     thread.join();
   }
 
-  // Sum all gflops
-  gflop_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const hipblaslt_gemm_inst &o) { return o.gflops + i; });
-
-  gbyte_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const hipblaslt_gemm_inst &o) { return o.gbytes + i; });
-
-  iter_time_us = std::accumulate(begin(mat_ptrs), end(mat_ptrs), 0.0,
-                                 [](double i, const hipblaslt_gemm_inst &o) {
-                                   return o.time_us + i;
-                                 }) /
-                 mat_ptrs.size();
+  // Accumulate results from all device instances
+  accumulate_results(mat_ptrs);
 
   return gflop_per_second;
 }
@@ -482,42 +450,6 @@ std::string hipblaslt_gemm::get_result_string() {
   return ossValues.str();
 }
 
-std::tuple<double, double, double> hipblaslt_gemm::calculate_figure_of_merit(
-    double totalTime_ms) {
-  double avgTime_ms = totalTime_ms / iters;
-  double avgTime_s = avgTime_ms / 1000.0f;
-  double avgTime_us = avgTime_ms * 1000.0f;
-
-  int a_sz = type_call_dev<sizeofCUDT>(a_type);
-  int b_sz = type_call_dev<sizeofCUDT>(b_type);
-  int d_sz = type_call_dev<sizeofCUDT>(d_type);
-  int a_pack = a_type.get_packing_count();
-  int b_pack = b_type.get_packing_count();
-  int d_pack = d_type.get_packing_count();
-
-  int flopPerSize = 2;
-  if (!precision.is_real()) {
-    flopPerSize = 8;
-  }
-  double gbytes = (((static_cast<double>(a_sz) / static_cast<double>(a_pack)) *
-                    static_cast<double>(m) * static_cast<double>(k)) +
-                   ((static_cast<double>(b_sz) / static_cast<double>(b_pack)) *
-                    static_cast<double>(k) * static_cast<double>(n)) +
-                   ((static_cast<double>(d_sz) / static_cast<double>(d_pack)) *
-                    static_cast<double>(n) * static_cast<double>(m))) /
-                  1e9;
-  double gflops = static_cast<double>(flopPerSize) *
-                  (static_cast<double>(m) * static_cast<double>(n) *
-                   static_cast<double>(k)) /
-                  1e9;
-
-  double gflopPerSec = gflops * static_cast<double>(batch_count) / avgTime_s;
-  double gbytePerSec = gbytes * batch_count / avgTime_s;
-
-  return std::tuple<double, double, double>(gflopPerSec, gbytePerSec,
-                                            avgTime_us);
-}
-
 void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
   hipblasStatus_t stat;
   hipblasLtHandle_t handle;
@@ -525,50 +457,29 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
   check_hip(hipSetDevice(mat->devIDX));
   check_hipblas(hipblasLtCreate(&handle));
   check_hip(hipStreamCreate(&stream));
-  // Cold iters
-  for (int rep = 0; rep < cold_iters; rep++) {
+  auto run_kernel = [&](int rep) {
     int flush_index = rep % flush_batch_count;
     stat = hipblasLtMatmul(handle, mat->desc_op, alpha, mat->ptr_dev_a[flush_index], mat->desc_a,
                           mat->ptr_dev_b[flush_index], mat->desc_b, beta, mat->ptr_dev_c[flush_index], mat->desc_c,
                           mat->ptr_dev_d[flush_index], mat->desc_d, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
-    // Check for errors during the gemm run
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
     check_hipblas(stat);
     check_hip(hipGetLastError());
-  }
-  check_hip(hipStreamSynchronize(stream));
+  };
 
-  hipEvent_t start, stop;
-  check_hip(hipEventCreate(&start));
-  check_hip(hipEventCreate(&stop));
-
-  /*
-    Run and time the performance test
-  */
-  check_hip(hipEventRecord(start, stream));
-  for (int rep = 0; rep < iters; rep++) {
-    int flush_index = rep % flush_batch_count;
-    stat = hipblasLtMatmul(handle, mat->desc_op, alpha, mat->ptr_dev_a[flush_index], mat->desc_a,
-                          mat->ptr_dev_b[flush_index], mat->desc_b, beta, mat->ptr_dev_c[flush_index], mat->desc_c,
-                          mat->ptr_dev_d[flush_index], mat->desc_d, &mat->algo.algo, mat->devWork,
-                          mat->wSZ, stream);
-  }
-  check_hip(hipEventRecord(stop, stream));
-  check_hip(hipEventSynchronize(stop));
-
-  // Check for errors during the performance test
+  float elapsedTime_ms = gpu_timed_run<HipTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
   check_hipblas(stat);
   check_hip(hipGetLastError());
-
-  // Calculate and report GFlops
-  float elapsedTime_ms;
-  check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
-  
-  // Cleanup
-  check_hip(hipEventDestroy(start));
-  check_hip(hipEventDestroy(stop));
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
+          type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
+          type_call_dev<sizeofCUDT>(d_type),
+          a_type.get_packing_count(), b_type.get_packing_count(),
+          d_type.get_packing_count(), precision.is_real());
+
   check_hip(hipStreamDestroy(stream));
   check_hipblas(hipblasLtDestroy(handle));
 }

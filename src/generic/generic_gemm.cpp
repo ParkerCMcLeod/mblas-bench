@@ -65,15 +65,11 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
     batched = true;
     pure_batched = false;
   }
-  //stride_a = result["stride_a"].as<long long int>();
-  //stride_b = result["stride_b"].as<long long int>();
-  //stride_c = result["stride_c"].as<long long int>();
-  //stride_d = result["stride_d"].as<long long int>();
   if (strided) {
-    stride_a = fix_stride(result["stride_a"].as<long long int>(), rows_mem_a, cols_mem_a, "A");
-    stride_b = fix_stride(result["stride_b"].as<long long int>(), rows_mem_b, cols_mem_b, "B");
-    stride_c = fix_stride(result["stride_c"].as<long long int>(), rows_mem_c, cols_mem_c, "C");
-    stride_d = fix_stride(result["stride_d"].as<long long int>(), rows_mem_d, cols_mem_d, "D");
+    a_props.stride = fix_stride(result["stride_a"].as<long long int>(), a_props.rows_mem, a_props.cols_mem, "A");
+    b_props.stride = fix_stride(result["stride_b"].as<long long int>(), b_props.rows_mem, b_props.cols_mem, "B");
+    c_props.stride = fix_stride(result["stride_c"].as<long long int>(), c_props.rows_mem, c_props.cols_mem, "C");
+    d_props.stride = fix_stride(result["stride_d"].as<long long int>(), d_props.rows_mem, d_props.cols_mem, "D");
   } 
 
   flush_batch_count = result["flush_batch_count"].as<int>();
@@ -85,20 +81,20 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
   filename_b = result["filename_b"].as<string>();
   filename_c = result["filename_c"].as<string>();
 
-  constant_a = result["constant_a"].as<float>();
-  constant_b = result["constant_b"].as<float>();
-  constant_c = result["constant_c"].as<float>();
-  constant_d = result["constant_d"].as<float>();
+  a_props.constant = result["constant_a"].as<float>();
+  b_props.constant = result["constant_b"].as<float>();
+  c_props.constant = result["constant_c"].as<float>();
+  d_props.constant = result["constant_d"].as<float>();
 
-  scale_mode_a = set_scale_mode(result["scale_mode_a"].as<string>());
-  scale_mode_b = set_scale_mode(result["scale_mode_b"].as<string>());
-  scale_mode_c = set_scale_mode(result["scale_mode_c"].as<string>());
-  scale_mode_d = set_scale_mode(result["scale_mode_d"].as<string>());
+  a_props.scale_mode = set_scale_mode(result["scale_mode_a"].as<string>());
+  b_props.scale_mode = set_scale_mode(result["scale_mode_b"].as<string>());
+  c_props.scale_mode = set_scale_mode(result["scale_mode_c"].as<string>());
+  d_props.scale_mode = set_scale_mode(result["scale_mode_d"].as<string>());
 
-  scale_factor_a = result["scale_factor_a"].as<float>();
-  scale_factor_b = result["scale_factor_b"].as<float>();
-  scale_factor_c = result["scale_factor_c"].as<float>();
-  scale_factor_d = result["scale_factor_d"].as<float>();
+  a_props.scale_factor = result["scale_factor_a"].as<float>();
+  b_props.scale_factor = result["scale_factor_b"].as<float>();
+  c_props.scale_factor = result["scale_factor_c"].as<float>();
+  d_props.scale_factor = result["scale_factor_d"].as<float>();
 
   a_props.init = set_init(a_props, result["initialization"].as<string>(), result["mx_init"].as<string>());
   b_props.init = set_init(b_props, result["initialization"].as<string>(), result["mx_init"].as<string>());
@@ -107,9 +103,9 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
 
   // Set init control information
   if (initialization == "rand_int") {
-    control_b = true;
+    b_props.control = true;
   } else if (initialization == "trig_float") {
-    control_a = true;
+    a_props.control = true;
   }
 }
 
@@ -149,13 +145,11 @@ std::pair<int, int> generic_gemm::set_row_col(std::string OP, int d1, int d2) {
 }
 
 void generic_gemm::set_flush_batch_count(
-                      int a_type_size,  int b_type_size, int c_type_size, int d_type_size, 
-                      int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing,
+                      const matrix_alloc_desc& a, const matrix_alloc_desc& b,
+                      const matrix_alloc_desc& c, const matrix_alloc_desc& d,
                       bool inplace) {
   // test
-  uint64_t single_block_size = calculate_offsets(rows_mem_a, cols_mem_a, rows_mem_b, cols_mem_b, rows_mem_c, cols_mem_c, rows_mem_d, cols_mem_d, 
-                    a_type_size, b_type_size, c_type_size, d_type_size,
-                    a_type_packing, b_type_packing, c_type_packing, d_type_packing, batch_count, inplace);
+  uint64_t single_block_size = calculate_offsets(a, b, c, d, batch_count, inplace);
   uint64_t flush_memory_size_bytes = (uint64_t)flush_memory_size * 1024 * 1024;
   if (flush_memory_size == 0) {
     // Not specified, return
@@ -198,8 +192,6 @@ scaling_type generic_gemm::set_scale_mode(string value) {
     }
   } else {
     string lower_val = value;
-    //std::transform(value.begin(), value.end(), lower_val.begin(),
-    //[](unsigned char c){ return std::tolower(c); });
     std::transform(lower_val.begin(), lower_val.end(), lower_val.begin(), ::tolower);
     if (lower_val == "none") {
       out = scaling_type::None;
@@ -224,14 +216,6 @@ std::string generic_gemm::set_init(matrix_desc desc, std::string init, std::stri
   return mx_init;
 
 }
-//void generic_gemm::set_init_params(){
-//  if (initialization == "rand_int") {
-//    control_b = true;
-//  } else if (initialization == "trig_float") {
-//    control_a = true;
-//    if ()
-//  }
-//}
 
 std::string scaling_string(scaling_type input){
   if (input == scaling_type::None) {

@@ -30,27 +30,10 @@ struct TgemmPrecTypeAMD {
   }
 };
 
-struct rocblas_gemm_inst {
-  int devIDX;
-  double gflops = 0;
-  double gbytes = 0;
-  double time_us = 0;
-  void *alpha;
-  void *beta;
-  /*
-    Double pointers
-    Only used for Batched variant of gemms
-    Unused for others
-  */
-  void ** ptr_dev_a;
-  void ** ptr_dev_b;
-  void ** ptr_dev_c;
-  void ** ptr_dev_d;
-  void *devWork;
-  long wSZ;
-  rocblas_gemm_inst(int devID) { 
-    devIDX = devID;
-  }
+struct rocblas_gemm_inst : gemm_inst_base {
+  void *alpha = nullptr;
+  void *beta = nullptr;
+  rocblas_gemm_inst(int devID) : gemm_inst_base(devID) {}
 };
 
 class rocblas_gemm : public generic_gemm {
@@ -112,16 +95,17 @@ class rocblas_gemm : public generic_gemm {
   // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr, std::string dStr);
-  void parse_dev_iters(std::string);
+  void parse_dev_iters(std::string deviceStr) {
+    parse_dev_iters_impl(deviceStr, mat_ptrs);
+  }
   rocblas_operation set_op(std::string);
   void alloc_host();
   void alloc_dev(rocblas_gemm_inst *);
   void fill_host();
   void copy_host_to_dev(rocblas_gemm_inst *);
-  void run_threaded(void (rocblas_gemm::*func)(rocblas_gemm_inst *));
-  std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
-
-
+  void run_threaded(void (rocblas_gemm::*func)(rocblas_gemm_inst *)) {
+    run_threaded_impl(func, mat_ptrs);
+  }
 
   template <typename T>
   void test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, rocblas_operation_, rocblas_operation_, int, int, int, T const*, T const*, int, T const*, int, T const*, T*, int)> func, rocblas_gemm_inst *mat);

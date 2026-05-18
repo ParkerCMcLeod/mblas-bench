@@ -1,52 +1,37 @@
 #include "hip_convert.h"
 
-#include <bitset>
-// #include <cuda_fp8.h>
 #include <hip/hip_bfloat16.h>
 #include <hip/hip_fp16.h>
+#include <hip/hip_fp8.h>
 #include <hip/hip_runtime.h>
 #include "hip_create_allocate.h"
 #include "hip_error.h"
+#include "backend_convert.h"
 
-__global__ void float_to_bf16(float *input, size_t num_elements,
-                                hip_bfloat16 *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __float2bfloat16(input[idx]);
+// ---------------------------------------------------------------------------
+// Vendor-specific conversion functors for intrinsics not handled by
+// static_cast (BF16, FP16, FP8).  These wrap HIP intrinsics and are
+// passed to the generic convert_kernel_fn template.
+// ---------------------------------------------------------------------------
+
+struct FloatToBF16 {
+  __device__ hip_bfloat16 operator()(float v) const {
+    return __float2bfloat16(v);
   }
-}
+};
 
-__global__ void float_to_fp16(float *input, size_t num_elements, __half *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __float2half(input[idx]);
+struct FloatToFP16 {
+  __device__ __half operator()(float v) const {
+    return __float2half(v);
   }
-}
+};
 
-__global__ void float_to_fp8(float *input, size_t num_elements,
-                           __hip_fp8_storage_t *output, __hip_fp8_interpretation_t interp)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __hip_cvt_float_to_fp8(input[idx], __HIP_SATFINITE, interp);
+struct FloatToFP8 {
+  __hip_fp8_interpretation_t interp;
+  __device__ __hip_fp8_storage_t operator()(float v) const {
+    return __hip_cvt_float_to_fp8(v, __HIP_SATFINITE, interp);
   }
-}
-
-// __global__ void intToInt8(__int32_t *input, size_t num_elements,
-//                           __int8_t *output, __nv_fp8_interpretation_t interp)
-// {
-//   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//   if (idx < num_elements)
-//   {
-//     output[idx] = (__int8_t)input[idx];
-//     // output[idx] = dynamic_cast<__int8_t>(input[idx]);
-//   }
-// }
+};
 
 void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x, long y,
                       int batchsz, long long stride)
@@ -60,40 +45,37 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
   long hostsz = type_call_host<sizeofCUDT>(precision);
   if (precision == mblas_data_type(MBLAS_C_16F) || precision == mblas_data_type(MBLAS_R_16F))
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_hip(hipMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_hip(hipMemcpy(tmpA, hostA, total_elements * hostsz, hipMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_fp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA, FloatToFP16{});
     check_hip(hipGetLastError());
-    check_hip(hipFree(tmpA));
+    hipFree(tmpA);
   }
   else if (precision == mblas_data_type(MBLAS_C_16BF) || precision == mblas_data_type(MBLAS_R_16BF))
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_hip(hipMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_hip(hipMemcpy(tmpA, hostA, total_elements * hostsz, hipMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_bf16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (hip_bfloat16 *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (hip_bfloat16 *)devA, FloatToBF16{});
     check_hip(hipGetLastError());
-    check_hip(hipFree(tmpA));
+    hipFree(tmpA);
   }
   else if (precision == mblas_data_type::MBLAS_R_8F_E4M3 ||
            precision == mblas_data_type::MBLAS_R_8F_E5M2)
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_hip(hipMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_hip(hipMemcpy(tmpA, hostA, total_elements * hostsz, hipMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
     __hip_fp8_interpretation_t interp;
     if (precision == mblas_data_type::MBLAS_R_8F_E4M3)
     {
@@ -103,9 +85,9 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
     {
       interp = __HIP_E5M2;
     }
-    float_to_fp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__hip_fp8_storage_t *)devA, interp);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__hip_fp8_storage_t *)devA, FloatToFP8{interp});
     check_hip(hipGetLastError());
-    check_hip(hipFree(tmpA));
+    hipFree(tmpA);
   }
   else
   {
@@ -117,34 +99,5 @@ void copy_and_convert(mblas_data_type precision, void *hostA, void *devA, long x
 
 void *convert_scalar(mblas_data_type precision, void *scalar)
 {
-  if (precision == mblas_data_type(MBLAS_R_16F))
-  {
-    // Read float value, convert to __half, write in-place
-    float scalarVal = *static_cast<float *>(scalar);
-    __half *hscalar = (__half *)scalar;
-    *hscalar = __float2half(scalarVal);
-    return scalar;
-  }
-  else if (precision == mblas_data_type(MBLAS_C_16F))
-  {
-    // Read complex<float>, convert to complex<__half>, write in-place
-    std::complex<float> *cFloat = static_cast<std::complex<float> *>(scalar);
-    float realVal = cFloat->real();
-    float imagVal = cFloat->imag();
-
-    std::complex<__half> *cHalf = (std::complex<__half> *)scalar;
-    *cHalf = std::complex<__half>(__float2half(realVal), __float2half(imagVal));
-    return scalar;
-  }
-  else if (precision == mblas_data_type(MBLAS_R_16BF))
-  {
-    float scalarVal = *static_cast<float *>(scalar);
-    hip_bfloat16 *bfscalar = (hip_bfloat16 *)scalar;
-    *bfscalar = hip_bfloat16(scalarVal);
-    return scalar;
-  }
-  else
-  {
-    return scalar;
-  }
+  return convert_scalar_impl(precision, scalar);
 }

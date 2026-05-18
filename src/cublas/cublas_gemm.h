@@ -30,30 +30,21 @@ struct TgemmPrecType {
   }
 };
 
-struct cublasgemmInst {
-  int devIDX;
-  double gflops = 0;
-  double gbytes = 0;
-  double time_us = 0;
-  void *devA;
-  void *devB;
-  void *devC;
-  void *alpha;
-  void *beta;
+struct cublasgemmInst : gemm_inst_base {
+  void *devA = nullptr;
+  void *devB = nullptr;
+  void *devC = nullptr;
+  void *alpha = nullptr;
+  void *beta = nullptr;
   /*
     Double pointers
     Only used for Batched variant of gemms
     Unused for others
   */
-  void **ptr_dev_a;
-  void **ptr_dev_b;
-  void **ptr_dev_c;
-  void **ptr_host_a;
-  void **ptr_host_b;
-  void **ptr_host_c;
-  void *devWork;
-  long wSZ;
-  cublasgemmInst(int devID) { devIDX = devID; }
+  void **ptr_host_a = nullptr;
+  void **ptr_host_b = nullptr;
+  void **ptr_host_c = nullptr;
+  cublasgemmInst(int devID) : gemm_inst_base(devID) {}
 };
 
 class cublas_gemm : public generic_gemm {
@@ -110,15 +101,17 @@ class cublas_gemm : public generic_gemm {
   // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
-  void parse_dev_iters(std::string);
+  void parse_dev_iters(std::string deviceStr) {
+    parse_dev_iters_impl(deviceStr, mat_ptrs);
+  }
   cublasOperation_t set_op(std::string);
   void alloc_host();
   void alloc_dev(cublasgemmInst *);
   void fill_host();
   void copy_host_to_dev(cublasgemmInst *);
-  void run_threaded(void (cublas_gemm::*func)(cublasgemmInst *));
-  std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
-
+  void run_threaded(void (cublas_gemm::*func)(cublasgemmInst *)) {
+    run_threaded_impl(func, mat_ptrs);
+  }
 
   double testGemmExBatched();
   double testGemmExStridedBatched();

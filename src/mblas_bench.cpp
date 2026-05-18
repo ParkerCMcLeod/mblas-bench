@@ -8,16 +8,12 @@
 #include <fstream>
 
 
-//#include "generic_gemm.h"
-//#include "rocblas_gemm.h"
-//#include "hipblaslt_gemm.h"
-//#include "cublas_gemm.h"
-//#include "cublaslt_gemm.h"
-#include <generic_gemm_factory.h>
-#include <rocblas_gemm_factory.h>
-#include <hipblaslt_gemm_factory.h>
-#include <cublas_gemm_factory.h>
-#include <cublaslt_gemm_factory.h>
+#include <memory>
+#include <generic_gemm.h>
+#include <rocblas_gemm.h>
+#include <hipblaslt_gemm.h>
+#include <cublas_gemm.h>
+#include <cublaslt_gemm.h>
 
 #include "third_party/cxxopts.hpp"
 #include <yaml-cpp/yaml.h>
@@ -340,7 +336,7 @@ int main(int argc, char **argv) {
   for (const auto &result: input_problems)
   {
 
-    generic_gemm_factory *gemm;
+    std::unique_ptr<generic_gemm> gemm;
     // Select backend implementation
     string driver = s_to_lower(result["driver"].as<string>());
     string function = s_to_lower(result["function"].as<string>());
@@ -348,23 +344,20 @@ int main(int argc, char **argv) {
     if (driver == "cublaslt" || (driver == "cublas" && function == "matmul")) {
       // Since regular cublas has no matmul, we can safely assume the user means
       // cublaslt
-      gemm = new cublaslt_gemm_factory();
+      gemm = make_cublaslt_gemm(result);
     } else if (driver == "cublas-bench" || driver == "cublas") {
-      gemm = new cublas_gemm_factory();
+      gemm = make_cublas_gemm(result);
     } else if (driver == "hipblaslt" || (driver == "rocblas" && function == "matmul")) {
       // Since regular rocblas has no matmul, we can safely assume the user means
       // hipblaslt
-      // gemm = new hipblaslt_gemm(result);
-      gemm = new hipblaslt_gemm_factory();
+      gemm = make_hipblaslt_gemm(result);
     } else if (driver == "rocblas-bench" || driver == "rocblas") {
-      gemm = new rocblas_gemm_factory();
+      gemm = make_rocblas_gemm(result);
     } else {
       cerr << "Driver \"" << driver << "\" not supported" << endl;
       return 1;
     }
 
-
-    gemm->create_gemm(result);
     string header = gemm->prepare_array();
     cout << header << flush;
     gemm->test();
@@ -374,7 +367,6 @@ int main(int argc, char **argv) {
     cout << results << flush;
 
     gemm->free_mem();
-    delete gemm;
   }
 
 

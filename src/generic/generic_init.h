@@ -9,6 +9,48 @@
 #include <string>
 #include <omp.h>
 
+// ---------------------------------------------------------------------------
+// Shared loop helpers — extract the 4-level nested loop that every fill
+// function repeats.  Two variants:
+//
+//   fill_matrix        – generator needs no per-thread state
+//                        (#pragma omp parallel for collapse(4))
+//
+//   fill_matrix_rng    – generator is built per-thread by a factory callable
+//                        (split #pragma omp parallel / #pragma omp for)
+// ---------------------------------------------------------------------------
+
+/// Simple generator: gen(flush_idx, i_batch, j, i) -> T
+template <typename T, typename Generator>
+void fill_matrix(void **ptr_array, long rows, long cols, long ld,
+                 int batch, long long stride, int flush_batch_count,
+                 Generator gen) {
+  #pragma omp parallel for collapse(4)
+  for (int fi = 0; fi < flush_batch_count; fi++)
+    for (size_t ib = 0; ib < (size_t)batch; ib++)
+      for (size_t j = 0; j < (size_t)cols; j++)
+        for (size_t i = 0; i < (size_t)rows; i++)
+          ((T *)ptr_array[fi])[i + j * ld + ib * stride] = gen(fi, ib, j, i);
+}
+
+/// RNG generator: factory() returns a thread-local callable;
+/// that callable has signature gen(flush_idx, i_batch, j, i) -> T.
+template <typename T, typename Factory>
+void fill_matrix_rng(void **ptr_array, long rows, long cols, long ld,
+                     int batch, long long stride, int flush_batch_count,
+                     Factory factory) {
+  #pragma omp parallel
+  {
+    auto gen = factory();            // executed once per thread
+    #pragma omp for collapse(4)
+    for (int fi = 0; fi < flush_batch_count; fi++)
+      for (size_t ib = 0; ib < (size_t)batch; ib++)
+        for (size_t j = 0; j < (size_t)cols; j++)
+          for (size_t i = 0; i < (size_t)rows; i++)
+            ((T *)ptr_array[fi])[i + j * ld + ib * stride] = gen(fi, ib, j, i);
+  }
+}
+
 // Rand int gen
 template <typename T>
 inline T rand_int_gen(std::uniform_int_distribution<int> &idist,
@@ -57,44 +99,27 @@ void fill_rand_host_blasgemm(void **ptr_array, long rows_A, long cols_A, long ld
 template <typename T>
 void fill_rand_host_constant(void **ptr_array, long rows_A, long cols_A, long ld, int batch,
                             long long int stride, int flush_batch_count, float constant) {
-  #pragma omp parallel for collapse(4)
-  for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-    for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-      for (size_t j = 0; j < cols_A; ++j) {
-        for (size_t i = 0; i < rows_A; ++i) {
-          T *A = (T *)ptr_array[flush_idx];
-          A[i + j * ld + i_batch * stride] = (T)(constant);
-        }
-      }
-    }
-  }
+  T val = (T)(constant);
+  fill_matrix<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+                 [val](int, size_t, size_t, size_t) { return val; });
 }
 
 template <typename T>
 void fill_rand_host_rand_int_alternating(void **ptr_array, long rows_A, long cols_A, long ld, int batch,
                            long long int stride, int flush_batch_count, bool alternating, int random_dev_seed) {
-  #pragma omp parallel
-  {
-    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
-    std::mt19937 gen(seed);
-    std::uniform_int_distribution<int> uniform_dist(1, 10);
-    T dummy;
-    #pragma omp for collapse(4) 
-    for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-        for (size_t j = 0; j < cols_A; ++j) {
-          for (size_t i = 0; i < rows_A; ++i) {
-            T *A = (T *)ptr_array[flush_idx];
-            if ((!alternating) || (j % 2 ^ i % 2)) {
-              A[i + j * ld + i_batch * stride] = rand_int_gen(uniform_dist, gen, dummy);
-            } else {
-              A[i + j * ld + i_batch * stride] = rand_int_gen_negative(uniform_dist, gen, dummy);
-            }
-          }
-        }
-      }
-    }
-  }
+  fill_matrix_rng<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+    [random_dev_seed, alternating]() {
+      std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+      std::mt19937 gen(seed);
+      std::uniform_int_distribution<int> uniform_dist(1, 10);
+      T dummy{};
+      return [gen, uniform_dist, dummy, alternating](int, size_t, size_t j, size_t i) mutable -> T {
+        if ((!alternating) || (j % 2 ^ i % 2))
+          return rand_int_gen(uniform_dist, gen, dummy);
+        else
+          return rand_int_gen_negative(uniform_dist, gen, dummy);
+      };
+    });
 }
 
 template <typename T>
@@ -102,23 +127,15 @@ void fill_rand_host_normal_float(void **ptr_array, long rows_A, long cols_A, lon
                              long long int stride, int flush_batch_count, float mean = 0.0f, float std_dev = 1.0f) {
   std::random_device r;
   int random_dev_seed = r();
-  #pragma omp parallel
-  {
-    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
-    std::mt19937 gen(seed);
-    std::normal_distribution<T> normal_dist(mean, std_dev);
-    #pragma omp for collapse(4) 
-    for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-        for (size_t j = 0; j < cols_A; ++j) {
-          for (size_t i = 0; i < rows_A; ++i) {
-            T *A = (T *)ptr_array[flush_idx];
-            A[i + j * ld + i_batch * stride] = normal_dist(gen);
-          }
-        }
-      }
-    }
-  }
+  fill_matrix_rng<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+    [random_dev_seed, mean, std_dev]() {
+      std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+      std::mt19937 gen(seed);
+      std::normal_distribution<T> normal_dist(mean, std_dev);
+      return [gen, normal_dist](int, size_t, size_t, size_t) mutable -> T {
+        return normal_dist(gen);
+      };
+    });
 }
 
 template <typename T>
@@ -126,23 +143,15 @@ void fill_rand_host_uniform(void **ptr_array, long rows_A, long cols_A, long ld,
                            long long int stride, int flush_batch_count, float min_val = 0.0f, float max_val = 1.0f) {
   std::random_device r;
   int random_dev_seed = r();
-  #pragma omp parallel
-  {
-    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
-    std::mt19937 gen(seed);
-    std::uniform_real_distribution<T> uniform_dist(min_val, max_val);
-    #pragma omp for collapse(4) 
-    for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-        for (size_t j = 0; j < cols_A; ++j) {
-          for (size_t i = 0; i < rows_A; ++i) {
-            T *A = (T *)ptr_array[flush_idx];
-            A[i + j * ld + i_batch * stride] = uniform_dist(gen);
-          }
-        }
-      }
-    }
-  }
+  fill_matrix_rng<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+    [random_dev_seed, min_val, max_val]() {
+      std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+      std::mt19937 gen(seed);
+      std::uniform_real_distribution<T> uniform_dist(min_val, max_val);
+      return [gen, uniform_dist](int, size_t, size_t, size_t) mutable -> T {
+        return uniform_dist(gen);
+      };
+    });
 }
 
 template <typename T>
@@ -150,52 +159,32 @@ void fill_rand_host_pow2_binomial(void **ptr_array, long rows_A, long cols_A, lo
                                    long long int stride, int flush_batch_count, int n = 10) {
   std::random_device r;
   int random_dev_seed = r();
-  #pragma omp parallel
-  {
-    std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
-    std::mt19937 gen(seed);
-    std::binomial_distribution<int> binomial_dist(2 * n + 1, 0.5);
-    #pragma omp for collapse(4) 
-    for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-        for (size_t j = 0; j < cols_A; ++j) {
-          for (size_t i = 0; i < rows_A; ++i) {
-            T *A = (T *)ptr_array[flush_idx];
-            int binomial_value = binomial_dist(gen);
-            int offset_value = binomial_value - (n + 1);
-            A[i + j * ld + i_batch * stride] = T(std::ldexp(T(1), offset_value));
-          }
-        }
-      }
-    }
-  }
+  fill_matrix_rng<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+    [random_dev_seed, n]() {
+      std::seed_seq seed{random_dev_seed, omp_get_thread_num()};
+      std::mt19937 gen(seed);
+      std::binomial_distribution<int> binomial_dist(2 * n + 1, 0.5);
+      return [gen, binomial_dist, n](int, size_t, size_t, size_t) mutable -> T {
+        int binomial_value = binomial_dist(gen);
+        int offset_value = binomial_value - (n + 1);
+        return T(std::ldexp(T(1), offset_value));
+      };
+    });
 }
 
 template <typename T>
 void fill_rand_host_trig_float(void **ptr_array, long rows_A, long cols_A, long ld, int batch,
                            long long int stride, int flush_batch_count, bool isSin, float scaling) {
   const long long int matrix_size = rows_A * cols_A * batch;
-  #pragma omp parallel
-  {
-    #pragma omp for collapse(4)
-    for (int flush_idx = 0; flush_idx < flush_batch_count; flush_idx++) {
-      for (size_t i_batch = 0; i_batch < batch; i_batch++) {
-        for (size_t j = 0; j < cols_A; ++j) {
-          // size_t offset = j * ld + i_batch * stride;
-          for (size_t i = 0; i < rows_A; ++i) {
-            T *A = (T *)ptr_array[flush_idx];
-            // Add offset based on flush_idx to ensure different matrices for each rotating tensor
-            long long int flush_offset = flush_idx * matrix_size;
-            if (isSin) {
-              A[i + j * ld + i_batch * stride] = T(scaling * sin(flush_offset + i + j * ld + i_batch * stride));
-            } else {
-              A[i + j * ld + i_batch * stride] = T(scaling * cos(flush_offset + i + j * ld + i_batch * stride));
-            }
-          }
-        }
-      }
-    }
-  }
+  fill_matrix<T>(ptr_array, rows_A, cols_A, ld, batch, stride, flush_batch_count,
+    [matrix_size, ld, stride, isSin, scaling](int fi, size_t ib, size_t j, size_t i) -> T {
+      long long int flush_offset = fi * matrix_size;
+      long long int idx = flush_offset + i + j * ld + ib * stride;
+      if (isSin)
+        return T(scaling * sin(idx));
+      else
+        return T(scaling * cos(idx));
+    });
 }
 
 template <typename T>

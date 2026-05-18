@@ -43,19 +43,7 @@ struct matmul_prec_type_f8 {
   }
 };
 
-struct hipblaslt_gemm_inst {
-  int devIDX;
-  double gflops = 0;
-  double gbytes = 0;
-  double time_us = 0;
-  //void *devA;
-  //void *devB;
-  //void *devC;
-  //void *devD;
-  void **ptr_dev_a;
-  void **ptr_dev_b;
-  void **ptr_dev_c;
-  void **ptr_dev_d;
+struct hipblaslt_gemm_inst : gemm_inst_base {
   hipblasLtMatmulDesc_t desc_op;
   hipblasLtMatrixLayout_t desc_a;
   hipblasLtMatrixLayout_t desc_b;
@@ -63,9 +51,7 @@ struct hipblaslt_gemm_inst {
   hipblasLtMatrixLayout_t desc_d;
   hipblasLtMatmulPreference_t pref;
   hipblasLtMatmulHeuristicResult_t algo;
-  void *devWork;
-  long wSZ;
-  hipblaslt_gemm_inst(int devID) { devIDX = devID; }
+  hipblaslt_gemm_inst(int devID) : gemm_inst_base(devID) {}
 };
 
 class hipblaslt_gemm : public generic_gemm {
@@ -108,7 +94,9 @@ class hipblaslt_gemm : public generic_gemm {
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);
   void validate_parameters();
-  void parse_dev_iters(std::string);
+  void parse_dev_iters(std::string deviceStr) {
+    parse_dev_iters_impl(deviceStr, mat_ptrs);
+  }
   void alloc_host();
   void alloc_dev(hipblaslt_gemm_inst *);
   void fill_host();
@@ -116,8 +104,9 @@ class hipblaslt_gemm : public generic_gemm {
   void prepare_matrix(hipblaslt_gemm_inst *);
   void no_tuning(hipblaslt_gemm_inst *);
   void auto_tuning(hipblaslt_gemm_inst *);
-  void run_threaded(void (hipblaslt_gemm::*func)(hipblaslt_gemm_inst *));
-  std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
+  void run_threaded(void (hipblaslt_gemm::*func)(hipblaslt_gemm_inst *)) {
+    run_threaded_impl(func, mat_ptrs);
+  }
   void test_matmul(hipblaslt_gemm_inst *mat);
 
  public:

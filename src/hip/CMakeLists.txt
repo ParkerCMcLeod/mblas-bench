@@ -43,7 +43,6 @@ set(ROCM_SOURCES
 if(WITH_HIPBLASLT)
     list(APPEND ROCM_SOURCES
         hipblaslt/hipblaslt_gemm.cpp
-        hipblaslt/hipblaslt_gemm_factory.cpp
         hipblaslt/mblas_hipblas_compute_type.cpp
         hipblaslt/mblas_hipblas_operation.cpp
     )
@@ -53,7 +52,6 @@ endif()
 if(WITH_ROCBLAS)
     list(APPEND ROCM_SOURCES
         rocblas/rocblas_gemm.cpp
-        rocblas/rocblas_gemm_factory.cpp
         rocblas/mblas_rocblas_data_type.cpp
         rocblas/mblas_rocblas_compute_type.cpp
         rocblas/mblas_rocblas_operation.cpp
