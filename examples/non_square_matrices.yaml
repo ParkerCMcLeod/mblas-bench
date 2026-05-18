@@ -1,0 +1,49 @@
+# Non-square and common ML matrix shapes
+
+# === Tall-skinny and short-wide shapes ===
+
+# Attention projection: tall-skinny (8192x128x4096)
+# CLI: mblas-bench -m 8192 -n 128 -k 4096 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 8192, n: 128, k: 4096, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Short-wide (128x8192x4096)
+# CLI: mblas-bench -m 128 -n 8192 -k 4096 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 128, n: 8192, k: 4096, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Rectangular (4096x1024x2048)
+# CLI: mblas-bench -m 4096 -n 1024 -k 2048 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 4096, n: 1024, k: 2048, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === Long-sequence shapes ===
+
+# Very tall: long-sequence attention (32768x64x4096)
+# CLI: mblas-bench -m 32768 -n 64 -k 4096 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 32768, n: 64, k: 4096, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Very wide (64x32768x4096)
+# CLI: mblas-bench -m 64 -n 32768 -k 4096 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 64, n: 32768, k: 4096, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Batch-1 GEMV-like: single token inference (1x4096x4096)
+# CLI: mblas-bench -m 1 -n 4096 -k 4096 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 1, n: 4096, k: 4096, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === Power-of-2 vs non-power-of-2 comparison ===
+
+# Power of 2 (4096)
+# CLI: mblas-bench -m 4096 -n 4096 -k 4096 --a_type bf16_r --b_type bf16_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 4096, n: 4096, k: 4096, a_type: bf16_r, b_type: bf16_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Non-power-of-2 (4000)
+# CLI: mblas-bench -m 4000 -n 4000 -k 4000 --a_type bf16_r --b_type bf16_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 4000, n: 4000, k: 4000, a_type: bf16_r, b_type: bf16_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Odd size (4097)
+# CLI: mblas-bench -m 4097 -n 4097 -k 4097 --a_type bf16_r --b_type bf16_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 4097, n: 4097, k: 4097, a_type: bf16_r, b_type: bf16_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# === FP8 non-square ===
+
+# FP8 tall-skinny
+# CLI: mblas-bench -m 8192 -n 128 -k 4096 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 8192, n: 128, k: 4096, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, iters: 10, cold_iters: 2}

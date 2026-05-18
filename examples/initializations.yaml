@@ -1,0 +1,37 @@
+# All initialization strategies - FP32 at 2048x2048x2048
+
+# Random integers (1-10) - default
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization rand_int --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: rand_int, iters: 10, cold_iters: 2}
+
+# Trigonometric functions (sin/cos)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Normal distribution (default mean=0, stddev=1)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization normal_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: normal_float, iters: 10, cold_iters: 2}
+
+# Normal distribution with small stddev (common for NN weight init)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization normal_float_0_0.01 --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: normal_float_0_0.01, iters: 10, cold_iters: 2}
+
+# Uniform distribution (default 0-1)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization uniform_dist --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: uniform_dist, iters: 10, cold_iters: 2}
+
+# Centered uniform distribution (-1 to 1)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization uniform_-1_1 --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: uniform_-1_1, iters: 10, cold_iters: 2}
+
+# Constant value initialization
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization constant --constant_a 1.0 --constant_b 1.0 --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: constant, constant_a: 1.0, constant_b: 1.0, iters: 10, cold_iters: 2}
+
+# Power-of-2 binomial distribution (n=8)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --initialization pow2_binomial_8 --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, initialization: pow2_binomial_8, iters: 10, cold_iters: 2}
+
+# MX init override for block-scaled FP8
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --initialization trig_float --mx_init normal_float --scale_mode_a 3 --scale_mode_b 3 --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, initialization: trig_float, mx_init: normal_float, scale_mode_a: 3, scale_mode_b: 3, iters: 10, cold_iters: 2}

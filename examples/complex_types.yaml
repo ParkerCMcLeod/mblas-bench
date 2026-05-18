@@ -1,0 +1,23 @@
+# Complex data type GEMM examples
+# These use the cublas driver for typed GEMM functions and cublaslt for matmul
+# Pass --driver cublas (typed functions) or --driver cublaslt (matmul) on the command line
+
+# Complex FP32 (Cgemm) with FP32 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f32_c --function cublasCgemm --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver cublas
+- {m: 2048, n: 2048, k: 2048, precision: f32_c, function: cublasCgemm, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP64 (Zgemm) with FP64 compute
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f64_c --function cublasZgemm --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver cublas
+- {m: 2048, n: 2048, k: 2048, precision: f64_c, function: cublasZgemm, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP32 with FAST_TF32 compute via cuBLASLt matmul
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f32_c --compute_type CUBLAS_COMPUTE_32F_FAST_TF32 --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, precision: f32_c, compute_type: CUBLAS_COMPUTE_32F_FAST_TF32, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP32 3m algorithm (Cgemm3m) - strided batched variant with batch_count=1
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f32_c --function cublasCgemm3mStridedBatched --batch_count 1 --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver cublas
+- {m: 2048, n: 2048, k: 2048, precision: f32_c, function: cublasCgemm3mStridedBatched, batch_count: 1, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# Complex FP64 3m algorithm (Zgemm3m)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision f64_c --function cublasZgemm3m --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver cublas
+- {m: 2048, n: 2048, k: 2048, precision: f64_c, function: cublasZgemm3m, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}

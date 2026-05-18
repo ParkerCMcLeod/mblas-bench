@@ -1,0 +1,26 @@
+# Timing and iteration mode examples - all four combinations plus cache flushing
+# All entries: FP32 at 2048x2048x2048
+
+# Fixed-count pipelined (default timing mode - overlaps kernel launches)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --timing_mode pipelined --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10, timing_mode: pipelined}
+
+# Fixed-count serialized (synchronizes after each kernel - measures true per-call latency)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --timing_mode serialized --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10, timing_mode: serialized}
+
+# Time-budgeted pipelined (run for 5000ms timed, 1000ms warmup)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters_time 5000 --cold_iters_time 1000 --timing_mode pipelined --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters_time: 5000, cold_iters_time: 1000, timing_mode: pipelined}
+
+# Time-budgeted serialized (run for 5000ms timed, 1000ms warmup)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters_time 5000 --cold_iters_time 1000 --timing_mode serialized --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters_time: 5000, cold_iters_time: 1000, timing_mode: serialized}
+
+# Cache-flushing with rotating tensors (512 MiB - prevents L2 cache hits between iterations)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 100 --cold_iters 10 --rotating 512 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 100, cold_iters: 10, rotating: 512}
+
+# High iteration count for stable measurements
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 1000 --cold_iters 50 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 1000, cold_iters: 50}

@@ -1,0 +1,27 @@
+# Invalid configurations for testing error paths
+# Each entry should produce a clear error message
+# Pass --driver cublaslt on the command line
+
+# FP8 with NN transpose on Ada/Hopper (should error - TN layout required)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f8_r --b_type f8_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB N --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, a_type: f8_r, b_type: f8_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: N, iters: 10, cold_iters: 2}
+
+# FP64 with FP16 compute (invalid - precision mismatch)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision d --compute_type CUBLAS_COMPUTE_16F --function matmul --transA N --transB T --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, precision: d, compute_type: CUBLAS_COMPUTE_16F, function: matmul, transA: N, transB: T, iters: 10, cold_iters: 2}
+
+# INT8 input with FP16 compute (unsupported combination)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type i8_r --b_type i8_r --c_type i32_r --d_type i32_r --compute_type CUBLAS_COMPUTE_16F --function matmul --transA T --transB N --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, a_type: i8_r, b_type: i8_r, c_type: i32_r, d_type: i32_r, compute_type: CUBLAS_COMPUTE_16F, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2}
+
+# FP4 without block scaling (should error - block scaling required for FP4)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f4_r --b_type f4_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA T --transB N --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, a_type: f4_r, b_type: f4_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: T, transB: N, iters: 10, cold_iters: 2}
+
+# Mismatched A/B types in cuBLAS (A=FP16, B=FP32 - not supported)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f16_r --b_type f32_r --c_type f32_r --d_type f32_r --compute_type f32_r --function matmul --transA N --transB T --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 2048, n: 2048, k: 2048, a_type: f16_r, b_type: f32_r, c_type: f32_r, d_type: f32_r, compute_type: f32_r, function: matmul, transA: N, transB: T, iters: 10, cold_iters: 2}
+
+# Zero matrix dimension (m=0)
+# CLI: mblas-bench -m 0 -n 2048 -k 2048 --precision s --function matmul --transA N --transB T --iters 10 --cold_iters 2 --driver cublaslt
+- {m: 0, n: 2048, k: 2048, precision: s, function: matmul, transA: N, transB: T, iters: 10, cold_iters: 2}

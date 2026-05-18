@@ -1,0 +1,27 @@
+# Basic data type GEMM examples - one entry per standard precision at 2048x2048x2048
+# Equivalent cublas typed functions: cublasDgemm (FP64), cublasSgemm (FP32), cublasHgemm (FP16)
+# Equivalent rocblas typed functions: rocblas_dgemm (FP64), rocblas_sgemm (FP32), rocblas_hgemm (FP16)
+
+# FP64 (double precision)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision d --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: d, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# FP32 (single precision)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f32_r --b_type f32_r --c_type f32_r --d_type f32_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f32_r, b_type: f32_r, c_type: f32_r, d_type: f32_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# TF32 (FP32 data with TF32 Tensor Core compute)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --precision s --compute_type CUBLAS_COMPUTE_32F_FAST_TF32 --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, precision: s, compute_type: CUBLAS_COMPUTE_32F_FAST_TF32, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# FP16 (half precision, FP32 compute)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type f16_r --b_type f16_r --c_type f16_r --d_type f16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: f16_r, b_type: f16_r, c_type: f16_r, d_type: f16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# BF16 (bfloat16, FP32 compute)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type bf16_r --b_type bf16_r --c_type bf16_r --d_type bf16_r --compute_type f32_r --function matmul --transA N --transB T --initialization trig_float --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: bf16_r, b_type: bf16_r, c_type: bf16_r, d_type: bf16_r, compute_type: f32_r, function: matmul, transA: N, transB: T, initialization: trig_float, iters: 10, cold_iters: 2}
+
+# INT8 (8-bit integer, INT32 compute and output)
+# CLI: mblas-bench -m 2048 -n 2048 -k 2048 --a_type i8_r --b_type i8_r --c_type i32_r --d_type i32_r --compute_type i32_r --function matmul --transA T --transB N --initialization rand_int --iters 10 --cold_iters 2 --driver ${DRIVER}
+- {m: 2048, n: 2048, k: 2048, a_type: i8_r, b_type: i8_r, c_type: i32_r, d_type: i32_r, compute_type: i32_r, function: matmul, transA: T, transB: N, initialization: rand_int, iters: 10, cold_iters: 2}
