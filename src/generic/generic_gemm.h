@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -51,33 +52,10 @@ class generic_gemm {
   int n;
   int k;
 
-  int & rows_a = a_props.rows;
-  int & cols_a = a_props.cols;
-  int & rows_b = b_props.rows;
-  int & cols_b = b_props.cols;
-  int & rows_c = c_props.rows;
-  int & cols_c = c_props.cols;
-  int & rows_d = d_props.rows;
-  int & cols_d = d_props.cols;
-
-  int & rows_mem_a = a_props.rows_mem;
-  int & cols_mem_a = a_props.cols_mem;
-  int & rows_mem_b = b_props.rows_mem;
-  int & cols_mem_b = b_props.cols_mem;
-  int & rows_mem_c = c_props.rows_mem;
-  int & cols_mem_c = c_props.cols_mem;
-  int & rows_mem_d = d_props.rows_mem;
-  int & cols_mem_d = d_props.cols_mem;
-
   int lda;
   int ldb;
   int ldc;
   int ldd;
-
-  long long int & stride_a = a_props.stride;
-  long long int & stride_b = b_props.stride;
-  long long int & stride_c = c_props.stride;
-  long long int & stride_d = d_props.stride;
 
   bool strided = false;
   bool batched = false;
@@ -94,26 +72,6 @@ class generic_gemm {
   int batch_count;
   int flush_batch_count;
   int flush_memory_size;
-
-  bool & control_a = a_props.control;
-  bool & control_b = b_props.control;
-  bool & control_c = c_props.control;
-  bool & control_d = d_props.control;
-
-  float & constant_a = a_props.constant;
-  float & constant_b = b_props.constant;
-  float & constant_c = c_props.constant;
-  float & constant_d = d_props.constant;
-
-  float & scale_factor_a = a_props.scale_factor;
-  float & scale_factor_b = b_props.scale_factor;
-  float & scale_factor_c = c_props.scale_factor;
-  float & scale_factor_d = d_props.scale_factor;
-
-  scaling_type & scale_mode_a = a_props.scale_mode;
-  scaling_type & scale_mode_b = b_props.scale_mode;
-  scaling_type & scale_mode_c = c_props.scale_mode;
-  scaling_type & scale_mode_d = d_props.scale_mode;
 
   std::string filename_a;
   std::string filename_b;
@@ -152,9 +110,15 @@ class generic_gemm {
   static scaling_type set_scale_mode(std::string input);
   static std::string set_init(matrix_desc desc, std::string init, std::string mx_init);
 
-  void set_flush_batch_count(int a_type_size,  int b_type_size, int c_type_size, int d_type_size,
-                        int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing,
-                        bool inplace);
+  struct matrix_alloc_desc {
+    uint64_t rows_mem, cols_mem;
+    int type_size, type_pack;
+  };
+
+  void set_flush_batch_count(
+      const matrix_alloc_desc& a, const matrix_alloc_desc& b,
+      const matrix_alloc_desc& c, const matrix_alloc_desc& d,
+      bool inplace);
 
   std::tuple<double, double, double> calculate_figure_of_merit(
       double totalTime_ms, int iters_completed,

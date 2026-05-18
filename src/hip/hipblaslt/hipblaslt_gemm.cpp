@@ -184,14 +184,11 @@ hipblaslt_gemm::hipblaslt_gemm(cxxopts::ParseResult result) : generic_gemm(resul
   type_call_host<set_scalar>(precision, beta, sbeta, sbetai);
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-  uint64_t a_offset, b_offset, c_offset, d_offset;
-  set_flush_batch_count( 
-      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
-      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type), 
-      a_type.get_packing_count(), 
-      b_type.get_packing_count(), 
-      c_type.get_packing_count(), 
-      d_type.get_packing_count(), 
+  set_flush_batch_count(
+      {(uint64_t)a_props.rows_mem, (uint64_t)a_props.cols_mem, type_call_dev<sizeofCUDT>(a_type), a_type.get_packing_count()},
+      {(uint64_t)b_props.rows_mem, (uint64_t)b_props.cols_mem, type_call_dev<sizeofCUDT>(b_type), b_type.get_packing_count()},
+      {(uint64_t)c_props.rows_mem, (uint64_t)c_props.cols_mem, type_call_dev<sizeofCUDT>(c_type), c_type.get_packing_count()},
+      {(uint64_t)d_props.rows_mem, (uint64_t)d_props.cols_mem, type_call_dev<sizeofCUDT>(d_type), d_type.get_packing_count()},
       inplace);
 }
 
@@ -256,11 +253,11 @@ void hipblaslt_gemm::alloc_host() {
 
 
   for (int i = 0; i < flush_batch_count; i++) {
-    ptr_host_a[i] = malloc(get_malloc_size_host(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    ptr_host_b[i] = malloc(get_malloc_size_host(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    ptr_host_c[i] = malloc(get_malloc_size_host(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    ptr_host_a[i] = malloc(get_malloc_size_host(a_type, a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride));
+    ptr_host_b[i] = malloc(get_malloc_size_host(b_type, b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride));
+    ptr_host_c[i] = malloc(get_malloc_size_host(c_type, c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride));
     if (!inplace) {
-      ptr_host_d[i] = malloc(get_malloc_size_host(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      ptr_host_d[i] = malloc(get_malloc_size_host(d_type, d_props.rows_mem, d_props.cols_mem, batch_count, d_props.stride));
     }
   }
 }
@@ -282,11 +279,11 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    check_hip(hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
-    check_hip(hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
-    check_hip(hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
+    hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride));
+    hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride));
+    hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride));
     if (!inplace) {
-      check_hip(hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
+      hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, d_props.rows_mem, d_props.cols_mem, batch_count, d_props.stride));
     }
   }
   mat->wSZ = workspace_size;
@@ -294,20 +291,20 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
 }
 
 void hipblaslt_gemm::fill_host() {
-  type_call_host<initHost>(a_type, initialization, ptr_host_a, rows_a, cols_a, lda,
-                         batch_count, stride_a, flush_batch_count, control_a, constant_a, filename_a);
-  type_call_host<initHost>(b_type, initialization, ptr_host_b, rows_b, cols_b, ldb,
-                         batch_count, stride_b, flush_batch_count, control_b, constant_b, filename_b);
-  type_call_host<initHost>(c_type, initialization, ptr_host_c, rows_c, cols_c, ldc,
-                         batch_count, stride_c, flush_batch_count, control_c, constant_c, filename_c);
+  type_call_host<initHost>(a_type, initialization, ptr_host_a, a_props.rows, a_props.cols, lda,
+                         batch_count, a_props.stride, flush_batch_count, a_props.control, a_props.constant, filename_a);
+  type_call_host<initHost>(b_type, initialization, ptr_host_b, b_props.rows, b_props.cols, ldb,
+                         batch_count, b_props.stride, flush_batch_count, b_props.control, b_props.constant, filename_b);
+  type_call_host<initHost>(c_type, initialization, ptr_host_c, c_props.rows, c_props.cols, ldc,
+                         batch_count, c_props.stride, flush_batch_count, c_props.control, c_props.constant, filename_c);
 }
 
 void hipblaslt_gemm::copy_host_to_dev(hipblaslt_gemm_inst *mat) {
   check_hip(hipSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
-    copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
-    copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
-    copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], rows_mem_c, cols_mem_c, batch_count, stride_c);
+    copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], a_props.rows_mem, a_props.cols_mem, batch_count, a_props.stride);
+    copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], b_props.rows_mem, b_props.cols_mem, batch_count, b_props.stride);
+    copy_and_convert(c_type, ptr_host_c[i], mat->ptr_dev_c[i], c_props.rows_mem, c_props.cols_mem, batch_count, c_props.stride);
   }
 }
 
@@ -323,14 +320,14 @@ void hipblaslt_gemm::prepare_matrix(hipblaslt_gemm_inst *mat) {
       mat->desc_op, HIPBLASLT_MATMUL_DESC_TRANSB, &transB_local, sizeof(transB_local)));
 
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_a, a_type, rows_a, cols_a, lda));
+      hipblasLtMatrixLayoutCreate(&mat->desc_a, a_type, a_props.rows, a_props.cols, lda));
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_b, b_type, rows_b, cols_b, ldb));
+      hipblasLtMatrixLayoutCreate(&mat->desc_b, b_type, b_props.rows, b_props.cols, ldb));
   check_hipblas(
-      hipblasLtMatrixLayoutCreate(&mat->desc_c, c_type, rows_c, cols_c, ldc));
+      hipblasLtMatrixLayoutCreate(&mat->desc_c, c_type, c_props.rows, c_props.cols, ldc));
   if (!inplace) {
     check_hipblas(
-        hipblasLtMatrixLayoutCreate(&mat->desc_d, d_type, rows_d, cols_d, ldd));
+        hipblasLtMatrixLayoutCreate(&mat->desc_d, d_type, d_props.rows, d_props.cols, ldd));
   } else {
     mat->desc_d = mat->desc_c;
   }
@@ -340,10 +337,10 @@ void hipblaslt_gemm::prepare_matrix(hipblaslt_gemm_inst *mat) {
     check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
     check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_count, sizeof(batch_count)));
 
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_a, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_a, sizeof(stride_a)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_b, sizeof(stride_b)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_c, sizeof(stride_c)));
-    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_d, sizeof(stride_d)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_a, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &a_props.stride, sizeof(a_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &b_props.stride, sizeof(b_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_c, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &c_props.stride, sizeof(c_props.stride)));
+    check_hipblas(hipblasLtMatrixLayoutSetAttribute(mat->desc_d, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &d_props.stride, sizeof(d_props.stride)));
   }
 
   check_hipblas(hipblasLtMatmulPreferenceCreate(&mat->pref));
