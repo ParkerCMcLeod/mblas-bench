@@ -1,6 +1,5 @@
 #include "cublas_convert.h"
 
-#include <bitset>
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
@@ -12,52 +11,53 @@
 #include "cuda_error.h"
 #include "mblas_cuda_data_type.h"
 #include "generic_setup.h"
+#include "backend_convert.h"
 
-__global__ void float_to_bf16(float *input, size_t num_elements,
-                                __nv_bfloat16 *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __float2bfloat16(input[idx]);
+// ---------------------------------------------------------------------------
+// Vendor-specific conversion functors for intrinsics not handled by
+// static_cast (FP8, E8M0, FP4).  These wrap CUDA intrinsics and are
+// passed to the generic convert_kernel_fn template.
+// ---------------------------------------------------------------------------
+
+struct FloatToBF16 {
+  __device__ __nv_bfloat16 operator()(float v) const {
+    return __float2bfloat16(v);
   }
-}
+};
 
-__global__ void float_to_fp16(float *input, size_t num_elements, __half *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __float2half(input[idx]);
+struct FloatToFP16 {
+  __device__ __half operator()(float v) const {
+    return __float2half(v);
   }
-}
+};
 
-__global__ void float_to_fp8(float *input, size_t num_elements,
-                           __nv_fp8_storage_t *output, __nv_fp8_interpretation_t interp)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __nv_cvt_float_to_fp8(input[idx], __NV_SATFINITE, interp);
+struct FloatToFP8 {
+  __nv_fp8_interpretation_t interp;
+  __device__ __nv_fp8_storage_t operator()(float v) const {
+    return __nv_cvt_float_to_fp8(v, __NV_SATFINITE, interp);
   }
-}
+};
 
-__global__ void float_to_e8m0(float *input, size_t num_elements,
-                           __nv_fp8_storage_t *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
+struct FloatToE8M0 {
+  __device__ __nv_fp8_storage_t operator()(float v) const {
     /*
      Rounding only controls the direction of rounding
      https://docs.nvidia.com/cuda/cuda-math-api/cuda_math_api/group__CUDA__MATH__FP8__MISC.html
     */
-    output[idx] = __nv_cvt_float_to_e8m0(input[idx], __NV_SATFINITE, cudaRoundZero);
+    return __nv_cvt_float_to_e8m0(v, __NV_SATFINITE, cudaRoundZero);
   }
-}
+};
+
+#if (ENABLE_CUDA_FP4)
+struct Float2ToFP4x2 {
+  __device__ __nv_fp4x2_storage_t operator()(float2 v) const {
+    return __nv_cvt_float2_to_fp4x2(v, __NV_E2M1, cudaRoundNearest);
+  }
+};
+#endif
 
 /*
-FYI: 
+FYI:
 
 cudaRoundMode
     cudaRoundNearest
@@ -65,18 +65,6 @@ cudaRoundMode
     cudaRoundPosInf
     cudaRoundMinInf
 */
-
-#if (ENABLE_CUDA_FP4)
-__global__ void float_to_fp4(float2 *input, size_t num_elements,
-                           __nv_fp4x2_storage_t *output)
-{
-  long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_elements)
-  {
-    output[idx] = __nv_cvt_float2_to_fp4x2(input[idx], __NV_E2M1, cudaRoundNearest);
-  }
-}
-#endif
 
 void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, long x,
                       long y, int batchsz, long long stride)
@@ -92,27 +80,25 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
   long long total_elements = stride * (batchsz - 1) + base;
   if (precision == mblas_data_type::MBLAS_C_16F || precision == mblas_data_type::MBLAS_R_16F)
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_cuda(cudaMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_cuda(cudaMemcpy(tmpA, host_a, total_elements * hostsz, cudaMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_fp16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__half *)devA, FloatToFP16{});
     check_cuda(cudaGetLastError());
     check_cuda(cudaFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_C_16BF || precision == mblas_data_type::MBLAS_R_16BF)
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_cuda(cudaMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_cuda(cudaMemcpy(tmpA, host_a, total_elements * hostsz, cudaMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_bf16<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_bfloat16 *)devA, FloatToBF16{});
     check_cuda(cudaGetLastError());
     check_cuda(cudaFree(tmpA));
   }
@@ -120,13 +106,12 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
            precision == mblas_data_type::MBLAS_R_8F_E5M2 ||
            precision == mblas_data_type::MBLAS_R_8F_UE4M3)
   {
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_cuda(cudaMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_cuda(cudaMemcpy(tmpA, host_a, total_elements * hostsz, cudaMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
     __nv_fp8_interpretation_t interp;
     if (precision == mblas_data_type::MBLAS_R_8F_E4M3)
     {
@@ -140,21 +125,20 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
     {
       interp = __NV_E5M2;
     }
-    float_to_fp8<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, interp);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, FloatToFP8{interp});
     check_cuda(cudaGetLastError());
     check_cuda(cudaFree(tmpA));
   }
   else if (precision == mblas_data_type::MBLAS_R_8F_UE8M0)
   {
 #if (ENABLE_CUDA_FP4)
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_cuda(cudaMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_cuda(cudaMemcpy(tmpA, host_a, total_elements * hostsz, cudaMemcpyHostToDevice));
     long long num_elements = total_elements;
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_e8m0<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float *)tmpA, num_elements, (__nv_fp8_storage_t *)devA, FloatToE8M0{});
     check_cuda(cudaGetLastError());
     check_cuda(cudaFree(tmpA));
 #endif
@@ -162,14 +146,13 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
   else if (precision == mblas_data_type::MBLAS_R_4F_E2M1)
   {
 #if (ENABLE_CUDA_FP4)
-    // Allocate memory in the device for host precision (float)
     void *tmpA;
     check_cuda(cudaMalloc(&tmpA, get_malloc_size_host(precision, x, y, batchsz, stride)));
     check_cuda(cudaMemcpy(tmpA, host_a, total_elements * hostsz, cudaMemcpyHostToDevice));
     long long num_elements = ceil_division(total_elements, 2ll);
-    long long block_size = 256;
-    long long num_blocks = (num_elements + block_size - 1) / block_size;
-    float_to_fp4<<<num_blocks, block_size>>>((float2 *)tmpA, num_elements, (__nv_fp4x2_storage_t *)devA);
+    long long block_size, num_blocks;
+    convert_grid_dims(num_elements, num_blocks, block_size);
+    convert_kernel_fn<<<num_blocks, block_size>>>((float2 *)tmpA, num_elements, (__nv_fp4x2_storage_t *)devA, Float2ToFP4x2{});
     check_cuda(cudaGetLastError());
     check_cuda(cudaFree(tmpA));
 #endif
@@ -197,27 +180,5 @@ void copy_and_convert(mblas_cuda_data_type precision, void *host_a, void *devA, 
 
 void *convert_scalar(mblas_cuda_data_type precision, void *scalar)
 {
-  if (precision == mblas_data_type::MBLAS_R_16F)
-  {
-    // Read float value, convert to __half, write in-place
-    float scalarVal = *static_cast<float *>(scalar);
-    __half *hscalar = (__half *)scalar;
-    *hscalar = __float2half(scalarVal);
-    return scalar;
-  }
-  else if (precision == mblas_data_type::MBLAS_C_16F)
-  {
-    // Read complex<float>, convert to complex<__half>, write in-place
-    std::complex<float> *cFloat = static_cast<std::complex<float> *>(scalar);
-    float realVal = cFloat->real();
-    float imagVal = cFloat->imag();
-    
-    std::complex<__half> *cHalf = (std::complex<__half> *)scalar;
-    *cHalf = std::complex<__half>(__float2half(realVal), __float2half(imagVal));
-    return scalar;
-  }
-  else
-  {
-    return scalar;
-  }
+  return convert_scalar_impl(precision, scalar);
 }
