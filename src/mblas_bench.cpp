@@ -98,16 +98,7 @@ std::vector<cxxopts::ParseResult> parse_yaml_file(const std::string& filename, c
 
 
 int main(int argc, char **argv) {
-  // print device info
-  // int num_devices;
-  // cudaGetDeviceCount(&num_devices);
-  // for (int i = 0; i < num_devices; i++) {
-  //   cudaDeviceProp prop;
-  //   cudaGetDeviceProperties(&prop, i);
-  //   std::cout << "Device " << i << ": " << prop.name << ", "
-  //             << prop.clockRate / 1000 << " MHZ"
-  //             << ", " << prop.memoryClockRate / 1000 << " MHZ" << std::endl;
-  // }
+  try {
   // parse input arguments
   cxxopts::Options options("rocblas_bench", "Benchmark rocBLAS");
   string supPrec = "h,s,d,c,z,f16_r,f32_r,f64_r,bf16_r,f32_c,f64_c,i8_r,i32_r";
@@ -388,4 +379,11 @@ int main(int argc, char **argv) {
 
 
   return 0;
+  } catch (const std::exception &e) {
+    cerr << "Error: " << e.what() << endl;
+    return 1;
+  } catch (...) {
+    cerr << "Unknown error occurred" << endl;
+    return 1;
+  }
 }

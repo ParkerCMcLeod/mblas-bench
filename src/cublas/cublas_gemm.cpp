@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <numeric>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -205,7 +206,7 @@ string cublas_gemm::prepare_array() {
   this->fill_host();
 
   int num_devices;
-  cudaGetDeviceCount(&num_devices);
+  check_cuda(cudaGetDeviceCount(&num_devices));
   // Check range of devices here
   // This implementation may not work if
   // CUDA_VISIBLE_DEVICES is set to something weird
@@ -261,7 +262,7 @@ void cublas_gemm::alloc_host() {
 }
 
 void cublas_gemm::alloc_dev(cublasgemmInst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
 
   mat->ptr_dev_a =
       (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
@@ -271,13 +272,13 @@ void cublas_gemm::alloc_dev(cublasgemmInst *mat) {
       (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(c_type));
 
   for (int i = 0; i < flush_batch_count; i++) {
-    cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    check_cuda(cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
   }
 
   mat->wSZ = workspace_size;
-  cudaMalloc(&mat->devWork, mat->wSZ);
+  check_cuda(cudaMalloc(&mat->devWork, mat->wSZ));
 }
 
 void cublas_gemm::fill_host() {
@@ -291,7 +292,7 @@ void cublas_gemm::fill_host() {
 }
 
 void cublas_gemm::copy_host_to_dev(cublasgemmInst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
 
   for (int i = 0; i < flush_batch_count; i++) {
     copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
@@ -336,14 +337,14 @@ void cublas_gemm::free_mem() {
   free(ptr_host_c);
   for (auto mat : mat_ptrs) {
     for (int i = 0; i < flush_batch_count; i++) {
-      cudaFree(mat.ptr_dev_a[i]);
-      cudaFree(mat.ptr_dev_b[i]);
-      cudaFree(mat.ptr_dev_c[i]);
+      check_cuda(cudaFree(mat.ptr_dev_a[i]));
+      check_cuda(cudaFree(mat.ptr_dev_b[i]));
+      check_cuda(cudaFree(mat.ptr_dev_c[i]));
     }
     free(mat.ptr_dev_a);
     free(mat.ptr_dev_b);
     free(mat.ptr_dev_c);
-    cudaFree(mat.devWork);
+    check_cuda(cudaFree(mat.devWork));
     //if (batched && !strided) {
     //  free(mat.ptr_host_a);
     //  free(mat.ptr_host_b);
@@ -576,23 +577,23 @@ void cublas_gemm::test_Tgemm(
     check_cublas(stat);
     check_cuda(cudaGetLastError());
   }
-  cudaStreamSynchronize(stream);
+  check_cuda(cudaStreamSynchronize(stream));
 
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  check_cuda(cudaEventCreate(&start));
+  check_cuda(cudaEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = func(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, (T *) alpha, (T *) mat->ptr_dev_a[flush_index], lda, (T *) mat->ptr_dev_b[flush_index], ldb,
                 (T *) beta, (T *) mat->ptr_dev_c[flush_index], ldc);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_cublas(stat);
@@ -600,7 +601,7 @@ void cublas_gemm::test_Tgemm(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 }
@@ -693,23 +694,23 @@ void cublas_gemm::testTgemmStridedBatched(
     check_cublas(stat);
     check_cuda(cudaGetLastError());
   }
-  cudaStreamSynchronize(stream);
+  check_cuda(cudaStreamSynchronize(stream));
 
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  check_cuda(cudaEventCreate(&start));
+  check_cuda(cudaEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = func(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, (T *) alpha, (T *) mat->ptr_dev_a[flush_index], lda, stride_a,
                 (T *) mat->ptr_dev_b[flush_index], ldb, stride_b, (T *) beta, (T *) mat->ptr_dev_c[flush_index], ldc, stride_c, batch_count);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_cublas(stat);
@@ -717,7 +718,7 @@ void cublas_gemm::testTgemmStridedBatched(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 }
@@ -749,23 +750,23 @@ void cublas_gemm::testTGemmEx(
     check_cublas(stat);
     check_cuda(cudaGetLastError());
   }
-  cudaStreamSynchronize(stream);
+  check_cuda(cudaStreamSynchronize(stream));
 
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  check_cuda(cudaEventCreate(&start));
+  check_cuda(cudaEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = func(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, (T *) alpha, mat->ptr_dev_a[flush_index], a_type, lda,
                 mat->ptr_dev_b[flush_index], b_type, ldb, (T *) beta, mat->ptr_dev_c[flush_index], c_type, ldc);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_cublas(stat);
@@ -773,7 +774,7 @@ void cublas_gemm::testTGemmEx(
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 }
@@ -799,24 +800,24 @@ void cublas_gemm::testGemmEx(cublasgemmInst *mat) {
     check_cublas(stat);
     check_cuda(cudaGetLastError());
   }
-  cudaStreamSynchronize(stream);
+  check_cuda(cudaStreamSynchronize(stream));
 
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  check_cuda(cudaEventCreate(&start));
+  check_cuda(cudaEventCreate(&stop));
 
   /*
     Run and time the performance test
   */
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = cublasGemmEx(handle, transA.convert_to_cuda(), transB.convert_to_cuda(), m, n, k, alpha, mat->ptr_dev_a[flush_index],
                         a_type, lda, mat->ptr_dev_b[flush_index], b_type, ldb, beta, mat->ptr_dev_c[flush_index],
                         c_type, ldc, compute, CUBLAS_GEMM_DEFAULT);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_cublas(stat);
@@ -824,7 +825,7 @@ void cublas_gemm::testGemmEx(cublasgemmInst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 }

@@ -10,6 +10,7 @@
 #include <limits>
 #include <numeric>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -31,8 +32,8 @@ using std::vector;
 
 namespace {
 
-// cuBLASLt doc: FP8 matmul expects TN (transA=T, transB=N) on Ada (8.9), Hopper (9.0),
-// and Blackwell GeForce (12.x). CC is from the runtime device; "GeForce" is inferred from name
+// cuBLASLt doc: FP8 matmul expects TN (transA=T, transB=N) on Ada (SM 8.9),
+// Hopper (SM 9.0), and consumer Blackwell (SM 12.x).
 // https://docs.nvidia.com/cuda/cublas/index.html#cublasltmatmul
 bool device_requires_fp8_tn_layout(const cudaDeviceProp& prop) {
   const int major = prop.major;
@@ -41,7 +42,7 @@ bool device_requires_fp8_tn_layout(const cudaDeviceProp& prop) {
     return true;
   if (major == 9 && minor == 0)
     return true;
-  if (major == 12 && std::strstr(prop.name, "GeForce") != nullptr)
+  if (major == 12)
     return true;
   return false;
 }
@@ -169,7 +170,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     scale_size = get_scale_tensor_size(desc.rows_mem, desc.cols_mem, scale_mode);
   } else if (type.is_fp4()) {
     string errorString =
-        "Non-block scaled fp4 is not supported in cublaslt"
+        "Non-block scaled fp4 is not supported in cublaslt. "
         "Matrix: " + matrix_id +
         "\nType: " + type.to_string();
     std::cerr << scaling_string(desc.scale_mode) << std::endl;
@@ -178,7 +179,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
 #if (CUDART_VERSION >= 12090)
     // Dependent on if this is the A or B matrix
     // Use the columns for B, rows for everything else (A,C,D)
-    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F; 
+    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F;
     //long scaling_vec_len = (matrix_id == "B") ? desc.cols : desc.rows;
     //long scaling_vec_len = (matrix_id == "A") ? desc.cols : desc.rows;
     //std::cout << ((matrix_id == "B") ? n : m) << std::endl;
@@ -187,7 +188,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     scale_type = MBLAS_R_32F;
 #else
     string errorString =
-        "Vector scaling mode requires CUDA 12.9.0 or later. "
+        "Vector scaling mode requires CUDA 12.9.0 or later.\n"
         "Matrix: " + matrix_id +
         "\nType: " + type.to_string();
     std::cerr << scaling_string(desc.scale_mode) << std::endl;
@@ -195,13 +196,13 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
 #endif
   } else if (desc.scale_mode == scaling_type::Scalar) {
     scale_size = std::make_pair<size_t, size_t>(1, 1);
-    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F; 
+    scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F;
     scale_type = MBLAS_R_32F;
   } else {
     scale_size.rows = 0;
     scale_size.cols = 0;
   }
-    
+
   return std::make_tuple(scale_type, scale_mode, scale_size);
 }
 
@@ -348,7 +349,7 @@ string cublaslt_gemm::prepare_array() {
   this->fill_host();
 
   int num_devices;
-  cudaGetDeviceCount(&num_devices);
+  check_cuda(cudaGetDeviceCount(&num_devices));
   // Check range of devices here
   // This implementation may not work if
   // CUDA_VISIBLE_DEVICES is set to something weird
@@ -451,7 +452,7 @@ void cublaslt_gemm::alloc_host() {
 }
 
 void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
 
   mat->ptr_dev_a =
       (void **)malloc(flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
@@ -467,39 +468,39 @@ void cublaslt_gemm::alloc_dev(cublaslt_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    check_cuda(cudaMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
+    check_cuda(cudaMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
     if (!inplace) {
-      cudaMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      check_cuda(cudaMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
     }
   }
 
   mat->wSZ = workspace_size;
-  cudaMalloc(&mat->devWork, mat->wSZ);
+  check_cuda(cudaMalloc(&mat->devWork, mat->wSZ));
   if (a_props.scale_mode != scaling_type::None) {
     mat->scale_dev_a = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_a[i], a_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(a_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_a[i], a_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(a_scale_type)));
   }
   if (b_props.scale_mode != scaling_type::None) {
     mat->scale_dev_b = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_b[i], b_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(b_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_b[i], b_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(b_scale_type)));
   }
   if (c_props.scale_mode != scaling_type::None) {
     mat->scale_dev_c = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_c[i], c_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(c_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_c[i], c_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(c_scale_type)));
   }
   if (d_props.scale_mode != scaling_type::None) {
     mat->scale_dev_d = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      cudaMalloc(&mat->scale_dev_d[i], d_scale_size.get_size() * batch_count
-                                       * type_call_dev<sizeofCUDT>(d_scale_type));
+      check_cuda(cudaMalloc(&mat->scale_dev_d[i], d_scale_size.get_size() * batch_count
+                                       * type_call_dev<sizeofCUDT>(d_scale_type)));
   }
 }
 
@@ -538,7 +539,7 @@ void cublaslt_gemm::fill_host() {
 }
 
 void cublaslt_gemm::copy_host_to_dev(cublaslt_gemm_inst *mat) {
-  cudaSetDevice(mat->devIDX);
+  check_cuda(cudaSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
     copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
     copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
@@ -688,7 +689,7 @@ void cublaslt_gemm::no_tuning(cublaslt_gemm_inst *mat) {
       mat->pref, 1, &heuristicResult, &retResults));
 
   if (retResults == 0) {
-    check_cublas(CUBLAS_STATUS_NOT_SUPPORTED);
+    throw std::runtime_error("cublasLtMatmulAlgoGetHeuristic returned 0 results: no supported algorithm for this configuration");
   }
   mat->algo = heuristicResult;
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
@@ -953,7 +954,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
   freq_monitor.set_device_id(mat->devIDX);
   
   freq_monitor.start();
-  cudaEventRecord(start, stream);
+  check_cuda(cudaEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = cublasLtMatmul(handle, mat->desc_ops[flush_index], alpha,
@@ -963,8 +964,8 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
                           mat->ptr_dev_d[flush_index], mat->desc_d,
                           &mat->algo.algo, mat->devWork, mat->wSZ, stream);
   }
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  check_cuda(cudaEventRecord(stop, stream));
+  check_cuda(cudaEventSynchronize(stop));
   freq_monitor.stop();
 
   // Check for errors during the performance test
@@ -973,7 +974,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_cuda(cudaEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
 

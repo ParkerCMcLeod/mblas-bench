@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <numeric>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -177,10 +178,10 @@ string hipblaslt_gemm::prepare_array() {
   this->fill_host();
 
   int num_devices;
-  hipGetDeviceCount(&num_devices);
+  check_hip(hipGetDeviceCount(&num_devices));
   // Check range of devices here
   // This implementation may not work if
-  // CUDA_VISIBLE_DEVICES is set to something weird
+  // HIP_VISIBLE_DEVICES / ROCR_VISIBLE_DEVICES is set to something weird
   for (auto &instance : mat_ptrs) {
     if (instance.devIDX >= num_devices) {
       string errorString =
@@ -248,7 +249,7 @@ void hipblaslt_gemm::alloc_host() {
 }
 
 void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
-  hipSetDevice(mat->devIDX);
+  check_hip(hipSetDevice(mat->devIDX));
 
   mat->ptr_dev_a =
       (void **)malloc(batch_count * flush_batch_count * type_call_dev<sizeofCUDTP>(a_type));
@@ -264,15 +265,15 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
   }
 
   for (int i = 0; i < flush_batch_count; i++) {
-    hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a));
-    hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b));
-    hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c));
+    check_hip(hipMalloc(&mat->ptr_dev_a[i], get_malloc_size_dev(a_type, rows_mem_a, cols_mem_a, batch_count, stride_a)));
+    check_hip(hipMalloc(&mat->ptr_dev_b[i], get_malloc_size_dev(b_type, rows_mem_b, cols_mem_b, batch_count, stride_b)));
+    check_hip(hipMalloc(&mat->ptr_dev_c[i], get_malloc_size_dev(c_type, rows_mem_c, cols_mem_c, batch_count, stride_c)));
     if (!inplace) {
-      hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d));
+      check_hip(hipMalloc(&mat->ptr_dev_d[i], get_malloc_size_dev(d_type, rows_mem_d, cols_mem_d, batch_count, stride_d)));
     }
   }
   mat->wSZ = workspace_size;
-  hipMalloc(&mat->devWork, mat->wSZ);
+  check_hip(hipMalloc(&mat->devWork, mat->wSZ));
 }
 
 void hipblaslt_gemm::fill_host() {
@@ -285,7 +286,7 @@ void hipblaslt_gemm::fill_host() {
 }
 
 void hipblaslt_gemm::copy_host_to_dev(hipblaslt_gemm_inst *mat) {
-  hipSetDevice(mat->devIDX);
+  check_hip(hipSetDevice(mat->devIDX));
   for (int i = 0; i < flush_batch_count; i++) {
     copy_and_convert(a_type, ptr_host_a[i], mat->ptr_dev_a[i], rows_mem_a, cols_mem_a, batch_count, stride_a);
     copy_and_convert(b_type, ptr_host_b[i], mat->ptr_dev_b[i], rows_mem_b, cols_mem_b, batch_count, stride_b);
@@ -347,10 +348,10 @@ void hipblaslt_gemm::no_tuning(hipblaslt_gemm_inst *mat) {
       mat->pref, 1, &heuristicResult, &retResults));
 
   if (retResults == 0) {
-    check_hipblas(HIPBLAS_STATUS_NOT_SUPPORTED);
+    throw std::runtime_error("hipblasLtMatmulAlgoGetHeuristic returned 0 results: no supported algorithm for this configuration");
   }
   mat->algo = heuristicResult;
-  hipblasLtDestroy(handle);
+  check_hipblas(hipblasLtDestroy(handle));
 }
 void hipblaslt_gemm::auto_tuning(hipblaslt_gemm_inst *mat) {
   // Not currently implemented, using simple method
@@ -375,13 +376,13 @@ void hipblaslt_gemm::free_mem() {
     free(ptr_host_d);
   }
   for (auto mat : mat_ptrs) {
-    hipSetDevice(mat.devIDX);
+    check_hip(hipSetDevice(mat.devIDX));
     for (int i = 0; i < flush_batch_count; i++) {
-      hipFree(mat.ptr_dev_a[i]);
-      hipFree(mat.ptr_dev_b[i]);
-      hipFree(mat.ptr_dev_c[i]);
+      check_hip(hipFree(mat.ptr_dev_a[i]));
+      check_hip(hipFree(mat.ptr_dev_b[i]));
+      check_hip(hipFree(mat.ptr_dev_c[i]));
       if (!inplace) {
-        hipFree(mat.ptr_dev_d[i]);
+        check_hip(hipFree(mat.ptr_dev_d[i]));
       }
     }
     free(mat.ptr_dev_a);
@@ -390,15 +391,15 @@ void hipblaslt_gemm::free_mem() {
     if (!inplace) {
       free(mat.ptr_dev_d);
     }
-    hipFree(mat.devWork);
-    hipblasLtMatmulDescDestroy(mat.desc_op);
-    hipblasLtMatrixLayoutDestroy(mat.desc_a);
-    hipblasLtMatrixLayoutDestroy(mat.desc_b);
-    hipblasLtMatrixLayoutDestroy(mat.desc_c);
+    check_hip(hipFree(mat.devWork));
+    check_hipblas(hipblasLtMatmulDescDestroy(mat.desc_op));
+    check_hipblas(hipblasLtMatrixLayoutDestroy(mat.desc_a));
+    check_hipblas(hipblasLtMatrixLayoutDestroy(mat.desc_b));
+    check_hipblas(hipblasLtMatrixLayoutDestroy(mat.desc_c));
     if (!inplace) {
-      hipblasLtMatrixLayoutDestroy(mat.desc_d);
+      check_hipblas(hipblasLtMatrixLayoutDestroy(mat.desc_d));
     }
-    hipblasLtMatmulPreferenceDestroy(mat.pref);
+    check_hipblas(hipblasLtMatmulPreferenceDestroy(mat.pref));
   }
 }
 
@@ -501,7 +502,7 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
     check_hipblas(stat);
     check_hip(hipGetLastError());
   }
-  hipStreamSynchronize(stream);
+  check_hip(hipStreamSynchronize(stream));
 
   hipEvent_t start, stop;
   check_hip(hipEventCreate(&start));
@@ -510,7 +511,7 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
   /*
     Run and time the performance test
   */
-  hipEventRecord(start, stream);
+  check_hip(hipEventRecord(start, stream));
   for (int rep = 0; rep < iters; rep++) {
     int flush_index = rep % flush_batch_count;
     stat = hipblasLtMatmul(handle, mat->desc_op, alpha, mat->ptr_dev_a[flush_index], mat->desc_a,
@@ -518,8 +519,8 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
                           mat->ptr_dev_d[flush_index], mat->desc_d, &mat->algo.algo, mat->devWork,
                           mat->wSZ, stream);
   }
-  hipEventRecord(stop, stream);
-  hipEventSynchronize(stop);
+  check_hip(hipEventRecord(stop, stream));
+  check_hip(hipEventSynchronize(stop));
 
   // Check for errors during the performance test
   check_hipblas(stat);
@@ -527,7 +528,7 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
 
   // Calculate and report GFlops
   float elapsedTime_ms;
-  hipEventElapsedTime(&elapsedTime_ms, start, stop);
+  check_hip(hipEventElapsedTime(&elapsedTime_ms, start, stop));
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
       calculate_figure_of_merit(static_cast<double>(elapsedTime_ms));
   
