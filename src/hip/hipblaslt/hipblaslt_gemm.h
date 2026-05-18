@@ -88,8 +88,6 @@ class hipblaslt_gemm : public generic_gemm {
   std::vector<hipblaslt_gemm_inst> mat_ptrs;
 
  private:
-  // mblas_hip_data_type precisionStringToHipblasDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);

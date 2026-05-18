@@ -137,8 +137,6 @@ class cublaslt_gemm : public generic_gemm {
   std::vector<cublaslt_gemm_inst> mat_ptrs;
 
  private:
-  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr,
                   std::string dStr);
@@ -158,7 +156,6 @@ class cublaslt_gemm : public generic_gemm {
   }
   void test_matmul(cublaslt_gemm_inst *mat);
   std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> configure_scaling(matrix_desc desc, mblas_cuda_data_type type, std::string matrix_id);
-  //static std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> configure_scaling(matrix_desc desc, mblas_cuda_data_type type, std::string matrix_id);
 
  public:
   cublaslt_gemm(cxxopts::ParseResult result);

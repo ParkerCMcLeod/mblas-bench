@@ -91,8 +91,6 @@ class rocblas_gemm : public generic_gemm {
   std::vector<std::vector<hipEvent_t *> *> eventPtr;
 
   void init_prec_map();
-  // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr, std::string dStr);
   void parse_dev_iters(std::string deviceStr) {

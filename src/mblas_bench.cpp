@@ -283,11 +283,27 @@ int main(int argc, char **argv) {
             "Scale factor for D matrix.",
             cxxopts::value<float>()->default_value("1"));
   opp_adder("i,iters",
-            "Iterations to run inside timing loop  (Default value is: 10)",
+            "Iterations to run inside timing loop (Default value is: 10). "
+            "Cannot be combined with --iters_time, but can be used with --cold_iters_time.",
             cxxopts::value<int>()->default_value("10"));
+  opp_adder("iters_time",
+            "Time budget (ms) for the timing loop. "
+            "All iterations that complete within or just past the budget are counted. "
+            "Cannot be combined with --iters, but can be used with --cold_iters.",
+            cxxopts::value<int>()->default_value("0"));
   opp_adder("j,cold_iters",
-            " Cold Iterations to run before entering the timing loop ",
+            "Cold iterations to run before entering the timing loop. "
+            "Cannot be combined with --cold_iters_time, but can be used with --iters_time.",
             cxxopts::value<int>()->default_value("2"));
+  opp_adder("cold_iters_time",
+            "Time budget (ms) for warmup before entering the timing loop. "
+            "Cannot be combined with --cold_iters, but can be used with --iters.",
+            cxxopts::value<int>()->default_value("0"));
+  opp_adder("timing_mode",
+            "Timing measurement mode. "
+            "'serialized': times each kernel in isolation on the GPU. "
+            "'pipelined': times the full end-to-end pipeline across multiple kernels.",
+            cxxopts::value<string>()->default_value("pipelined"));
   opp_adder("driver", "Backend to run the GEMM test with",
             cxxopts::value<string>()->default_value("rocblas"));
   opp_adder("yaml",
@@ -315,7 +331,7 @@ int main(int argc, char **argv) {
 
   cxxopts::ParseResult result = options.parse(argc, argv);
 
-  if (result.count("help")) {
+  if (result.count("help") || argc == 1) {
     cout << options.help() << endl;
     exit(0);
   }
@@ -339,6 +355,11 @@ int main(int argc, char **argv) {
     std::unique_ptr<generic_gemm> gemm;
     // Select backend implementation
     string driver = s_to_lower(result["driver"].as<string>());
+
+    if (!result.count("function")) {
+      cerr << "Error: --function (-f) is required. Use --help for usage information." << endl;
+      return 1;
+    }
     string function = s_to_lower(result["function"].as<string>());
 
     if (driver == "cublaslt" || (driver == "cublas" && function == "matmul")) {

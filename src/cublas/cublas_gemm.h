@@ -97,8 +97,6 @@ class cublas_gemm : public generic_gemm {
 
  private:
   void init_prec_map();
-  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
-  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
   void parse_dev_iters(std::string deviceStr) {
