@@ -1,10 +1,14 @@
 #pragma once
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "cxxopts.hpp"
+
 enum class scaling_type {None, Scalar, Vector, Block};
 std::string scaling_string(scaling_type input);
+
+enum class timing_mode { serialized, pipelined };
 class generic_gemm {
  protected:
   struct matrix_desc {
@@ -63,6 +67,11 @@ class generic_gemm {
 
   int iters;
   int cold_iters;
+
+  int iters_time_ms = 0;
+  int cold_iters_time_ms = 0;
+
+  timing_mode timing = timing_mode::pipelined;
 
   int batch_count;
   int flush_batch_count;
@@ -127,9 +136,15 @@ class generic_gemm {
   static scaling_type set_scale_mode(std::string input);
   static std::string set_init(matrix_desc desc, std::string init, std::string mx_init);
 
-  void set_flush_batch_count(int a_type_size,  int b_type_size, int c_type_size, int d_type_size, 
-                        int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing, 
+  void set_flush_batch_count(int a_type_size,  int b_type_size, int c_type_size, int d_type_size,
+                        int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing,
                         bool inplace);
+
+  std::tuple<double, double, double> calculate_figure_of_merit(
+      double totalTime_ms, int iters_completed,
+      int a_sz, int b_sz, int out_sz,
+      int a_pack, int b_pack, int out_pack,
+      bool is_real);
 
 };
 

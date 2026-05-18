@@ -1,5 +1,6 @@
 #include "generic_gemm.h"
 
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -53,6 +54,42 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
 
   iters = result["iters"].as<int>();
   cold_iters = result["cold_iters"].as<int>();
+
+  iters_time_ms = result["iters_time"].as<int>();
+  cold_iters_time_ms = result["cold_iters_time"].as<int>();
+  if (iters_time_ms < 0 || cold_iters_time_ms < 0) {
+    throw std::invalid_argument("iters_time and cold_iters_time must be >= 0");
+  }
+
+  const bool warmup_time_set  = (cold_iters_time_ms > 0);
+  const bool warmup_fixed_set = (result.count("cold_iters") != 0);
+  const bool measure_time_set  = (iters_time_ms > 0);
+  const bool measure_fixed_set = (result.count("iters") != 0);
+
+  if (warmup_time_set && warmup_fixed_set) {
+    throw std::invalid_argument(
+        "Cannot specify both --cold_iters and --cold_iters_time for the warmup phase.");
+  }
+  if (measure_time_set && measure_fixed_set) {
+    throw std::invalid_argument(
+        "Cannot specify both --iters and --iters_time for the measurement phase.");
+  }
+
+  if (warmup_time_set && !warmup_fixed_set)
+    cold_iters = 0;
+  if (measure_time_set && !measure_fixed_set)
+    iters = 0;
+
+  std::string timing_str = result["timing_mode"].as<std::string>();
+  std::transform(timing_str.begin(), timing_str.end(), timing_str.begin(), ::tolower);
+  if (timing_str == "serialized") {
+    timing = timing_mode::serialized;
+  } else if (timing_str == "pipelined") {
+    timing = timing_mode::pipelined;
+  } else {
+    throw std::invalid_argument(
+        "Invalid --timing_mode '" + timing_str + "'. Must be 'serialized' or 'pipelined'.");
+  }
 
   batch_count = result["batch_count"].as<int>();
   if (function.find("Batched") != string::npos || function.find("batched") != string::npos || batch_count > 1 ) {
@@ -166,7 +203,7 @@ void generic_gemm::set_flush_batch_count(
   if (new_flush_batch_count == 0) {
     std::cerr << "Note: Unable to set flush_batch_count from flush_memory_size (rotating). "
     "Problem does not fit into memory size of " << flush_memory_size << "MiB" << std::endl;
-  } else if (new_flush_batch_count > std::max(cold_iters, iters)) {
+  } else if (iters_time_ms == 0 && new_flush_batch_count > std::max(cold_iters, iters)) {
     flush_batch_count = std::max(cold_iters, iters);
     std::cout << "Note: flush_batch_count reduced from " << new_flush_batch_count << " to " << flush_batch_count << " to avoid excessive memory allocation." << std::endl;
   } else {
@@ -243,4 +280,38 @@ std::string scaling_string(scaling_type input){
   } else if (input == scaling_type::Block) {
     return "Block";
   }
+  return "None";
 }
+
+std::tuple<double, double, double> generic_gemm::calculate_figure_of_merit(
+    double totalTime_ms, int iters_completed,
+    int a_sz, int b_sz, int out_sz,
+    int a_pack, int b_pack, int out_pack,
+    bool is_real) {
+  if (iters_completed <= 0) {
+    return std::tuple<double, double, double>(0.0, 0.0, 0.0);
+  }
+  double avgTime_ms = totalTime_ms / iters_completed;
+  double avgTime_s = avgTime_ms / 1000.0;
+  double avgTime_us = avgTime_ms * 1000.0;
+
+  int flopPerSize = is_real ? 2 : 8;
+
+  double gbytes = (((static_cast<double>(a_sz) / static_cast<double>(a_pack)) *
+                    static_cast<double>(m) * static_cast<double>(k)) +
+                   ((static_cast<double>(b_sz) / static_cast<double>(b_pack)) *
+                    static_cast<double>(k) * static_cast<double>(n)) +
+                   ((static_cast<double>(out_sz) / static_cast<double>(out_pack)) *
+                    static_cast<double>(n) * static_cast<double>(m))) /
+                  1e9;
+  double gflops = static_cast<double>(flopPerSize) *
+                  (static_cast<double>(m) * static_cast<double>(n) *
+                   static_cast<double>(k)) /
+                  1e9;
+
+  double gflopPerSec = gflops * static_cast<double>(batch_count) / avgTime_s;
+  double gbytePerSec = gbytes * batch_count / avgTime_s;
+
+  return std::tuple<double, double, double>(gflopPerSec, gbytePerSec, avgTime_us);
+}
+
