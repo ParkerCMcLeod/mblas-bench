@@ -6,7 +6,6 @@
 #include <bitset>
 #include <future>
 #include <iomanip>
-#include <numeric>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -110,17 +109,7 @@ std::vector<TgemmPrecType> cublas_gemm::Tgemm_ex_supported = {
 
 void cublas_gemm::init_prec_map() {}
 
-void cublas_gemm::parse_dev_iters(std::string deviceStr) {
-  // Parse device
-  std::stringstream ss(deviceStr);
-  while (ss.good()) {
-    string deviceSStr;
-    getline(ss, deviceSStr, ',');
-    int devInt = stoi(deviceSStr);
-    cublasgemmInst val = cublasgemmInst(devInt);
-    mat_ptrs.push_back(val);
-  }
-}
+// parse_dev_iters: now inlined in header via parse_dev_iters_impl
 
 void cublas_gemm::parse_problem_type(string computeTStr, string scalarTStr, string aStr,
                             string bStr, string cStr) {
@@ -261,15 +250,7 @@ string cublas_gemm::prepare_array() {
   return ossHeader.str();
 }
 
-void cublas_gemm::run_threaded(void (cublas_gemm::*func)(cublasgemmInst *)) {
-  vector<thread> threads;
-  for (auto &instance : mat_ptrs) {
-    threads.push_back(thread(func, this, &instance));
-  }
-  for (auto &thread : threads) {
-    thread.join();
-  }
-}
+// run_threaded: now inlined in header via run_threaded_impl
 
 void cublas_gemm::alloc_host() {
   ptr_host_a =
@@ -446,20 +427,8 @@ double cublas_gemm::test() {
     thread.join();
   }
 
-  // Sum all gflops
-  gflop_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const cublasgemmInst &o) { return o.gflops + i; });
-
-  gbyte_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const cublasgemmInst &o) { return o.gbytes + i; });
-
-  iter_time_us = std::accumulate(begin(mat_ptrs), end(mat_ptrs), 0.0,
-                                 [](double i, const cublasgemmInst &o) {
-                                   return o.time_us + i;
-                                 }) /
-                 mat_ptrs.size();
+  // Accumulate results from all device instances
+  accumulate_results(mat_ptrs);
 
   return gflop_per_second;
 }

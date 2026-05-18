@@ -6,7 +6,6 @@
 #include <bitset>
 #include <future>
 #include <iomanip>
-#include <numeric>
 #include <regex>
 #include <string>
 #include <thread>
@@ -48,17 +47,7 @@ std::vector<TgemmPrecTypeAMD> rocblas_gemm::Tgemm_ex_supported = {};
 
 void rocblas_gemm::init_prec_map() {}
 
-void rocblas_gemm::parse_dev_iters(std::string deviceStr) {
-  // Parse device
-  std::stringstream ss(deviceStr);
-  while (ss.good()) {
-    string deviceSStr;
-    getline(ss, deviceSStr, ',');
-    int devInt = stoi(deviceSStr);
-    rocblas_gemm_inst val = rocblas_gemm_inst(devInt);
-    mat_ptrs.push_back(val);
-  }
-}
+// parse_dev_iters: now inlined in header via parse_dev_iters_impl
 
 void rocblas_gemm::parse_problem_type(string computeTStr, string scalarTStr, string aStr,
                              string bStr, string cStr, string dStr) {
@@ -195,15 +184,7 @@ string rocblas_gemm::prepare_array() {
   return ossHeader.str();
 }
 
-void rocblas_gemm::run_threaded(void (rocblas_gemm::*func)(rocblas_gemm_inst *)) {
-  vector<thread> threads;
-  for (auto &instance : mat_ptrs) {
-    threads.push_back(thread(func, this, &instance));
-  }
-  for (auto &thread : threads) {
-    thread.join();
-  }
-}
+// run_threaded: now inlined in header via run_threaded_impl
 
 void rocblas_gemm::alloc_host() {
   ptr_host_a =
@@ -392,20 +373,8 @@ double rocblas_gemm::test() {
     thread.join();
   }
 
-  // Sum all gflops
-  gflop_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const rocblas_gemm_inst &o) { return o.gflops + i; });
-
-  gbyte_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const rocblas_gemm_inst &o) { return o.gbytes + i; });
-
-  iter_time_us = std::accumulate(begin(mat_ptrs), end(mat_ptrs), 0.0,
-                                 [](double i, const rocblas_gemm_inst &o) {
-                                   return o.time_us + i;
-                                 }) /
-                 mat_ptrs.size();
+  // Accumulate results from all device instances
+  accumulate_results(mat_ptrs);
 
   return gflop_per_second;
 }

@@ -1,9 +1,9 @@
 #pragma once
 #include <rocblas/rocblas.h>
+//#include <hip/hip_runtime.h>
 #include <cxxabi.h>
 
 #include <iostream>
-#include <memory>
 #include <vector>
 #include <string>
 
@@ -30,27 +30,10 @@ struct TgemmPrecTypeAMD {
   }
 };
 
-struct rocblas_gemm_inst {
-  int devIDX;
-  double gflops = 0;
-  double gbytes = 0;
-  double time_us = 0;
-  void *alpha;
-  void *beta;
-  /*
-    Double pointers
-    Only used for Batched variant of gemms
-    Unused for others
-  */
-  void ** ptr_dev_a;
-  void ** ptr_dev_b;
-  void ** ptr_dev_c;
-  void ** ptr_dev_d;
-  void *devWork;
-  long wSZ;
-  rocblas_gemm_inst(int devID) { 
-    devIDX = devID;
-  }
+struct rocblas_gemm_inst : gemm_inst_base {
+  void *alpha = nullptr;
+  void *beta = nullptr;
+  rocblas_gemm_inst(int devID) : gemm_inst_base(devID) {}
 };
 
 class rocblas_gemm : public generic_gemm {
@@ -60,6 +43,23 @@ class rocblas_gemm : public generic_gemm {
   void **ptr_host_c;
   void **ptr_host_d;
 
+  // // Device array.  These are where the memory is stored on GPU
+  // void *devA;
+  // void *devB;
+  // void *devC;
+
+  // /*
+  //   Double pointers
+  //   Only used for Batched variant of gemms
+  //   Unused for others
+  // */
+  // void **ptr_dev_a;
+  // void **ptr_dev_b;
+  // void **ptr_dev_c;
+  // void **ptr_host_a;
+  // void **ptr_host_b;
+  // void **ptr_host_c;
+
   void *alpha;
   void *beta;
 
@@ -68,6 +68,8 @@ class rocblas_gemm : public generic_gemm {
   mblas_rocblas_operation transA;
   mblas_rocblas_operation transB;
 
+  // rocblas_status stat;
+  // rocblas_handle handle;
   mblas_rocblas_data_type precision;
   mblas_rocblas_compute_type compute;
   mblas_rocblas_data_type scalar;
@@ -78,24 +80,32 @@ class rocblas_gemm : public generic_gemm {
 
   int workspace_size = 128 * 1024 * 1024;
 
+  // std::map<std::string, rocblas_datatype> precDType;
+  // std::map<std::string, rocblas_datatype> computeDType;
+  // std::map<rocblas_datatype, rocblas_datatype> precToCompute;
+  // static gemmPrecTypeAMD gemm_ex_supported[];
+
   static std::vector<gemmPrecTypeAMD> gemm_ex_supported;
   static std::vector<TgemmPrecTypeAMD> Tgemm_ex_supported;
   std::vector<rocblas_gemm_inst> mat_ptrs;
   std::vector<std::vector<hipEvent_t *> *> eventPtr;
 
   void init_prec_map();
+  // rocblas_datatype precisionStringToRocblasDType(std::string stringPrecision);
+  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr, std::string dStr);
-  void parse_dev_iters(std::string);
+  void parse_dev_iters(std::string deviceStr) {
+    parse_dev_iters_impl(deviceStr, mat_ptrs);
+  }
   rocblas_operation set_op(std::string);
   void alloc_host();
   void alloc_dev(rocblas_gemm_inst *);
   void fill_host();
   void copy_host_to_dev(rocblas_gemm_inst *);
-  void run_threaded(void (rocblas_gemm::*func)(rocblas_gemm_inst *));
-  std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
-
-
+  void run_threaded(void (rocblas_gemm::*func)(rocblas_gemm_inst *)) {
+    run_threaded_impl(func, mat_ptrs);
+  }
 
   template <typename T>
   void test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, rocblas_operation_, rocblas_operation_, int, int, int, T const*, T const*, int, T const*, int, T const*, T*, int)> func, rocblas_gemm_inst *mat);
@@ -124,7 +134,3 @@ class rocblas_gemm : public generic_gemm {
   virtual void free_mem();
 
 };
-
-inline std::unique_ptr<generic_gemm> make_rocblas_gemm(cxxopts::ParseResult result) {
-  return std::make_unique<rocblas_gemm>(std::move(result));
-}

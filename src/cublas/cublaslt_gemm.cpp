@@ -8,7 +8,6 @@
 #include <future>
 #include <iomanip>
 #include <limits>
-#include <numeric>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -180,17 +179,7 @@ std::vector<matmul_prec_type> cublaslt_gemm::matmul_supported = {
 };
 // clang-format on
 
-void cublaslt_gemm::parse_dev_iters(std::string deviceStr) {
-  // Parse device
-  std::stringstream ss(deviceStr);
-  while (ss.good()) {
-    string deviceSStr;
-    getline(ss, deviceSStr, ',');
-    int devInt = stoi(deviceSStr);
-    cublaslt_gemm_inst val = cublaslt_gemm_inst(devInt);
-    mat_ptrs.push_back(val);
-  }
-}
+// parse_dev_iters: now inlined in header via parse_dev_iters_impl
 
 #if (ENABLE_CUDA_BLOCK_SCALE)
 std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublaslt_gemm::configure_scaling(matrix_desc desc, mblas_cuda_data_type type, string matrix_id) {
@@ -423,15 +412,7 @@ string cublaslt_gemm::prepare_array() {
   return ossHeader.str();
 }
 
-void cublaslt_gemm::run_threaded(void (cublaslt_gemm::*func)(cublaslt_gemm_inst *)) {
-  vector<thread> threads;
-  for (auto &instance : mat_ptrs) {
-    threads.push_back(thread(func, this, &instance));
-  }
-  for (auto &thread : threads) {
-    thread.join();
-  }
-}
+// run_threaded: now inlined in header via run_threaded_impl
 
 void cublaslt_gemm::alloc_host() {
   ptr_host_a =
@@ -827,20 +808,8 @@ double cublaslt_gemm::test() {
     thread.join();
   }
 
-  // Sum all gflops
-  gflop_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const cublaslt_gemm_inst &o) { return o.gflops + i; });
-
-  gbyte_per_second = std::accumulate(
-      begin(mat_ptrs), end(mat_ptrs), 0.0,
-      [](double i, const cublaslt_gemm_inst &o) { return o.gbytes + i; });
-
-  iter_time_us = std::accumulate(begin(mat_ptrs), end(mat_ptrs), 0.0,
-                                 [](double i, const cublaslt_gemm_inst &o) {
-                                   return o.time_us + i;
-                                 }) /
-                 mat_ptrs.size();
+  // Accumulate results from all device instances
+  accumulate_results(mat_ptrs);
 
   return gflop_per_second;
 }

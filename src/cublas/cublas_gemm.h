@@ -4,7 +4,6 @@
 #include <cxxabi.h>
 
 #include <iostream>
-#include <memory>
 #include <string>
 
 #include "generic_gemm.h"
@@ -31,37 +30,48 @@ struct TgemmPrecType {
   }
 };
 
-struct cublasgemmInst {
-  int devIDX;
-  double gflops = 0;
-  double gbytes = 0;
-  double time_us = 0;
-  void *devA;
-  void *devB;
-  void *devC;
-  void *alpha;
-  void *beta;
+struct cublasgemmInst : gemm_inst_base {
+  void *devA = nullptr;
+  void *devB = nullptr;
+  void *devC = nullptr;
+  void *alpha = nullptr;
+  void *beta = nullptr;
   /*
     Double pointers
     Only used for Batched variant of gemms
     Unused for others
   */
-  void **ptr_dev_a;
-  void **ptr_dev_b;
-  void **ptr_dev_c;
-  void **ptr_host_a;
-  void **ptr_host_b;
-  void **ptr_host_c;
-  void *devWork;
-  long wSZ;
-  cublasgemmInst(int devID) { devIDX = devID; }
+  void **ptr_host_a = nullptr;
+  void **ptr_host_b = nullptr;
+  void **ptr_host_c = nullptr;
+  cublasgemmInst(int devID) : gemm_inst_base(devID) {}
 };
 
 class cublas_gemm : public generic_gemm {
  private:
+  //void *host_a;
+  //void *host_b;
+  //void *host_c;
   void **ptr_host_a;
   void **ptr_host_b;
   void **ptr_host_c;
+
+  // // Device array.  These are where the memory is stored on GPU
+  // void *devA;
+  // void *devB;
+  // void *devC;
+
+  // /*
+  //   Double pointers
+  //   Only used for Batched variant of gemms
+  //   Unused for others
+  // */
+  // void **ptr_dev_a;
+  // void **ptr_dev_b;
+  // void **ptr_dev_c;
+  // void **ptr_host_a;
+  // void **ptr_host_b;
+  // void **ptr_host_c;
 
   void *alpha;
   void *beta;
@@ -69,6 +79,8 @@ class cublas_gemm : public generic_gemm {
   mblas_cuda_operation transA;
   mblas_cuda_operation transB;
 
+  // cublasStatus_t stat;
+  // cublasHandle_t handle;
   mblas_cuda_data_type precision;
   mblas_cuda_compute_type compute;
   mblas_cuda_data_type scalar;
@@ -85,17 +97,21 @@ class cublas_gemm : public generic_gemm {
 
  private:
   void init_prec_map();
+  // cudaDataType_t precisionStringToDType(std::string stringPrecision);
+  // void parse_problem_type(std::string a, std::string b, std::string c);
   void parse_problem_type(std::string computeTStr, std::string scalarTStr,
                   std::string aStr, std::string bStr, std::string cStr);
-  void parse_dev_iters(std::string);
+  void parse_dev_iters(std::string deviceStr) {
+    parse_dev_iters_impl(deviceStr, mat_ptrs);
+  }
   cublasOperation_t set_op(std::string);
   void alloc_host();
   void alloc_dev(cublasgemmInst *);
   void fill_host();
   void copy_host_to_dev(cublasgemmInst *);
-  void run_threaded(void (cublas_gemm::*func)(cublasgemmInst *));
-  std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
-
+  void run_threaded(void (cublas_gemm::*func)(cublasgemmInst *)) {
+    run_threaded_impl(func, mat_ptrs);
+  }
 
   double testGemmExBatched();
   double testGemmExStridedBatched();
@@ -145,7 +161,3 @@ class cublas_gemm : public generic_gemm {
   std::string get_result_string();
   virtual void free_mem();
 };
-
-inline std::unique_ptr<generic_gemm> make_cublas_gemm(cxxopts::ParseResult result) {
-  return std::make_unique<cublas_gemm>(std::move(result));
-}
