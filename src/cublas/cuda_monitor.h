@@ -3,70 +3,46 @@
 #include "cuda_error.h"
 
 #include <atomic>
-#include <condition_variable>
-#include <future>
 #include <mutex>
 #include <thread>
 #include <vector>
-#include <string>
-#include <chrono>
 #include <algorithm>
-#include <iostream>
-#include <stdexcept>
+#include <chrono>
 #include <cstdint>
+#include <cstdlib>
 
 #include <cuda_runtime.h>
 #include <nvml.h>
-#include <cstdlib>
 
 
 namespace cuda_monitor {
 
 class monitor
 {
-
 private:
-    // Constants for frequency conversion
     static constexpr double MHz_TO_Hz = 1000000.0;
     static constexpr double Hz_TO_MHz = 1.0 / MHz_TO_Hz;
     static constexpr int SAMPLING_INTERVAL_MS = 50;
 
-    // Thread management
     std::thread monitoring_thread;
     std::atomic<bool> should_stop{false};
-    std::atomic<bool> should_exit{false};
-    std::mutex data_mutex;
-    std::condition_variable cv;
-    std::packaged_task<void()> monitoring_task;
-    std::future<void> monitoring_future;
+    mutable std::mutex data_mutex;
 
-    // Device information
-    nvmlDevice_t nvml_device;
-    int physical_device_id;
+    nvmlDevice_t nvml_device{};
+    int physical_device_id = 0;
 
-    // Frequency data storage
-    std::vector<uint64_t> gpu_frequencies;  // in Hz
-    std::vector<uint64_t> mem_frequencies;  // in Hz
+    std::vector<uint64_t> gpu_frequencies;
+    std::vector<uint64_t> mem_frequencies;
     uint64_t gpu_freq_sum = 0;
     uint64_t mem_freq_sum = 0;
 
-    bool monitoring_active = false;
-
 public:
     monitor(const monitor&) = delete;
+    monitor& operator=(const monitor&) = delete;
 
-    monitor() {
-        init_nvml();
-        init_thread();
-    }
+    monitor() { init_nvml(); }
 
-    ~monitor() {
-        should_exit = true;
-        cv.notify_all();
-        if (monitoring_thread.joinable()) {
-            monitoring_thread.join();
-        }
-    }
+    ~monitor() { stop(); }
 
     void set_device_id(int device_id) {
         physical_device_id = device_id;
@@ -74,150 +50,90 @@ public:
     }
 
     static bool enabled() {
-        const char* freq_env = std::getenv("CUBLAS_BENCH_FREQ");
-        return freq_env != nullptr;
+        return std::getenv("CUBLAS_BENCH_FREQ") != nullptr;
     }
 
     void start() {
         if (!enabled()) return;
-        
-        clear();
-        run();
+        if (monitoring_thread.joinable()) return;
+        {
+            std::lock_guard<std::mutex> lk(data_mutex);
+            gpu_frequencies.clear();
+            mem_frequencies.clear();
+            gpu_freq_sum = 0;
+            mem_freq_sum = 0;
+        }
+        should_stop = false;
+        monitoring_thread = std::thread([this] { collect(); });
     }
 
     void stop() {
         if (!enabled()) return;
-        
-        if (monitoring_active) {
-            should_stop = true;
-            wait();
+        should_stop = true;
+        if (monitoring_thread.joinable()) {
+            monitoring_thread.join();
         }
     }
 
     float get_avg_sysclk_mhz() const {
-        if (gpu_frequencies.empty()) return 0.0;
+        std::lock_guard<std::mutex> lk(data_mutex);
+        if (gpu_frequencies.empty()) return 0.0f;
         return (static_cast<float>(gpu_freq_sum) / gpu_frequencies.size()) * Hz_TO_MHz;
     }
 
     float get_med_sysclk_mhz() const {
-        if (gpu_frequencies.empty()) return 0.0;
-        
-        auto freq_copy = gpu_frequencies;
-        std::sort(freq_copy.begin(), freq_copy.end());
-        
-        size_t n = freq_copy.size();
-        double median_hz;
-        if (n % 2 == 0) {
-            median_hz = (freq_copy[n/2 - 1] + freq_copy[n/2]) / 2.0;
-        } else {
-            median_hz = freq_copy[n/2];
-        }
-        return static_cast<float>(median_hz * Hz_TO_MHz);
+        std::lock_guard<std::mutex> lk(data_mutex);
+        return median_mhz(gpu_frequencies);
     }
 
     float get_avg_memclk_mhz() const {
-        if (mem_frequencies.empty()) return 0.0;
+        std::lock_guard<std::mutex> lk(data_mutex);
+        if (mem_frequencies.empty()) return 0.0f;
         return (static_cast<float>(mem_freq_sum) / mem_frequencies.size()) * Hz_TO_MHz;
     }
 
     float get_med_memclk_mhz() const {
-        if (mem_frequencies.empty()) return 0.0;
-        
-        auto freq_copy = mem_frequencies;
-        std::sort(freq_copy.begin(), freq_copy.end());
-        
-        size_t n = freq_copy.size();
-        double median_hz;
-        if (n % 2 == 0) {
-            median_hz = (freq_copy[n/2 - 1] + freq_copy[n/2]) / 2.0;
-        } else {
-            median_hz = freq_copy[n/2];
-        }
-        return static_cast<float>(median_hz * Hz_TO_MHz);
+        std::lock_guard<std::mutex> lk(data_mutex);
+        return median_mhz(mem_frequencies);
     }
 
 private:
-
-    void init_nvml() {
-        static bool nvml_initialized = false;
-        if (!nvml_initialized) {
-            check_nvml(nvmlInit());
-            nvml_initialized = true;
-        }
+    static void init_nvml() {
+        static std::once_flag once;
+        std::call_once(once, [] { check_nvml(nvmlInit()); });
     }
 
-    void init_thread() {
-        monitoring_thread = std::thread([this]() {
-            std::unique_lock<std::mutex> lock(data_mutex);
-            while (!should_exit) {
-                while (!monitoring_task.valid() && !should_exit) {
-                    auto status = cv.wait_for(lock, std::chrono::seconds(10));
-                    if (status == std::cv_status::timeout) {
-                        continue;
-                    }
-                }
-                
-                if (should_exit) break;
-                
-                monitoring_task();
-                monitoring_task = std::packaged_task<void()>();
-            }
-        });
-    }
-
-    void run() {
-        if (monitoring_active) return;
-        
-        {
-            std::unique_lock<std::mutex> lock(data_mutex);
-            monitoring_task = std::packaged_task<void()>([this]() {
-                collect();
-            });
-            monitoring_future = monitoring_task.get_future();
-            should_stop = false;
-            monitoring_active = true;
-        }
-        cv.notify_all();
+    static float median_mhz(const std::vector<uint64_t>& freqs) {
+        if (freqs.empty()) return 0.0f;
+        auto copy = freqs;
+        std::sort(copy.begin(), copy.end());
+        size_t n = copy.size();
+        double median_hz = (n % 2 == 0)
+            ? (copy[n/2 - 1] + copy[n/2]) / 2.0
+            : static_cast<double>(copy[n/2]);
+        return static_cast<float>(median_hz * Hz_TO_MHz);
     }
 
     void collect() {
-        while (!should_stop && !should_exit) {
-            unsigned int gpu_clock, mem_clock;
-            
-            // Sample GPU core frequency
+        while (!should_stop) {
+            unsigned int gpu_clock = 0, mem_clock = 0;
             nvmlReturn_t gpu_result = nvmlDeviceGetClockInfo(nvml_device, NVML_CLOCK_GRAPHICS, &gpu_clock);
-            if (gpu_result == NVML_SUCCESS) {
-                uint64_t gpu_hz = static_cast<uint64_t>(gpu_clock) * static_cast<uint64_t>(MHz_TO_Hz);
-                gpu_frequencies.push_back(gpu_hz);
-                gpu_freq_sum += gpu_hz;
-            }
-
-            // Sample memory frequency
             nvmlReturn_t mem_result = nvmlDeviceGetClockInfo(nvml_device, NVML_CLOCK_MEM, &mem_clock);
-            if (mem_result == NVML_SUCCESS) {
-                uint64_t mem_hz = static_cast<uint64_t>(mem_clock) * static_cast<uint64_t>(MHz_TO_Hz);
-                mem_frequencies.push_back(mem_hz);
-                mem_freq_sum += mem_hz;
+            {
+                std::lock_guard<std::mutex> lk(data_mutex);
+                if (gpu_result == NVML_SUCCESS) {
+                    uint64_t hz = static_cast<uint64_t>(gpu_clock) * static_cast<uint64_t>(MHz_TO_Hz);
+                    gpu_frequencies.push_back(hz);
+                    gpu_freq_sum += hz;
+                }
+                if (mem_result == NVML_SUCCESS) {
+                    uint64_t hz = static_cast<uint64_t>(mem_clock) * static_cast<uint64_t>(MHz_TO_Hz);
+                    mem_frequencies.push_back(hz);
+                    mem_freq_sum += hz;
+                }
             }
-
-            // Wait before next sample
             std::this_thread::sleep_for(std::chrono::milliseconds(SAMPLING_INTERVAL_MS));
         }
-    }
-
-    void clear() {
-        gpu_frequencies.clear();
-        mem_frequencies.clear();
-        gpu_freq_sum = 0;
-        mem_freq_sum = 0;
-    }
-
-    void wait() {
-        if (!monitoring_future.valid()) return;
-
-        monitoring_future.wait();
-        monitoring_future = std::future<void>();
-        monitoring_active = false;
     }
 };
 

@@ -325,7 +325,9 @@ cublaslt_gemm::cublaslt_gemm(cxxopts::ParseResult result) : generic_gemm(result)
   std::string tB = result["transposeB"].as<std::string>();
   transA = mblas_cuda_operation(result["transposeA"].as<std::string>());
   transB = mblas_cuda_operation(result["transposeB"].as<std::string>());
-  validate_parameters();
+  // Validation moved out of constructor — called by prepare_array() after the
+  // object is fully constructed. Throwing from a partially-constructed object
+  // mid-unwind has historically surfaced as glibc free(): invalid pointer here.
 
 #if defined(HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
   // Parse emulation parameters for CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT matmuls
@@ -369,6 +371,7 @@ cublaslt_gemm::cublaslt_gemm(cxxopts::ParseResult result) : generic_gemm(result)
 }
 
 string cublaslt_gemm::prepare_array() {
+  validate_parameters();
   alpha = convert_scalar(scalar, alpha);
   beta = convert_scalar(scalar, beta);
   this->alloc_host();
@@ -882,7 +885,10 @@ std::string cublaslt_gemm::get_result_string() {
 }
 
 void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
-  cublasStatus_t stat;
+  // Initialize to SUCCESS so a subsequent check_cublas() never reads garbage if
+  // gpu_timed_run_budget exits with zero iterations (e.g., both time budgets
+  // and iter counts were 0). Set inside run_kernel below when matmul runs.
+  cublasStatus_t stat = CUBLAS_STATUS_SUCCESS;
   cublasLtHandle_t handle;
   cudaStream_t stream;
   check_cuda(cudaSetDevice(mat->devIDX));
@@ -903,27 +909,43 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
     check_cuda(cudaGetLastError());
   };
 
-  auto freq_monitor = cuda_monitor::monitor();
-  freq_monitor.set_device_id(mat->devIDX);
+  // cuda_monitor::monitor's constructor unconditionally calls nvmlInit() and
+  // spawns a background thread that captures `this`, even when monitoring is
+  // disabled. Only construct it when actually enabled (CUBLAS_BENCH_FREQ set),
+  // otherwise we leak NVML state and thread handles per test_matmul invocation
+  // and have observed it cause heap corruption (free(): invalid pointer) on
+  // some configurations.
+  std::unique_ptr<cuda_monitor::monitor> freq_monitor;
+  if (cuda_monitor::monitor::enabled()) {
+    freq_monitor = std::make_unique<cuda_monitor::monitor>();
+    freq_monitor->set_device_id(mat->devIDX);
+    freq_monitor->start();
+  }
 
-  freq_monitor.start();
-  float elapsedTime_ms = gpu_timed_run<CudaTimingTraits>(stream, cold_iters, iters, cold_kernel, run_kernel);
-  freq_monitor.stop();
+  auto timing_result = gpu_timed_run_budget<CudaTimingTraits>(
+      stream, cold_iters, cold_iters_time_ms, iters, iters_time_ms,
+      cold_kernel, run_kernel);
+  float elapsedTime_ms = timing_result.elapsed_ms;
+  int iters_completed = timing_result.iters_completed;
+
+  if (freq_monitor) {
+    freq_monitor->stop();
+  }
   check_cublas(stat);
   check_cuda(cudaGetLastError());
 
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters_completed,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(d_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
           d_type.get_packing_count(), precision.is_real());
 
-  if (cuda_monitor::monitor::enabled()) {
-    avg_sysclk_mhz = freq_monitor.get_avg_sysclk_mhz();
-    med_sysclk_mhz = freq_monitor.get_med_sysclk_mhz();
-    avg_memclk_mhz = freq_monitor.get_avg_memclk_mhz();
-    med_memclk_mhz = freq_monitor.get_med_memclk_mhz();
+  if (freq_monitor) {
+    avg_sysclk_mhz = freq_monitor->get_avg_sysclk_mhz();
+    med_sysclk_mhz = freq_monitor->get_med_sysclk_mhz();
+    avg_memclk_mhz = freq_monitor->get_avg_memclk_mhz();
+    med_memclk_mhz = freq_monitor->get_med_memclk_mhz();
   }
 
   check_cuda(cudaStreamDestroy(stream));

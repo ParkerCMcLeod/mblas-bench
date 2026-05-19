@@ -1,11 +1,13 @@
 
-add_library(mblasgeneric STATIC
+add_library(mblasgeneric SHARED
     generic_gemm.cpp
     generic_setup.cpp
     mblas_data_type.cpp
     mblas_compute_type.cpp
     mblas_operation.cpp
 )
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(OpenMP REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE} -O3")

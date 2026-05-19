@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 
 // Generic GPU event-based timing helper.
@@ -77,4 +78,71 @@ float gpu_timed_run(typename Traits::Stream stream,
                     int iters,
                     std::function<void(int)> kernel_fn) {
   return gpu_timed_run<Traits>(stream, cold_iters, iters, kernel_fn, kernel_fn);
+}
+
+// Result of a time-budgeted run: GPU elapsed time AND the number of hot
+// iterations actually completed (so callers can compute throughput).
+struct gpu_timed_result {
+  float elapsed_ms;
+  int iters_completed;
+};
+
+// Iter-or-time-budgeted run. For each phase (cold, hot) the *_time_ms argument
+// takes precedence if > 0: the loop launches kernels until that many ms have
+// elapsed (CPU clock). Otherwise the corresponding *_iters argument is used as
+// a fixed iteration count.
+//
+// Hot phase uses GPU events to time only the kernels actually launched; the
+// returned iters_completed is the count of hot iterations executed (which is
+// what calculate_figure_of_merit needs in time-budgeted mode).
+template <typename Traits>
+gpu_timed_result gpu_timed_run_budget(typename Traits::Stream stream,
+                                      int cold_iters, int cold_time_ms,
+                                      int iters,      int hot_time_ms,
+                                      std::function<void(int)> cold_fn,
+                                      std::function<void(int)> hot_fn) {
+  using clock = std::chrono::steady_clock;
+
+  // Cold phase
+  if (cold_time_ms > 0) {
+    auto t0 = clock::now();
+    int rep = 0;
+    while (true) {
+      cold_fn(rep++);
+      Traits::streamSynchronize(stream);
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - t0).count() >= cold_time_ms)
+        break;
+    }
+  } else {
+    for (int rep = 0; rep < cold_iters; ++rep) cold_fn(rep);
+  }
+  Traits::streamSynchronize(stream);
+
+  // Hot phase — GPU event timing
+  typename Traits::Event start_ev, stop_ev;
+  Traits::eventCreate(&start_ev);
+  Traits::eventCreate(&stop_ev);
+
+  Traits::eventRecord(start_ev, stream);
+  int hot_rep = 0;
+  if (hot_time_ms > 0) {
+    auto t0 = clock::now();
+    while (true) {
+      hot_fn(hot_rep++);
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - t0).count() >= hot_time_ms)
+        break;
+    }
+  } else {
+    for (; hot_rep < iters; ++hot_rep) hot_fn(hot_rep);
+  }
+  Traits::eventRecord(stop_ev, stream);
+  Traits::eventSynchronize(stop_ev);
+
+  float elapsed_ms = 0.0f;
+  Traits::eventElapsedTime(&elapsed_ms, start_ev, stop_ev);
+
+  Traits::eventDestroy(start_ev);
+  Traits::eventDestroy(stop_ev);
+
+  return {elapsed_ms, hot_rep};
 }

@@ -99,6 +99,7 @@ target_link_libraries(mblas-bench PUBLIC
     -lpthread
     -fopenmp
     yaml-cpp::yaml-cpp
+    mblasgeneric
 )
 
 if (WITH_HIP)

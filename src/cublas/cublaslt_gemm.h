@@ -8,6 +8,7 @@
 #include <barrier.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -65,18 +66,18 @@ struct scale_size {
 
 class cublaslt_gemm : public generic_gemm {
  private:
-  void **ptr_host_a;
-  void **ptr_host_b;
-  void **ptr_host_c;
-  void **ptr_host_d;
+  void **ptr_host_a = nullptr;
+  void **ptr_host_b = nullptr;
+  void **ptr_host_c = nullptr;
+  void **ptr_host_d = nullptr;
 
   void **scale_host_a = nullptr;
   void **scale_host_b = nullptr;
   void **scale_host_c = nullptr;
   void **scale_host_d = nullptr;
 
-  void *alpha;
-  void *beta;
+  void *alpha = nullptr;
+  void *beta = nullptr;
 
   bool inplace = false;
   bool use_scaling = false;
@@ -164,3 +165,7 @@ class cublaslt_gemm : public generic_gemm {
   std::string get_result_string();
   virtual void free_mem();
 };
+
+inline std::unique_ptr<generic_gemm> make_cublaslt_gemm(cxxopts::ParseResult result) {
+  return std::make_unique<cublaslt_gemm>(std::move(result));
+}

@@ -3,9 +3,10 @@ cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 #set(CMAKE_CXX_COMPILER "/usr/local/cuda/bin/nvcc")
 set(CUDAHOSTCXX g++)
 set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
-#unset(CMAKE_CXX_COMPILER)
-#set(CMAKE_CXX_STANDARD 17)
-unset(CMAKE_CXX_STANDARD)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 project(mblas_bench LANGUAGES CXX CUDA)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -18,6 +19,7 @@ find_package(Threads REQUIRED)
 
 # Check for CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT enum in CUDA headers
 # This is more reliable than parsing version numbers since patch levels can vary
+set(HAS_EMU_FIXEDPOINT FALSE)
 if(CUDAToolkit_INCLUDE_DIRS)
     set(CUBLAS_HEADER "${CUDAToolkit_INCLUDE_DIRS}/cublas_api.h")
     if(EXISTS "${CUBLAS_HEADER}")
@@ -25,7 +27,7 @@ if(CUDAToolkit_INCLUDE_DIRS)
         string(FIND "${CUBLAS_HEADER_CONTENT}" "CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT" ENUM_FOUND)
         if(NOT ENUM_FOUND EQUAL -1)
             message(STATUS "Found CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT in ${CUBLAS_HEADER}")
-            add_definitions(-DHAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
+            set(HAS_EMU_FIXEDPOINT TRUE)
         else()
             message(STATUS "CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT not found in ${CUBLAS_HEADER}")
         endif()
@@ -34,7 +36,7 @@ if(CUDAToolkit_INCLUDE_DIRS)
     endif()
 else()
     message(WARNING "CUDAToolkit_INCLUDE_DIRS not set, cannot check for CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT")
-endif() 
+endif()
 
 add_library(mblascuda SHARED
     cublas_gemm.cpp
@@ -67,9 +69,17 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -g")
 
+# Macros that gate struct members in headers MUST be PUBLIC on the mblascuda
+# target so consumers (mblas-bench) see the same struct layouts. Otherwise
+# different translation units instantiate different sizeof(cublaslt_gemm) and
+# the heap is corrupted on the first allocation. add_definitions() is
+# directory-scoped and does NOT propagate to mblas-bench's TU in the parent
+# CMakeLists — that's the bug we hit on CUDA >= 12.8.0.
+if(HAS_EMU_FIXEDPOINT)
+    target_compile_definitions(mblascuda PUBLIC HAS_CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT)
+endif()
 if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.8.0)
-    add_definitions(-DENABLE_CUDA_FP4)
-    add_definitions(-DENABLE_CUDA_BLOCK_SCALE)
+    target_compile_definitions(mblascuda PUBLIC ENABLE_CUDA_FP4 ENABLE_CUDA_BLOCK_SCALE)
 endif()
 
 target_include_directories(mblascuda PRIVATE

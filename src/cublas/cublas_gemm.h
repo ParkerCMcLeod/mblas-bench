@@ -4,6 +4,7 @@
 #include <cxxabi.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "generic_gemm.h"
@@ -52,9 +53,9 @@ class cublas_gemm : public generic_gemm {
   //void *host_a;
   //void *host_b;
   //void *host_c;
-  void **ptr_host_a;
-  void **ptr_host_b;
-  void **ptr_host_c;
+  void **ptr_host_a = nullptr;
+  void **ptr_host_b = nullptr;
+  void **ptr_host_c = nullptr;
 
   // // Device array.  These are where the memory is stored on GPU
   // void *devA;
@@ -73,8 +74,8 @@ class cublas_gemm : public generic_gemm {
   // void **ptr_host_b;
   // void **ptr_host_c;
 
-  void *alpha;
-  void *beta;
+  void *alpha = nullptr;
+  void *beta = nullptr;
 
   mblas_cuda_operation transA;
   mblas_cuda_operation transB;
@@ -159,3 +160,7 @@ class cublas_gemm : public generic_gemm {
   std::string get_result_string();
   virtual void free_mem();
 };
+
+inline std::unique_ptr<generic_gemm> make_cublas_gemm(cxxopts::ParseResult result) {
+  return std::make_unique<cublas_gemm>(std::move(result));
+}
