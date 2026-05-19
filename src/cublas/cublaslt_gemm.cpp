@@ -24,7 +24,6 @@
 #include "cxxopts.hpp"
 #include "cuda_monitor.h"
 
-using namespace mblas_timing;
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -213,7 +212,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
     scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F;
     long scaling_vec_len = (matrix_id == "B") ? n : m;
     scale_size = std::make_pair<size_t, size_t>(1, scaling_vec_len);
-    scale_type = MBLAS_R_32F;
+    scale_type = mblas_cuda_data_type(mblas_data_type::MBLAS_R_32F);
 #else
     string errorString =
         "Vector scaling mode requires CUDA 12.9.0 or later.\n"
@@ -225,7 +224,7 @@ std::tuple<mblas_cuda_data_type, cublasLtMatmulMatrixScale_t, scale_size> cublas
   } else if (desc.scale_mode == scaling_type::Scalar) {
     scale_size = std::make_pair<size_t, size_t>(1, 1);
     scale_mode = CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F;
-    scale_type = MBLAS_R_32F;
+    scale_type = mblas_cuda_data_type(mblas_data_type::MBLAS_R_32F);
   } else {
     scale_size.rows = 0;
     scale_size.cols = 0;
@@ -897,6 +896,13 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
                           mat->ptr_dev_c[flush_index], mat->desc_c,
                           mat->ptr_dev_d[flush_index], mat->desc_d,
                           &mat->algo.algo, mat->devWork, mat->wSZ, stream);
+  };
+  auto cold_kernel = [&](int rep) {
+    run_kernel(rep);
+    check_cublas(stat);
+    check_cuda(cudaGetLastError());
+  };
+
   auto freq_monitor = cuda_monitor::monitor();
   freq_monitor.set_device_id(mat->devIDX);
 
@@ -907,7 +913,7 @@ void cublaslt_gemm::test_matmul(cublaslt_gemm_inst *mat) {
   check_cuda(cudaGetLastError());
 
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(d_type),
           a_type.get_packing_count(), b_type.get_packing_count(),

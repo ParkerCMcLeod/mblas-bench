@@ -25,7 +25,6 @@ using std::move;
 using std::string;
 using std::thread;
 using std::vector;
-using namespace mblas_timing;
 
 namespace {
 

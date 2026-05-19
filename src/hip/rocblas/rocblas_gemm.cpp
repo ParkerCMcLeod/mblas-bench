@@ -26,7 +26,6 @@ using std::move;
 using std::string;
 using std::thread;
 using std::vector;
-using namespace mblas_timing;
 
 // clang-format off
 std::vector<gemmPrecTypeAMD> rocblas_gemm::gemm_ex_supported = {
@@ -425,7 +424,7 @@ void rocblas_gemm::test_Tgemm(std::function<rocblas_status_(_rocblas_handle*, ro
   check_rocblas(stat);
   check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(d_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
@@ -482,11 +481,16 @@ void rocblas_gemm::test_Tgemm_strided_batched(
   hipEventRecord(stop, stream);
   hipEventSynchronize(stop);
 
+  float elapsedTime_ms = 0.0f;
+  hipEventElapsedTime(&elapsedTime_ms, start, stop);
+  hipEventDestroy(start);
+  hipEventDestroy(stop);
+
   // Check for errors during the performance test
   check_rocblas(stat);
   check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(d_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
@@ -527,7 +531,7 @@ void rocblas_gemm::test_gemm_ex(rocblas_gemm_inst *mat) {
   check_rocblas(stat);
   check_hip(hipGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(d_type),
           a_type.get_packing_count(), b_type.get_packing_count(),

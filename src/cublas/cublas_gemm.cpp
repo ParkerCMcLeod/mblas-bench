@@ -22,7 +22,6 @@
 #include "generic_init.h"
 #include "mblas_cuda_data_type.h"
 
-using namespace mblas_timing;
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -482,7 +481,7 @@ void cublas_gemm::test_Tgemm(
   check_cublas(stat);
   check_cuda(cudaGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(c_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
@@ -534,11 +533,16 @@ void cublas_gemm::testTgemmStridedBatched(
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
 
+  float elapsedTime_ms = 0.0f;
+  cudaEventElapsedTime(&elapsedTime_ms, start, stop);
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
+
   // Check for errors during the performance test
   check_cublas(stat);
   check_cuda(cudaGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(c_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
@@ -579,7 +583,7 @@ void cublas_gemm::testTGemmEx(
   check_cublas(stat);
   check_cuda(cudaGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(c_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
@@ -616,7 +620,7 @@ void cublas_gemm::testGemmEx(cublasgemmInst *mat) {
   check_cublas(stat);
   check_cuda(cudaGetLastError());
   std::tie(mat->gflops, mat->gbytes, mat->time_us) =
-      calculate_figure_of_merit(result.gpu_ms, result.iters,
+      calculate_figure_of_merit(static_cast<double>(elapsedTime_ms), iters,
           type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
           type_call_dev<sizeofCUDT>(c_type),
           a_type.get_packing_count(), b_type.get_packing_count(),
