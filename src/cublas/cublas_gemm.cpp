@@ -188,13 +188,15 @@ cublas_gemm::cublas_gemm(cxxopts::ParseResult result) : generic_gemm(result) {
   beta = malloc(get_malloc_size_scalar(precision));
   type_call_host<set_scalar>(precision, beta, sbeta, sbetai);
   
-  set_flush_batch_count( 
-      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
-      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(c_type), 
-      a_type.get_packing_count(), 
-      b_type.get_packing_count(), 
-      c_type.get_packing_count(), 
-      c_type.get_packing_count(), 
+  // Legacy cuBLAS has no scale tensors, so pass 0 for all four.
+  set_flush_batch_count(
+      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
+      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(c_type),
+      a_type.get_packing_count(),
+      b_type.get_packing_count(),
+      c_type.get_packing_count(),
+      c_type.get_packing_count(),
+      0, 0, 0, 0,
       true);
 }
 

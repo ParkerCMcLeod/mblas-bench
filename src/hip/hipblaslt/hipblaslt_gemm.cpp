@@ -185,6 +185,14 @@ hipblaslt_gemm::configure_scaling(matrix_desc desc, mblas_hip_data_type type, st
   
   return std::make_tuple(scale_type, scale_mode, scale_size_result);
 }
+
+uint64_t hipblaslt_gemm::scale_bytes(scale_size sz, mblas_hip_data_type st, bool host) const {
+  uint64_t element_size = host ? type_call_host<sizeofCUDT>(st)
+                               : type_call_dev<sizeofCUDT>(st);
+  return ceil_division(
+      (uint64_t)sz.get_size() * batch_count * element_size,
+      uint64_t(st.get_packing_count()));
+}
 #endif
 
 void hipblaslt_gemm::validate_parameters() {
@@ -284,14 +292,34 @@ hipblaslt_gemm::hipblaslt_gemm(cxxopts::ParseResult result) : generic_gemm(resul
   type_call_host<set_scalar>(precision, beta, sbeta, sbetai);
   // std::cout << *((float *)alpha) << std::endl;
   // std::cout << *((float *)beta) << std::endl;
-  uint64_t a_offset, b_offset, c_offset, d_offset;
-  set_flush_batch_count( 
-      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type), 
-      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type), 
-      a_type.get_packing_count(), 
-      b_type.get_packing_count(), 
-      c_type.get_packing_count(), 
-      d_type.get_packing_count(), 
+  // Per-matrix scale-tensor bytes for the rotating buffer. Only present
+  // when scaling is configured (HIP 7.0+ and the problem actually uses
+  // scaling); zero otherwise.
+  uint64_t a_scale_bytes = 0, b_scale_bytes = 0, c_scale_bytes = 0, d_scale_bytes = 0;
+#if HIP_VERSION >= 70000000
+  if (use_scaling) {
+    if (a_props.scale_mode != scaling_type::None) {
+      a_scale_bytes = scale_bytes(a_scale_size, a_scale_type, /*host=*/false);
+    }
+    if (b_props.scale_mode != scaling_type::None) {
+      b_scale_bytes = scale_bytes(b_scale_size, b_scale_type, /*host=*/false);
+    }
+    if (c_props.scale_mode != scaling_type::None) {
+      c_scale_bytes = scale_bytes(c_scale_size, c_scale_type, /*host=*/false);
+    }
+    if (d_props.scale_mode != scaling_type::None) {
+      d_scale_bytes = scale_bytes(d_scale_size, d_scale_type, /*host=*/false);
+    }
+  }
+#endif
+  set_flush_batch_count(
+      type_call_dev<sizeofCUDT>(a_type), type_call_dev<sizeofCUDT>(b_type),
+      type_call_dev<sizeofCUDT>(c_type), type_call_dev<sizeofCUDT>(d_type),
+      a_type.get_packing_count(),
+      b_type.get_packing_count(),
+      c_type.get_packing_count(),
+      d_type.get_packing_count(),
+      a_scale_bytes, b_scale_bytes, c_scale_bytes, d_scale_bytes,
       inplace);
 }
 
@@ -375,26 +403,22 @@ void hipblaslt_gemm::alloc_host() {
   if (a_props.scale_mode != scaling_type::None) {
     scale_host_a = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      scale_host_a[i] = malloc(a_scale_size.get_size() * batch_count
-                               * type_call_host<sizeofCUDT>(a_scale_type));
+      scale_host_a[i] = malloc(scale_bytes(a_scale_size, a_scale_type, /*host=*/true));
   }
   if (b_props.scale_mode != scaling_type::None) {
     scale_host_b = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      scale_host_b[i] = malloc(b_scale_size.get_size() * batch_count
-                               * type_call_host<sizeofCUDT>(b_scale_type));
+      scale_host_b[i] = malloc(scale_bytes(b_scale_size, b_scale_type, /*host=*/true));
   }
   if (c_props.scale_mode != scaling_type::None) {
     scale_host_c = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      scale_host_c[i] = malloc(c_scale_size.get_size() * batch_count
-                               * type_call_host<sizeofCUDT>(c_scale_type));
+      scale_host_c[i] = malloc(scale_bytes(c_scale_size, c_scale_type, /*host=*/true));
   }
   if (d_props.scale_mode != scaling_type::None) {
     scale_host_d = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      scale_host_d[i] = malloc(d_scale_size.get_size() * batch_count
-                               * type_call_host<sizeofCUDT>(d_scale_type));
+      scale_host_d[i] = malloc(scale_bytes(d_scale_size, d_scale_type, /*host=*/true));
   }
 #endif
 }
@@ -430,26 +454,22 @@ void hipblaslt_gemm::alloc_dev(hipblaslt_gemm_inst *mat) {
   if (a_props.scale_mode != scaling_type::None) {
     mat->scale_dev_a = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      hipMalloc(&mat->scale_dev_a[i], a_scale_size.get_size() * batch_count
-                                      * type_call_dev<sizeofCUDT>(a_scale_type));
+      hipMalloc(&mat->scale_dev_a[i], scale_bytes(a_scale_size, a_scale_type, /*host=*/false));
   }
   if (b_props.scale_mode != scaling_type::None) {
     mat->scale_dev_b = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      hipMalloc(&mat->scale_dev_b[i], b_scale_size.get_size() * batch_count
-                                      * type_call_dev<sizeofCUDT>(b_scale_type));
+      hipMalloc(&mat->scale_dev_b[i], scale_bytes(b_scale_size, b_scale_type, /*host=*/false));
   }
   if (c_props.scale_mode != scaling_type::None) {
     mat->scale_dev_c = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      hipMalloc(&mat->scale_dev_c[i], c_scale_size.get_size() * batch_count
-                                      * type_call_dev<sizeofCUDT>(c_scale_type));
+      hipMalloc(&mat->scale_dev_c[i], scale_bytes(c_scale_size, c_scale_type, /*host=*/false));
   }
   if (d_props.scale_mode != scaling_type::None) {
     mat->scale_dev_d = (void**)malloc(flush_batch_count * sizeof(void*));
     for (int i = 0; i < flush_batch_count; i++)
-      hipMalloc(&mat->scale_dev_d[i], d_scale_size.get_size() * batch_count
-                                      * type_call_dev<sizeofCUDT>(d_scale_type));
+      hipMalloc(&mat->scale_dev_d[i], scale_bytes(d_scale_size, d_scale_type, /*host=*/false));
   }
 #endif
 }

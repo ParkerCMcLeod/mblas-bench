@@ -171,6 +171,9 @@ class hipblaslt_gemm : public generic_gemm {
 #if HIP_VERSION >= 70000000
   std::tuple<mblas_hip_data_type, hipblasLtMatmulMatrixScale_t, scale_size> 
     configure_scaling(matrix_desc desc, mblas_hip_data_type type, std::string matrix_id);
+  // Per-matrix scale-tensor byte count for either host or device alloc.
+  // `host == true` uses type_call_host<sizeofCUDT>, otherwise type_call_dev.
+  uint64_t scale_bytes(scale_size sz, mblas_hip_data_type st, bool host) const;
 #endif
 
  public:
