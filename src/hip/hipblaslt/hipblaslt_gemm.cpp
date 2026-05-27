@@ -163,11 +163,12 @@ hipblaslt_gemm::configure_scaling(matrix_desc desc, mblas_hip_data_type type, st
     scale_type = type.get_scale_type();  // Returns MBLAS_R_8F_UE8M0 for MX
     scale_mode = get_scale_mode(type);  // Returns VEC32_UE8M0 for MX
     scale_size_result = get_scale_tensor_size(desc.rows_mem, desc.cols_mem, scale_mode);
-  } else if (type.is_mx_possible()) {
-    string errorString = 
-        "Non-block scaled MX formats not supported in hipblaslt. "
-        "Matrix: " + matrix_id + "\nType: " + type.to_string();
-    std::cerr << scaling_string(desc.scale_mode) << std::endl;
+  } else if (type.is_fp4() || type.is_fp6()) {
+    string errorString =
+        "Non-block scaled MX formats not supported in hipblaslt."
+        "\nMatrix: " + matrix_id +
+        "\nType: " + type.to_string() +
+        "\nRequested scale mode: " + scaling_string(desc.scale_mode);
     throw std::invalid_argument(errorString);
   } else if (desc.scale_mode == scaling_type::Vector) {
     scale_mode = HIPBLASLT_MATMUL_MATRIX_SCALE_OUTER_VEC_32F;
