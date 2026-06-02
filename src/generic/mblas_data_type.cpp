@@ -189,10 +189,7 @@ bool mblas_data_type::is_fp8() const {
 }
 
 bool mblas_data_type::is_fp6() const {
-  if (value == MBLAS_R_6F_E2M3 || value == MBLAS_R_6F_E3M2) {
-    return true;
-  }
-  return false;
+  return (value == MBLAS_R_6F_E2M3 || value == MBLAS_R_6F_E3M2);
 }
 
 bool mblas_data_type::is_fp4() const {
@@ -204,12 +201,9 @@ bool mblas_data_type::is_fp4() const {
 
 bool mblas_data_type::is_mx_possible() const {
   // Returns true if this type can use MX (microscaling) format
-  if (value == MBLAS_R_8F_E4M3 || value == MBLAS_R_8F_E5M2 ||
+  return (value == MBLAS_R_8F_E4M3 || value == MBLAS_R_8F_E5M2 ||
       value == MBLAS_R_6F_E2M3 || value == MBLAS_R_6F_E3M2 ||
-      value == MBLAS_R_4F_E2M1) {
-    return true;
-  }
-  return false;
+      value == MBLAS_R_4F_E2M1);
 }
 
 int mblas_data_type::get_packing_count() const {
