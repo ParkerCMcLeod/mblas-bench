@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -68,6 +69,11 @@ class generic_gemm {
   int flush_batch_count;
   int flush_memory_size;
 
+  // True iff beta != 0 (real or imaginary). When false, the C matrix is
+  // not read by the GEMM, so it can be dropped from the rotating-buffer
+  // memory footprint.
+  bool accumulate;
+
   bool & control_a = a_props.control;
   bool & control_b = b_props.control;
   bool & control_c = c_props.control;
@@ -127,8 +133,10 @@ class generic_gemm {
   static scaling_type set_scale_mode(std::string input);
   static std::string set_init(matrix_desc desc, std::string init, std::string mx_init);
 
-  void set_flush_batch_count(int a_type_size,  int b_type_size, int c_type_size, int d_type_size, 
-                        int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing, 
+  void set_flush_batch_count(int a_type_size,  int b_type_size, int c_type_size, int d_type_size,
+                        int a_type_packing,  int b_type_packing, int c_type_packing, int d_type_packing,
+                        uint64_t a_scale_bytes, uint64_t b_scale_bytes,
+                        uint64_t c_scale_bytes, uint64_t d_scale_bytes,
                         bool inplace);
 
 };

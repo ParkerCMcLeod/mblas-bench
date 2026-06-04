@@ -51,8 +51,12 @@ __global__ void float_to_e8m0(float *input, size_t num_elements,
     /*
      Rounding only controls the direction of rounding
      https://docs.nvidia.com/cuda/cuda-math-api/cuda_math_api/group__CUDA__MATH__FP8__MISC.html
+     __nv_cvt_float_to_e8m0 only supports cudaRoundZero or cudaRoundPosInf
+     (it asserts otherwise); cudaRoundNearest is not valid for E8M0. Round up so
+     the resulting scale is never smaller than the requested value, avoiding
+     overflow when values are descaled.
     */
-    output[idx] = __nv_cvt_float_to_e8m0(input[idx], __NV_SATFINITE, cudaRoundZero);
+    output[idx] = __nv_cvt_float_to_e8m0(input[idx], __NV_SATFINITE, cudaRoundPosInf);
   }
 }
 
