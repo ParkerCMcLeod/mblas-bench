@@ -119,6 +119,11 @@ generic_gemm::generic_gemm(cxxopts::ParseResult result) {
   c_props.init = set_init(c_props, result["initialization"].as<string>(), result["mx_init"].as<string>());
   d_props.init = set_init(d_props, result["initialization"].as<string>(), result["mx_init"].as<string>());
 
+  requested_solution_num = result["requested_solution_num"].as<int>();
+  if (requested_solution_num == 0 || requested_solution_num < -1) {
+    throw std::invalid_argument("Invalid --requested_solution_num. Must be -1 (all) or a positive integer.");
+  }
+
   // Set init control information
   if (initialization == "rand_int") {
     control_b = true;
@@ -283,6 +288,18 @@ std::string generic_gemm::set_init(matrix_desc desc, std::string init, std::stri
 //    if ()
 //  }
 //}
+
+void generic_gemm::run_solutions() {
+  string header = prepare_array();
+  std::cout << header << std::flush;
+  for (int i = 0; i < total_solution_count; i++) {
+    current_solution_index = i;
+    test(i);
+    std::cout << std::fixed;
+    std::string results = get_result_string();
+    std::cout << results << std::flush;
+  }
+}
 
 std::string scaling_string(scaling_type input){
   if (input == scaling_type::None) {

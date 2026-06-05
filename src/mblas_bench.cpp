@@ -325,6 +325,9 @@ int main(int argc, char **argv) {
             "Special values support bitmask for emulation. "
             "0xFFFF=default (inf+nan), 0=none, 1=infinity, 2=nan",
             cxxopts::value<int>()->default_value("65535"));
+  opp_adder("requested_solution_num,requested_solution",
+            "Number of solutions to request from heuristic. Default 1, use -1 for all solutions.",
+            cxxopts::value<int>()->default_value("1"));
   opp_adder("h,help", "Print Usage");
 
   cxxopts::ParseResult result = options.parse(argc, argv);
@@ -349,7 +352,6 @@ int main(int argc, char **argv) {
 
   for (const auto &result: input_problems)
   {
-
     generic_gemm_factory *gemm;
     // Select backend implementation
     string driver = s_to_lower(result["driver"].as<string>());
@@ -373,16 +375,8 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-
     gemm->create_gemm(result);
-    string header = gemm->prepare_array();
-    cout << header << flush;
-    gemm->test();
-    cout << std::fixed;
-
-    string results = gemm->get_result_string();
-    cout << results << flush;
-
+    gemm->run_solutions();
     gemm->free_mem();
     delete gemm;
   }

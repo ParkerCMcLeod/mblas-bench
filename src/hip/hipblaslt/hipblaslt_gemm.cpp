@@ -3,6 +3,7 @@
 #include <hipblaslt/hipblaslt.h>
 #include <hip/hip_runtime.h>
 
+#include <climits>
 #include <future>
 #include <iomanip>
 #include <numeric>
@@ -357,11 +358,24 @@ string hipblaslt_gemm::prepare_array() {
   } else {
     run_threaded(&hipblaslt_gemm::no_tuning);
   }
+
+  // Compute total_solution_count as min algos across devices
+  std::vector<int> solution_counts;
+  for (auto &mat : mat_ptrs) {
+    solution_counts.push_back(mat.algos.size());
+  }
+  // Ensure all solution_counts are the same
+  if (std::any_of(solution_counts.begin(), solution_counts.end(), [&](int count) { return count != solution_counts[0]; })) {
+    throw std::runtime_error("Solution counts are not the same across devices");
+  }
+  total_solution_count = solution_counts[0];
+    
   std::ostringstream ossHeader;
   ossHeader << "transA_option,transB_option,M,N,K,lda,ldb,ldc,";
   if (batched) {
     ossHeader << "batch_count,";
   }
+  ossHeader << "solution_index,";
   ossHeader << "hipBLASLt-Gflops,hipBLASLt-GB/s,hipBLASLt-us," << endl;
   return ossHeader.str();
 }
@@ -603,16 +617,19 @@ void hipblaslt_gemm::no_tuning(hipblaslt_gemm_inst *mat) {
   check_hip(hipSetDevice(mat->devIDX));
   check_hipblas(hipblasLtCreate(&handle));
   int retResults = 0;
-  hipblasLtMatmulHeuristicResult_t heuristicResult = {0};
+
+  int request_count = (requested_solution_num == -1) ? 65536 : requested_solution_num;
+  std::vector<hipblasLtMatmulHeuristicResult_t> heuristicResults(request_count);
 
   check_hipblas(hipblasLtMatmulAlgoGetHeuristic(
       handle, mat->desc_ops[0], mat->desc_a, mat->desc_b, mat->desc_c, mat->desc_d,
-      mat->pref, 1, &heuristicResult, &retResults));
+      mat->pref, request_count, heuristicResults.data(), &retResults));
 
   if (retResults == 0) {
     check_hipblas(HIPBLAS_STATUS_NOT_SUPPORTED);
   }
-  mat->algo = heuristicResult;
+  heuristicResults.resize(retResults);
+  mat->algos = std::move(heuristicResults);
   hipblasLtDestroy(handle);
 }
 void hipblaslt_gemm::auto_tuning(hipblaslt_gemm_inst *mat) {
@@ -709,11 +726,11 @@ void hipblaslt_gemm::free_mem() {
   }
 }
 
-double hipblaslt_gemm::test() {
+double hipblaslt_gemm::test(const int &ith_solution) {
   vector<thread> threads;
   double gflops = 0.0;
   for (auto &mat : mat_ptrs) {
-    threads.push_back(thread(&hipblaslt_gemm::test_matmul, this, &mat));
+    threads.push_back(thread(&hipblaslt_gemm::test_matmul, this, &mat, ith_solution));
   }
   // Wait on running jobs
   for (auto &thread : threads) {
@@ -747,6 +764,7 @@ std::string hipblaslt_gemm::get_result_string() {
   if (batched) {
     ossValues << batch_count << ',';
   }
+  ossValues << current_solution_index << ',';
   ossValues << gflop_per_second << ',';
   ossValues << gbyte_per_second << ',';
   ossValues << iter_time_us << ',';
@@ -790,7 +808,7 @@ std::tuple<double, double, double> hipblaslt_gemm::calculate_figure_of_merit(
                                             avgTime_us);
 }
 
-void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
+void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat, int ith_solution) {
   hipblasStatus_t stat;
   hipblasLtHandle_t handle;
   hipStream_t stream;
@@ -805,7 +823,8 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
                           mat->ptr_dev_b[flush_index], mat->desc_b, beta,
                           mat->ptr_dev_c[flush_index], mat->desc_c,
                           mat->ptr_dev_d[flush_index], mat->desc_d,
-                          &mat->algo.algo, mat->devWork, mat->wSZ, stream);
+                          &mat->algos[ith_solution].algo, 
+                          mat->devWork, mat->wSZ, stream);
     // Check for errors during the gemm run
     check_hipblas(stat);
     check_hip(hipGetLastError());
@@ -827,7 +846,8 @@ void hipblaslt_gemm::test_matmul(hipblaslt_gemm_inst *mat) {
                           mat->ptr_dev_b[flush_index], mat->desc_b, beta,
                           mat->ptr_dev_c[flush_index], mat->desc_c,
                           mat->ptr_dev_d[flush_index], mat->desc_d,
-                          &mat->algo.algo, mat->devWork, mat->wSZ, stream);
+                          &mat->algos[ith_solution].algo,
+                          mat->devWork, mat->wSZ, stream);
   }
   hipEventRecord(stop, stream);
   hipEventSynchronize(stop);

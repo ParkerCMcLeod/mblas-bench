@@ -79,7 +79,7 @@ struct hipblaslt_gemm_inst {
   hipblasLtMatrixLayout_t desc_c;
   hipblasLtMatrixLayout_t desc_d;
   hipblasLtMatmulPreference_t pref;
-  hipblasLtMatmulHeuristicResult_t algo;
+  std::vector<hipblasLtMatmulHeuristicResult_t> algos;
   void *devWork;
   long wSZ;
   hipblaslt_gemm_inst(int devID) : devIDX(devID)
@@ -167,7 +167,7 @@ class hipblaslt_gemm : public generic_gemm {
   void auto_tuning(hipblaslt_gemm_inst *);
   void run_threaded(void (hipblaslt_gemm::*func)(hipblaslt_gemm_inst *));
   std::tuple<double, double, double> calculate_figure_of_merit(double totalTime_ms);
-  void test_matmul(hipblaslt_gemm_inst *mat);
+  void test_matmul(hipblaslt_gemm_inst *mat, int ith_solution);
 #if HIP_VERSION >= 70000000
   std::tuple<mblas_hip_data_type, hipblasLtMatmulMatrixScale_t, scale_size> 
     configure_scaling(matrix_desc desc, mblas_hip_data_type type, std::string matrix_id);
@@ -179,7 +179,7 @@ class hipblaslt_gemm : public generic_gemm {
  public:
   hipblaslt_gemm(cxxopts::ParseResult result);
   std::string prepare_array();
-  double test();
+  double test(const int &ith_solution) override;
   std::string get_result_string();
   virtual void free_mem();
 };
