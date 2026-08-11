@@ -11,20 +11,25 @@ on:
 
 jobs:
   build:
+    name: ROCm ${{ matrix.rocm_version }}${{ matrix.tag_suffix }}
     strategy:
       matrix:
-        rocm_version: [6.4.3, 7.0.2, 7.1]
         include:
-          - rocm_version: 6.4.3
+          - rocm_version: "6.4.3"
             gpu_targets: "gfx1100,gfx1030,gfx942,gfx90a,gfx908"
-          - rocm_version: 7.0.2
+          - rocm_version: "7.0.2"
             gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
-          - rocm_version: 7.1
+          - rocm_version: "7.1"
             gpu_targets: "gfx950,gfx1201,gfx1200,gfx1101,gfx1100,gfx1030,gfx942,gfx90a,gfx908"
+          - rocm_version: "7.2.4"
+            gpu_targets: "gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1150,gfx1151,gfx1200,gfx1201,gfx1250"
+          - rocm_version: "7.14.0"
+            tag_suffix: "-full"
+            gpu_targets: "gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1150,gfx1151,gfx1200,gfx1201,gfx1250"
       fail-fast: false
     runs-on: ubuntu-latest
     container:
-      image: rocm/dev-ubuntu-22.04:${{ matrix.rocm_version }}
+      image: rocm/dev-ubuntu-24.04:${{ matrix.rocm_version }}${{ matrix.tag_suffix }}
 
     steps:
       - name: Checkout code
@@ -38,7 +43,12 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y wget build-essential git rocblas-dev hipblas-dev hipblaslt-dev
+          apt-get install -y wget build-essential git
+
+      - name: Install ROCm math libraries
+        if: ${{ matrix.tag_suffix != '-full' }}
+        run: |
+          apt-get install -y rocblas-dev hipblas-dev hipblaslt-dev
 
       # Needed for hipblaslt 1.1.0
       - name: Install CMake manually
